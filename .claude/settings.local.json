@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:help.heretto.com)",
+      "Bash(npx tsc:*)",
+      "Bash(npm test:*)",
+      "Bash(npx ng build:*)",
+      "Bash(npx ng test:*)",
+      "Bash(pdftotext:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx tsx:*)"
+    ]
+  }
+}
