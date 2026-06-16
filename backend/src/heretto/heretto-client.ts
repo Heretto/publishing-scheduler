@@ -22,12 +22,22 @@ export class HerettoClient implements IHerettoClient {
 
   async getDeployments(): Promise<HerettoDeployment[]> {
     const response = await this.client.get('/deployments');
-    return response.data;
+    const data = response.data;
+    // Response is paginated: { content: [...], totalElements, ... }
+    const items = Array.isArray(data) ? data : data.content || [];
+    // Normalize deploymentIdentifier -> id
+    return items.map((d: Record<string, unknown>) => ({
+      ...d,
+      id: String(d.id || d.deploymentIdentifier || ''),
+      name: String(d.name || ''),
+    }));
   }
 
   async getScenarios(): Promise<HerettoScenario[]> {
     const response = await this.client.get('/publishes/scenarios');
-    return response.data;
+    const data = response.data;
+    // Response is paginated: { content: [...], totalElements, ... }
+    return Array.isArray(data) ? data : data.content || [];
   }
 
   async getReleases(): Promise<HerettoRelease[]> {

@@ -160,11 +160,11 @@ export class ScheduleFormComponent implements OnInit {
   ngOnInit() {
     this.herettoService.getDeployments()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: d => this.deployments = d });
+      .subscribe({ next: d => this.deployments = d, error: () => {} });
 
     this.herettoService.getScenarios()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: s => this.scenarios = s });
+      .subscribe({ next: s => this.scenarios = s, error: () => {} });
 
     this.scheduleId = this.route.snapshot.params['id'];
     if (this.scheduleId) {
