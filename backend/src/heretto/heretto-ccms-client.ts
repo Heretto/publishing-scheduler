@@ -72,7 +72,22 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
   }
 
   async searchDocuments(query: Record<string, unknown>): Promise<CcmsSearchResponse> {
-    const response = await this.searchClient.post('/search', query);
+    // Build the request body per Heretto CCMS API spec:
+    // POST /ezdnxtgen/api/search with {queryString, foldersToSearch, searchResultType}
+    const searchBody: Record<string, unknown> = {
+      queryString: query.queryString || query.query || '',
+      searchResultType: query.searchResultType || 'FILES_ONLY',
+      startOffset: query.startOffset || 0,
+      endOffset: query.endOffset || 50,
+    };
+    // foldersToSearch is required — if provided, use it; otherwise search from root
+    if (query.foldersToSearch) {
+      searchBody.foldersToSearch = query.foldersToSearch;
+    } else {
+      // "/" searches from the repository root
+      searchBody.foldersToSearch = { '/': true };
+    }
+    const response = await this.searchClient.post('/search', searchBody);
     return this.normalizeSearchResponse(response.data);
   }
 
@@ -122,16 +137,23 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
   }
 
   private normalizeSearchResponse(data: Record<string, unknown>): CcmsSearchResponse {
-    const results = this.toArray(data.results || data.items || []);
-    return {
-      results: results.map((item: Record<string, unknown>) => ({
-        ...item,
-        id: String(item.id || item.uuid || ''),
-        title: String(item.title || item.name || ''),
-        type: String(item.type || item.resourceType || ''),
-      })),
-      total: typeof data.total === 'number' ? data.total : results.length,
-    };
+    // Heretto response format: { totalResults: N, hits: [{ fileEntity: {...} }] }
+    const hits = this.toArray(data.hits || data.results || data.items || []);
+    const results = hits.map((hit: Record<string, unknown>) => {
+      const entity = (hit.fileEntity || hit) as Record<string, unknown>;
+      const metadata = entity.metadata as Record<string, unknown> | undefined;
+      const metaData = metadata?.data as Record<string, unknown> | undefined;
+      return {
+        ...entity,
+        id: String(entity.uuid || entity.id || ''),
+        title: String(metaData?.title || entity.name || entity.title || ''),
+        type: String(entity.mimeType || entity.type || entity.resourceType || ''),
+      };
+    });
+    const total = typeof data.totalResults === 'number' ? data.totalResults
+      : typeof data.total === 'number' ? data.total
+      : results.length;
+    return { results, total };
   }
 
   private extractRoot(parsed: Record<string, unknown>): Record<string, unknown> {

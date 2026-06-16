@@ -9,7 +9,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { CronDisplayComponent } from '../cron-display/cron-display.component';
 
-type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
+type Frequency = 'minutes' | 'hourly' | 'daily' | 'weekly' | 'monthly';
 
 interface DayOption {
   label: string;
@@ -51,6 +51,7 @@ interface DayOption {
       <div *ngIf="!advancedMode" class="builder-controls">
         <div class="frequency-row">
           <mat-button-toggle-group [(ngModel)]="frequency" (ngModelChange)="buildExpression()">
+            <mat-button-toggle value="minutes">Minutes</mat-button-toggle>
             <mat-button-toggle value="hourly">Hourly</mat-button-toggle>
             <mat-button-toggle value="daily">Daily</mat-button-toggle>
             <mat-button-toggle value="weekly">Weekly</mat-button-toggle>
@@ -58,7 +59,16 @@ interface DayOption {
           </mat-button-toggle-group>
         </div>
 
-        <div class="time-row">
+        <div class="time-row" *ngIf="frequency === 'minutes'">
+          <mat-form-field appearance="outline" class="time-field">
+            <mat-label>Every</mat-label>
+            <mat-select [(ngModel)]="minuteInterval" (ngModelChange)="buildExpression()">
+              <mat-option *ngFor="let iv of minuteIntervals" [value]="iv">{{ iv }} min</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="time-row" *ngIf="frequency !== 'minutes'">
           <mat-form-field appearance="outline" *ngIf="frequency !== 'hourly'" class="time-field">
             <mat-label>Hour</mat-label>
             <mat-select [(ngModel)]="hour" (ngModelChange)="buildExpression()">
@@ -147,6 +157,7 @@ export class CronBuilderComponent implements OnInit, OnDestroy, ControlValueAcce
   frequency: Frequency = 'daily';
   hour = 9;
   minute = 0;
+  minuteInterval = 15;
   dayOfMonth = 1;
 
   weekDays: DayOption[] = [
@@ -165,6 +176,7 @@ export class CronBuilderComponent implements OnInit, OnDestroy, ControlValueAcce
   }));
 
   minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+  minuteIntervals = [2, 3, 5, 10, 15, 20, 30];
   monthDays = Array.from({ length: 31 }, (_, i) => i + 1);
 
   private onChange: (value: string) => void = () => {};
@@ -210,6 +222,9 @@ export class CronBuilderComponent implements OnInit, OnDestroy, ControlValueAcce
     const min = this.minute;
 
     switch (this.frequency) {
+      case 'minutes':
+        this.currentExpression = `*/${this.minuteInterval} * * * *`;
+        break;
       case 'hourly':
         this.currentExpression = `${min} * * * *`;
         break;
@@ -240,6 +255,14 @@ export class CronBuilderComponent implements OnInit, OnDestroy, ControlValueAcce
     if (parts.length !== 5) return;
 
     const [min, hr, dom, , dow] = parts;
+
+    // Detect */N minute intervals
+    const stepMatch = min.match(/^\*\/(\d+)$/);
+    if (stepMatch && hr === '*') {
+      this.frequency = 'minutes';
+      this.minuteInterval = parseInt(stepMatch[1], 10);
+      return;
+    }
 
     this.minute = this.parseNum(min, 0);
 

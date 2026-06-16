@@ -156,14 +156,28 @@ describe('HerettoCcmsClient', () => {
   });
 
   describe('searchDocuments', () => {
-    it('posts JSON search query and returns results', async () => {
+    it('sends correct search body format and normalizes hits response', async () => {
       searchPost.mockResolvedValueOnce({
         data: {
-          results: [
-            { id: 'search-1', title: 'Found Doc', type: 'topic' },
-            { id: 'search-2', title: 'Another Doc', type: 'map' },
+          totalResults: 2,
+          hits: [
+            {
+              fileEntity: {
+                uuid: 'search-1',
+                name: 'found.dita',
+                mimeType: 'application/xml',
+                metadata: { data: { title: 'Found Doc' } },
+              },
+            },
+            {
+              fileEntity: {
+                uuid: 'search-2',
+                name: 'another.ditamap',
+                mimeType: 'application/xml',
+                metadata: { data: { title: 'Another Doc' } },
+              },
+            },
           ],
-          total: 2,
         },
       });
 
@@ -172,16 +186,41 @@ describe('HerettoCcmsClient', () => {
       expect(result.total).toBe(2);
       expect(result.results[0].id).toBe('search-1');
       expect(result.results[0].title).toBe('Found Doc');
+      expect(result.results[1].id).toBe('search-2');
+      expect(result.results[1].title).toBe('Another Doc');
+
+      // Verify correct request body was sent
+      expect(searchPost).toHaveBeenCalledWith('/search', expect.objectContaining({
+        queryString: 'test',
+        searchResultType: 'FILES_ONLY',
+        foldersToSearch: { '/': true },
+      }));
     });
 
     it('handles empty search results', async () => {
       searchPost.mockResolvedValueOnce({
-        data: { results: [], total: 0 },
+        data: { totalResults: 0, hits: [] },
       });
 
       const result = await client.searchDocuments({ query: 'nonexistent' });
       expect(result.results).toHaveLength(0);
       expect(result.total).toBe(0);
+    });
+
+    it('uses provided foldersToSearch when specified', async () => {
+      searchPost.mockResolvedValueOnce({
+        data: { totalResults: 0, hits: [] },
+      });
+
+      await client.searchDocuments({
+        queryString: 'test',
+        foldersToSearch: { '/db/org/repo/documents/': true },
+      });
+
+      expect(searchPost).toHaveBeenCalledWith('/search', expect.objectContaining({
+        queryString: 'test',
+        foldersToSearch: { '/db/org/repo/documents/': true },
+      }));
     });
   });
 });

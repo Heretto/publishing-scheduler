@@ -26,14 +26,8 @@ export class HerettoClient implements IHerettoClient {
   }
 
   async getScenarios(): Promise<HerettoScenario[]> {
-    try {
-      const response = await this.client.get('/publishing-scenarios');
-      return response.data;
-    } catch {
-      // Heretto API may not expose a scenarios endpoint — return empty so the
-      // form falls back to manual ID input.
-      return [];
-    }
+    const response = await this.client.get('/publishes/scenarios');
+    return response.data;
   }
 
   async getReleases(): Promise<HerettoRelease[]> {

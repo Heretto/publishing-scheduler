@@ -12,6 +12,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { HerettoService, CcmsResource, CcmsFolder } from '../../../core/services/heretto.service';
+import { Subject, debounceTime, switchMap, of } from 'rxjs';
 
 export interface DocumentPickerData {
   selectedIds: string[];
@@ -76,10 +77,30 @@ interface BreadcrumbItem {
           </mat-list>
           <div class="browse-error" *ngIf="browseError">{{ browseError }}</div>
         </mat-tab>
-        <mat-tab label="Search" disabled>
-          <div class="search-unavailable">
-            Search is not currently available. Use the Browse tab to navigate folders and find documents.
+        <mat-tab label="Search">
+          <mat-form-field appearance="outline" class="full-width search-field">
+            <mat-label>Search documents</mat-label>
+            <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearchInput($event)" placeholder="Type to search...">
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+          <div class="loading" *ngIf="searchLoading">
+            <mat-spinner diameter="32"></mat-spinner>
           </div>
+          <mat-list *ngIf="!searchLoading && searchResults.length > 0">
+            <mat-list-item *ngFor="let item of searchResults" class="item-row">
+              <mat-checkbox
+                [checked]="isSelected(item.id)"
+                (change)="toggleSelection(item)"
+              ></mat-checkbox>
+              <mat-icon class="item-icon">description</mat-icon>
+              <span class="item-title">{{ item.title || item.id }}</span>
+              <span class="item-type">{{ item.type }}</span>
+            </mat-list-item>
+          </mat-list>
+          <div *ngIf="!searchLoading && searchQuery && searchResults.length === 0" class="empty-message">
+            No results found
+          </div>
+          <div class="browse-error" *ngIf="searchError">{{ searchError }}</div>
         </mat-tab>
       </mat-tab-group>
       <div class="selection-summary" *ngIf="selectedItems.size > 0">
@@ -190,12 +211,18 @@ interface BreadcrumbItem {
 })
 export class DocumentPickerComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
+  private searchSubject = new Subject<string>();
 
   rootFolderId = '';
   currentFolder: CcmsFolder | null = null;
   breadcrumbs: BreadcrumbItem[] = [];
   browseLoading = false;
   browseError = '';
+
+  searchQuery = '';
+  searchResults: CcmsResource[] = [];
+  searchLoading = false;
+  searchError = '';
 
   selectedItems = new Map<string, CcmsResource>();
 
@@ -217,7 +244,32 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   ngOnInit() {
-    // Search is disabled — browse-only for now
+    this.searchSubject.pipe(
+      debounceTime(300),
+      switchMap(query => {
+        if (!query || query.length < 2) {
+          this.searchLoading = false;
+          return of(null);
+        }
+        this.searchLoading = true;
+        this.searchError = '';
+        return this.herettoService.searchDocuments({ queryString: query });
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: result => {
+        this.searchLoading = false;
+        if (result) {
+          this.searchResults = result.results;
+        } else {
+          this.searchResults = [];
+        }
+      },
+      error: () => {
+        this.searchLoading = false;
+        this.searchError = 'Search failed. Check your connection.';
+      },
+    });
   }
 
   navigateToFolder(folderId: string) {
@@ -243,6 +295,10 @@ export class DocumentPickerComponent implements OnInit {
           this.browseError = 'Failed to load folder contents.';
         },
       });
+  }
+
+  onSearchInput(query: string) {
+    this.searchSubject.next(query);
   }
 
   isSelected(id: string): boolean {

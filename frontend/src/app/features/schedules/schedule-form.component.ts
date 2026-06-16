@@ -57,10 +57,10 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length === 0">
-            <mat-label>Scenario ID</mat-label>
-            <input matInput formControlName="scenario_id">
-            <mat-hint>Paste the scenario ID from Heretto (found in scenario settings)</mat-hint>
-            <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario is required</mat-error>
+            <mat-label>Publishing Scenario ID</mat-label>
+            <input matInput formControlName="scenario_id" placeholder="e.g. a1b2c3d4-5678-90ab-cdef-1234567890ab">
+            <mat-hint>Copy the scenario UUID from Heretto CCMS (Publish dialog > scenario name)</mat-hint>
+            <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario ID is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width" *ngIf="deployments.length > 0">
