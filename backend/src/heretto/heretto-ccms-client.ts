@@ -157,8 +157,9 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
   }
 
   private extractRoot(parsed: Record<string, unknown>): Record<string, unknown> {
-    // XML responses typically wrap in a root element — unwrap one level
-    const keys = Object.keys(parsed);
+    // XML responses typically wrap in a root element — unwrap one level.
+    // Skip the <?xml?> declaration key that fast-xml-parser adds as "?xml".
+    const keys = Object.keys(parsed).filter(k => k !== '?xml');
     if (keys.length === 1 && typeof parsed[keys[0]] === 'object' && parsed[keys[0]] !== null) {
       return parsed[keys[0]] as Record<string, unknown>;
     }

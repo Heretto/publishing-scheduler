@@ -63,6 +63,7 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario ID is required</mat-error>
           </mat-form-field>
 
+          <!-- Deployment UI hidden — no API endpoint to trigger deployment publish yet
           <mat-form-field appearance="outline" class="full-width" *ngIf="deployments.length > 0">
             <mat-label>Deployment</mat-label>
             <mat-select formControlName="deployment_id">
@@ -75,6 +76,7 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             <mat-hint>Enter deployment ID manually (Heretto API unavailable)</mat-hint>
             <mat-error *ngIf="form.get('deployment_id')?.hasError('required')">Deployment is required</mat-error>
           </mat-form-field>
+          -->
 
           <div class="document-ids-section">
             <mat-form-field appearance="outline" class="full-width">
@@ -151,7 +153,7 @@ export class ScheduleFormComponent implements OnInit {
       description: [''],
       cron_expression: ['', Validators.required],
       scenario_id: ['', Validators.required],
-      deployment_id: ['', Validators.required],
+      deployment_id: [''], // Deployment UI hidden for now
       document_ids_raw: [''],
       enabled: [true],
     });

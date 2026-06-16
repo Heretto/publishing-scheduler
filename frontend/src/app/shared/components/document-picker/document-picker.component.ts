@@ -77,30 +77,12 @@ interface BreadcrumbItem {
           </mat-list>
           <div class="browse-error" *ngIf="browseError">{{ browseError }}</div>
         </mat-tab>
-        <mat-tab label="Search">
-          <mat-form-field appearance="outline" class="full-width search-field">
-            <mat-label>Search documents</mat-label>
-            <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearchInput($event)" placeholder="Type to search...">
-            <mat-icon matSuffix>search</mat-icon>
-          </mat-form-field>
-          <div class="loading" *ngIf="searchLoading">
-            <mat-spinner diameter="32"></mat-spinner>
+        <!-- Search disabled — the demo instance search API returns 204 for all queries.
+             The search code is preserved in the component class for when this is resolved. -->
+        <mat-tab label="Search" disabled>
+          <div class="search-unavailable">
+            Search is not available on this Heretto instance. Use Browse to navigate folders.
           </div>
-          <mat-list *ngIf="!searchLoading && searchResults.length > 0">
-            <mat-list-item *ngFor="let item of searchResults" class="item-row">
-              <mat-checkbox
-                [checked]="isSelected(item.id)"
-                (change)="toggleSelection(item)"
-              ></mat-checkbox>
-              <mat-icon class="item-icon">description</mat-icon>
-              <span class="item-title">{{ item.title || item.id }}</span>
-              <span class="item-type">{{ item.type }}</span>
-            </mat-list-item>
-          </mat-list>
-          <div *ngIf="!searchLoading && searchQuery && searchResults.length === 0" class="empty-message">
-            No results found
-          </div>
-          <div class="browse-error" *ngIf="searchError">{{ searchError }}</div>
         </mat-tab>
       </mat-tab-group>
       <div class="selection-summary" *ngIf="selectedItems.size > 0">
