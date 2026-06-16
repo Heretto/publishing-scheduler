@@ -14,7 +14,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService } from '../../core/services/schedule.service';
 import { HerettoService, Deployment, Scenario } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
-import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
+import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
 
 @Component({
@@ -24,7 +24,7 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
     CommonModule, ReactiveFormsModule, RouterModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
     MatCardModule, MatCheckboxModule, MatIconModule, MatDialogModule,
-    CronDisplayComponent,
+    CronBuilderComponent,
   ],
   template: `
     <h1>{{ isEdit ? 'Edit' : 'New' }} Schedule</h1>
@@ -42,14 +42,13 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             <textarea matInput formControlName="description" rows="3"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Cron Expression</mat-label>
-            <input matInput formControlName="cron_expression" placeholder="0 9 * * *">
-            <mat-error *ngIf="form.get('cron_expression')?.hasError('required')">Cron expression is required</mat-error>
-            <mat-hint>
-              <app-cron-display [expression]="form.get('cron_expression')?.value || ''"></app-cron-display>
-            </mat-hint>
-          </mat-form-field>
+          <div class="full-width cron-section">
+            <label class="cron-label">Schedule</label>
+            <app-cron-builder formControlName="cron_expression"></app-cron-builder>
+            <div class="mat-error cron-error" *ngIf="form.get('cron_expression')?.touched && form.get('cron_expression')?.hasError('required')">
+              Schedule is required
+            </div>
+          </div>
 
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
             <mat-label>Scenario</mat-label>
@@ -60,7 +59,7 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length === 0">
             <mat-label>Scenario ID</mat-label>
             <input matInput formControlName="scenario_id">
-            <mat-hint>Enter scenario ID manually (Heretto API unavailable)</mat-hint>
+            <mat-hint>Paste the scenario ID from Heretto (found in scenario settings)</mat-hint>
             <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario is required</mat-error>
           </mat-form-field>
 
@@ -102,6 +101,22 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
   `,
   styles: [`
     .full-width { width: 100%; margin-bottom: 8px; }
+    .cron-section {
+      margin-bottom: 16px;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
+    .cron-label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .cron-error {
+      font-size: 12px;
+      margin-top: 4px;
+    }
     .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
     .document-ids-section {
       display: flex;

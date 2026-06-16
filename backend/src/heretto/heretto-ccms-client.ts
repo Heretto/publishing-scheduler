@@ -79,10 +79,15 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
   private normalizeFolderResponse(parsed: Record<string, unknown>): CcmsFolder {
     const root = this.extractRoot(parsed);
     const children = this.extractChildren(root);
+    // The folder's own name may come from a <name> child element or a name attribute
+    const folderName = root.name;
+    const titleFromName = typeof folderName === 'object' && folderName !== null
+      ? (folderName as Record<string, unknown>)._text
+      : folderName;
     return {
       ...root,
       id: String(root.id || root.uuid || ''),
-      title: String(root.title || root.name || ''),
+      title: String(root.title || titleFromName || ''),
       type: String(root.type || root.resourceType || 'folder'),
       children,
     };
@@ -90,10 +95,14 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
 
   private normalizeResourceResponse(parsed: Record<string, unknown>): CcmsResource {
     const root = this.extractRoot(parsed);
+    const nameVal = root.name;
+    const resolvedName = typeof nameVal === 'object' && nameVal !== null
+      ? (nameVal as Record<string, unknown>)._text
+      : nameVal;
     return {
       ...root,
       id: String(root.id || root.uuid || ''),
-      title: String(root.title || root.name || ''),
+      title: String(root.title || resolvedName || ''),
       type: String(root.type || root.resourceType || ''),
       owner: root.owner ? String(root.owner) : undefined,
       created: root.created ? String(root.created) : undefined,
@@ -135,24 +144,44 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
   }
 
   private extractChildren(root: Record<string, unknown>): CcmsResource[] {
-    // fast-xml-parser wraps child elements: <children><resource>...</resource></children>
-    // becomes { children: { resource: [...] } } — we need to unwrap
+    // Heretto XML uses <children> containing mixed <folder> and <resource> elements.
+    // With attributeNamePrefix: '', attributes land directly on the parsed object.
+    // Children may also use a <name> child element whose text is in _text.
     const childContainer = root.children || root.child;
-    let items: unknown;
+    let items: unknown[];
+
     if (childContainer && typeof childContainer === 'object' && !Array.isArray(childContainer)) {
-      // Unwrap nested element: { resource: [...] } -> [...]
       const containerObj = childContainer as Record<string, unknown>;
-      const containerKeys = Object.keys(containerObj);
-      items = containerKeys.length === 1 ? containerObj[containerKeys[0]] : childContainer;
+      // Merge <folder> + <resource> children into one list
+      const folders = this.toArray(containerObj.folder).map(f => ({ ...f, type: f.type || 'folder' }));
+      const resources = this.toArray(containerObj.resource);
+
+      if (folders.length > 0 || resources.length > 0) {
+        items = [...folders, ...resources];
+      } else {
+        // Fallback: single element type with a different key
+        const containerKeys = Object.keys(containerObj);
+        items = containerKeys.length === 1
+          ? this.toArray(containerObj[containerKeys[0]])
+          : this.toArray(childContainer);
+      }
     } else {
-      items = childContainer || root.resource || root.resources || [];
+      items = this.toArray(childContainer || root.resource || root.resources || []);
     }
-    return this.toArray(items).map((c: Record<string, unknown>) => ({
-      ...c,
-      id: String(c.id || c.uuid || ''),
-      title: String(c.title || c.name || ''),
-      type: String(c.type || c.resourceType || ''),
-    }));
+
+    return items.map((c: Record<string, unknown>) => {
+      // name may be a string attribute or an object { _text: "..." } from a child element
+      const nameVal = c.name;
+      const resolvedName = typeof nameVal === 'object' && nameVal !== null
+        ? (nameVal as Record<string, unknown>)._text
+        : nameVal;
+      return {
+        ...c,
+        id: String(c.id || c.uuid || ''),
+        title: String(c.title || resolvedName || ''),
+        type: String(c.type || c.resourceType || ''),
+      };
+    });
   }
 
   private toArray(value: unknown): Record<string, unknown>[] {

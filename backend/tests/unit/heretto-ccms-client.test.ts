@@ -32,23 +32,14 @@ describe('HerettoCcmsClient', () => {
   });
 
   describe('getFolderContents', () => {
-    it('parses XML folder response into JSON', async () => {
+    it('parses attribute-based XML folder response', async () => {
       restGet.mockResolvedValueOnce({
-        data: `<folder>
-          <id>folder-123</id>
-          <title>My Folder</title>
-          <type>folder</type>
+        data: `<folder id="folder-123" parent-folder-id="root-1">
+          <name>My Folder</name>
           <children>
-            <resource>
-              <id>doc-1</id>
-              <title>Document 1</title>
-              <type>topic</type>
-            </resource>
-            <resource>
-              <id>doc-2</id>
-              <title>Document 2</title>
-              <type>map</type>
-            </resource>
+            <folder name="Subfolder" id="sub-1"/>
+            <resource name="Document 1" type="Topic" id="doc-1" mime-type="application/xml"/>
+            <resource name="Document 2" type="Map" id="doc-2" mime-type="application/xml"/>
           </children>
         </folder>`,
       });
@@ -57,24 +48,22 @@ describe('HerettoCcmsClient', () => {
       expect(result.id).toBe('folder-123');
       expect(result.title).toBe('My Folder');
       expect(result.type).toBe('folder');
-      expect(result.children).toHaveLength(2);
-      expect(result.children[0].id).toBe('doc-1');
-      expect(result.children[0].title).toBe('Document 1');
-      expect(result.children[1].id).toBe('doc-2');
+      expect(result.children).toHaveLength(3);
+      expect(result.children[0].id).toBe('sub-1');
+      expect(result.children[0].title).toBe('Subfolder');
+      expect(result.children[0].type).toBe('folder');
+      expect(result.children[1].id).toBe('doc-1');
+      expect(result.children[1].title).toBe('Document 1');
+      expect(result.children[1].type).toBe('Topic');
+      expect(result.children[2].id).toBe('doc-2');
     });
 
     it('handles single child element (not wrapped in array)', async () => {
       restGet.mockResolvedValueOnce({
-        data: `<folder>
-          <id>folder-456</id>
-          <title>Single Child Folder</title>
-          <type>folder</type>
+        data: `<folder id="folder-456">
+          <name>Single Child Folder</name>
           <children>
-            <resource>
-              <id>doc-only</id>
-              <title>Only Doc</title>
-              <type>topic</type>
-            </resource>
+            <resource name="Only Doc" type="Topic" id="doc-only"/>
           </children>
         </folder>`,
       });
@@ -82,16 +71,38 @@ describe('HerettoCcmsClient', () => {
       const result = await client.getFolderContents('folder-456');
       expect(result.children).toHaveLength(1);
       expect(result.children[0].id).toBe('doc-only');
+      expect(result.children[0].title).toBe('Only Doc');
+    });
+
+    it('handles legacy child-element XML format', async () => {
+      restGet.mockResolvedValueOnce({
+        data: `<folder>
+          <id>folder-legacy</id>
+          <title>Legacy Folder</title>
+          <type>folder</type>
+          <children>
+            <resource>
+              <id>doc-1</id>
+              <title>Document 1</title>
+              <type>topic</type>
+            </resource>
+          </children>
+        </folder>`,
+      });
+
+      const result = await client.getFolderContents('folder-legacy');
+      expect(result.id).toBe('folder-legacy');
+      expect(result.title).toBe('Legacy Folder');
+      expect(result.children).toHaveLength(1);
+      expect(result.children[0].id).toBe('doc-1');
+      expect(result.children[0].title).toBe('Document 1');
     });
   });
 
   describe('getDocumentInfo', () => {
-    it('parses XML document response into JSON', async () => {
+    it('parses attribute-based XML document response', async () => {
       restGet.mockResolvedValueOnce({
-        data: `<resource>
-          <id>doc-789</id>
-          <title>My Document</title>
-          <type>topic</type>
+        data: `<resource id="doc-789" name="My Document" type="Topic" mime-type="application/xml">
           <owner>user@example.com</owner>
           <created>2024-01-01T00:00:00Z</created>
           <modified>2024-06-01T12:00:00Z</modified>
@@ -101,7 +112,7 @@ describe('HerettoCcmsClient', () => {
       const result = await client.getDocumentInfo('doc-789');
       expect(result.id).toBe('doc-789');
       expect(result.title).toBe('My Document');
-      expect(result.type).toBe('topic');
+      expect(result.type).toBe('Topic');
       expect(result.owner).toBe('user@example.com');
       expect(result.created).toBe('2024-01-01T00:00:00Z');
       expect(result.modified).toBe('2024-06-01T12:00:00Z');
@@ -109,17 +120,13 @@ describe('HerettoCcmsClient', () => {
   });
 
   describe('getBranches', () => {
-    it('parses XML branches response into JSON array', async () => {
+    it('parses attribute-based XML branches response', async () => {
       restGet.mockResolvedValueOnce({
         data: `<branches>
-          <branch>
-            <id>branch-1</id>
-            <name>main</name>
+          <branch name="main" id="branch-1">
             <repository>repo-1</repository>
           </branch>
-          <branch>
-            <id>branch-2</id>
-            <name>develop</name>
+          <branch name="develop" id="branch-2">
             <repository>repo-1</repository>
           </branch>
         </branches>`,
@@ -137,16 +144,14 @@ describe('HerettoCcmsClient', () => {
     it('handles single branch', async () => {
       restGet.mockResolvedValueOnce({
         data: `<branches>
-          <branch>
-            <id>branch-only</id>
-            <name>main</name>
-          </branch>
+          <branch name="main" id="branch-only"/>
         </branches>`,
       });
 
       const result = await client.getBranches();
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('branch-only');
+      expect(result[0].name).toBe('main');
     });
   });
 
