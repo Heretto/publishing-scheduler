@@ -1,0 +1,36 @@
+import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
+
+@Component({
+  selector: 'app-status-badge',
+  standalone: true,
+  imports: [CommonModule, MatChipsModule, MatIconModule],
+  template: `
+    <mat-chip [class]="'status-' + status" [attr.aria-label]="'Status: ' + (status | titlecase)">
+      <mat-icon *ngIf="icon" class="badge-icon">{{ icon }}</mat-icon>
+      {{ status | titlecase }}
+    </mat-chip>
+  `,
+  styles: [`
+    .status-success, .status-completed { background-color: #4caf50 !important; color: white !important; }
+    .status-failed { background-color: #f44336 !important; color: white !important; }
+    .status-running, .status-pending { background-color: #2196f3 !important; color: white !important; }
+    .badge-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+  `],
+})
+export class StatusBadgeComponent {
+  @Input() status = '';
+
+  get icon(): string {
+    switch (this.status) {
+      case 'success':
+      case 'completed': return 'check_circle';
+      case 'failed': return 'error';
+      case 'running': return 'sync';
+      case 'pending': return 'schedule';
+      default: return '';
+    }
+  }
+}

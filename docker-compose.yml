@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/scheduler.db
+      - HERETTO_API_BASE_URL=${HERETTO_API_BASE_URL:-https://demo-nxt.heretto.com/ezdnxtgen/api/v2}
+      - HERETTO_USERNAME=${HERETTO_USERNAME:-}
+      - HERETTO_PASSWORD=${HERETTO_PASSWORD:-}
+    volumes:
+      - db-data:/app/data
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:
