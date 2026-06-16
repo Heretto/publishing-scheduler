@@ -10,16 +10,20 @@ import { SchedulerService } from './services/scheduler.service';
 import { JobExecutorService } from './services/job-executor.service';
 import { IHerettoClient } from './heretto/heretto-client.interface';
 import { HerettoClient } from './heretto/heretto-client';
+import { IHerettoCcmsClient } from './heretto/heretto-ccms-client.interface';
+import { HerettoCcmsClient } from './heretto/heretto-ccms-client';
 import { getDatabase } from './db/database';
 
 export interface AppDependencies {
   schedulerService?: SchedulerService;
   herettoClient?: IHerettoClient;
+  ccmsClient?: IHerettoCcmsClient;
 }
 
 export function createApp(deps: AppDependencies = {}) {
   const app = express();
   const herettoClient = deps.herettoClient || new HerettoClient();
+  const ccmsClient = deps.ccmsClient || new HerettoCcmsClient();
   const executor = new JobExecutorService(herettoClient);
   const schedulerService = deps.schedulerService || new SchedulerService(executor);
 
@@ -56,7 +60,7 @@ export function createApp(deps: AppDependencies = {}) {
 
   app.use('/api/schedules', createSchedulesRouter(schedulerService, executor));
   app.use('/api/jobs', jobsRouter);
-  app.use('/api/heretto', createHerettoRouter(herettoClient));
+  app.use('/api/heretto', createHerettoRouter(herettoClient, ccmsClient));
 
   app.use(errorHandler);
 

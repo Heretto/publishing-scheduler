@@ -9,10 +9,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService } from '../../core/services/schedule.service';
 import { HerettoService, Deployment, Scenario } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
+import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
 
 @Component({
   selector: 'app-schedule-form',
@@ -20,7 +23,8 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
   imports: [
     CommonModule, ReactiveFormsModule, RouterModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatCardModule, MatCheckboxModule, CronDisplayComponent,
+    MatCardModule, MatCheckboxModule, MatIconModule, MatDialogModule,
+    CronDisplayComponent,
   ],
   template: `
     <h1>{{ isEdit ? 'Edit' : 'New' }} Schedule</h1>
@@ -73,10 +77,16 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
             <mat-error *ngIf="form.get('deployment_id')?.hasError('required')">Deployment is required</mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Document IDs (comma-separated)</mat-label>
-            <input matInput formControlName="document_ids_raw" placeholder="doc-1, doc-2">
-          </mat-form-field>
+          <div class="document-ids-section">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Document IDs (comma-separated)</mat-label>
+              <input matInput formControlName="document_ids_raw" placeholder="doc-1, doc-2">
+            </mat-form-field>
+            <button mat-stroked-button type="button" class="browse-btn" (click)="openDocumentPicker()">
+              <mat-icon>folder_open</mat-icon>
+              Browse
+            </button>
+          </div>
 
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
 
@@ -93,6 +103,13 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
   styles: [`
     .full-width { width: 100%; margin-bottom: 8px; }
     .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .document-ids-section {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .document-ids-section .full-width { flex: 1; }
+    .browse-btn { margin-top: 4px; height: 56px; }
   `],
 })
 export class ScheduleFormComponent implements OnInit {
@@ -112,6 +129,7 @@ export class ScheduleFormComponent implements OnInit {
     private notifications: NotificationService,
     private route: ActivatedRoute,
     private router: Router,
+    private dialog: MatDialog,
   ) {
     this.form = this.fb.group({
       name: ['', Validators.required],
@@ -149,6 +167,25 @@ export class ScheduleFormComponent implements OnInit {
     }
   }
 
+  openDocumentPicker() {
+    const currentIds = this.parseDocumentIds();
+    const dialogRef = this.dialog.open(DocumentPickerComponent, {
+      width: '700px',
+      maxHeight: '85vh',
+      data: { selectedIds: currentIds } as DocumentPickerData,
+    });
+
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(selectedIds => {
+        if (selectedIds && Array.isArray(selectedIds)) {
+          this.form.patchValue({
+            document_ids_raw: selectedIds.join(', '),
+          });
+        }
+      });
+  }
+
   onSubmit() {
     if (this.form.invalid || this.submitting) return;
     this.submitting = true;
@@ -160,9 +197,7 @@ export class ScheduleFormComponent implements OnInit {
       cron_expression: value.cron_expression,
       scenario_id: value.scenario_id,
       deployment_id: value.deployment_id,
-      document_ids: value.document_ids_raw
-        ? value.document_ids_raw.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : [],
+      document_ids: this.parseDocumentIds(),
       enabled: value.enabled,
     };
 
@@ -177,5 +212,10 @@ export class ScheduleFormComponent implements OnInit {
       },
       error: () => { this.submitting = false; },
     });
+  }
+
+  private parseDocumentIds(): string[] {
+    const raw = this.form.value.document_ids_raw || '';
+    return raw.split(',').map((s: string) => s.trim()).filter(Boolean);
   }
 }

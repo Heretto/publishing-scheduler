@@ -1,0 +1,182 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const mockInstances: { get: ReturnType<typeof vi.fn>; post: ReturnType<typeof vi.fn> }[] = [];
+
+vi.mock('axios', () => ({
+  default: {
+    create: () => {
+      const instance = { get: vi.fn(), post: vi.fn() };
+      mockInstances.push(instance);
+      return instance;
+    },
+  },
+}));
+
+import { HerettoCcmsClient } from '../../src/heretto/heretto-ccms-client';
+
+describe('HerettoCcmsClient', () => {
+  let client: HerettoCcmsClient;
+  let restGet: ReturnType<typeof vi.fn>;
+  let searchPost: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockInstances.length = 0;
+    client = new HerettoCcmsClient({
+      baseUrl: 'https://example.com/rest',
+      searchBaseUrl: 'https://example.com/ezdnxtgen/api',
+      username: 'testuser',
+      password: 'testpass',
+    });
+    restGet = mockInstances[0].get;
+    searchPost = mockInstances[1].post;
+  });
+
+  describe('getFolderContents', () => {
+    it('parses XML folder response into JSON', async () => {
+      restGet.mockResolvedValueOnce({
+        data: `<folder>
+          <id>folder-123</id>
+          <title>My Folder</title>
+          <type>folder</type>
+          <children>
+            <resource>
+              <id>doc-1</id>
+              <title>Document 1</title>
+              <type>topic</type>
+            </resource>
+            <resource>
+              <id>doc-2</id>
+              <title>Document 2</title>
+              <type>map</type>
+            </resource>
+          </children>
+        </folder>`,
+      });
+
+      const result = await client.getFolderContents('folder-123');
+      expect(result.id).toBe('folder-123');
+      expect(result.title).toBe('My Folder');
+      expect(result.type).toBe('folder');
+      expect(result.children).toHaveLength(2);
+      expect(result.children[0].id).toBe('doc-1');
+      expect(result.children[0].title).toBe('Document 1');
+      expect(result.children[1].id).toBe('doc-2');
+    });
+
+    it('handles single child element (not wrapped in array)', async () => {
+      restGet.mockResolvedValueOnce({
+        data: `<folder>
+          <id>folder-456</id>
+          <title>Single Child Folder</title>
+          <type>folder</type>
+          <children>
+            <resource>
+              <id>doc-only</id>
+              <title>Only Doc</title>
+              <type>topic</type>
+            </resource>
+          </children>
+        </folder>`,
+      });
+
+      const result = await client.getFolderContents('folder-456');
+      expect(result.children).toHaveLength(1);
+      expect(result.children[0].id).toBe('doc-only');
+    });
+  });
+
+  describe('getDocumentInfo', () => {
+    it('parses XML document response into JSON', async () => {
+      restGet.mockResolvedValueOnce({
+        data: `<resource>
+          <id>doc-789</id>
+          <title>My Document</title>
+          <type>topic</type>
+          <owner>user@example.com</owner>
+          <created>2024-01-01T00:00:00Z</created>
+          <modified>2024-06-01T12:00:00Z</modified>
+        </resource>`,
+      });
+
+      const result = await client.getDocumentInfo('doc-789');
+      expect(result.id).toBe('doc-789');
+      expect(result.title).toBe('My Document');
+      expect(result.type).toBe('topic');
+      expect(result.owner).toBe('user@example.com');
+      expect(result.created).toBe('2024-01-01T00:00:00Z');
+      expect(result.modified).toBe('2024-06-01T12:00:00Z');
+    });
+  });
+
+  describe('getBranches', () => {
+    it('parses XML branches response into JSON array', async () => {
+      restGet.mockResolvedValueOnce({
+        data: `<branches>
+          <branch>
+            <id>branch-1</id>
+            <name>main</name>
+            <repository>repo-1</repository>
+          </branch>
+          <branch>
+            <id>branch-2</id>
+            <name>develop</name>
+            <repository>repo-1</repository>
+          </branch>
+        </branches>`,
+      });
+
+      const result = await client.getBranches();
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('branch-1');
+      expect(result[0].name).toBe('main');
+      expect(result[0].repository).toBe('repo-1');
+      expect(result[1].id).toBe('branch-2');
+      expect(result[1].name).toBe('develop');
+    });
+
+    it('handles single branch', async () => {
+      restGet.mockResolvedValueOnce({
+        data: `<branches>
+          <branch>
+            <id>branch-only</id>
+            <name>main</name>
+          </branch>
+        </branches>`,
+      });
+
+      const result = await client.getBranches();
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('branch-only');
+    });
+  });
+
+  describe('searchDocuments', () => {
+    it('posts JSON search query and returns results', async () => {
+      searchPost.mockResolvedValueOnce({
+        data: {
+          results: [
+            { id: 'search-1', title: 'Found Doc', type: 'topic' },
+            { id: 'search-2', title: 'Another Doc', type: 'map' },
+          ],
+          total: 2,
+        },
+      });
+
+      const result = await client.searchDocuments({ query: 'test' });
+      expect(result.results).toHaveLength(2);
+      expect(result.total).toBe(2);
+      expect(result.results[0].id).toBe('search-1');
+      expect(result.results[0].title).toBe('Found Doc');
+    });
+
+    it('handles empty search results', async () => {
+      searchPost.mockResolvedValueOnce({
+        data: { results: [], total: 0 },
+      });
+
+      const result = await client.searchDocuments({ query: 'nonexistent' });
+      expect(result.results).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+  });
+});

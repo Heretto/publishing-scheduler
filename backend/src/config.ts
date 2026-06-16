@@ -11,6 +11,11 @@ export const config = {
   },
   heretto: {
     baseUrl: process.env.HERETTO_API_BASE_URL || 'https://demo-nxt.heretto.com/ezdnxtgen/api/v2',
+    ccmsBaseUrl: process.env.HERETTO_CCMS_BASE_URL ||
+      (process.env.HERETTO_API_BASE_URL || 'https://demo-nxt.heretto.com/ezdnxtgen/api/v2')
+        .replace('/ezdnxtgen/api/v2', '/rest'),
+    searchBaseUrl: (process.env.HERETTO_API_BASE_URL || 'https://demo-nxt.heretto.com/ezdnxtgen/api/v2')
+      .replace('/ezdnxtgen/api/v2', '/ezdnxtgen/api'),
     username: process.env.HERETTO_USERNAME || '',
     password: process.env.HERETTO_PASSWORD || '',
   },
