@@ -32,14 +32,27 @@ export function initDatabase(dbPath?: string): Database.Database {
 }
 
 function runMigrations(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   const migrationsDir = path.join(__dirname, 'migrations');
   if (!fs.existsSync(migrationsDir)) return;
   const files = fs.readdirSync(migrationsDir).sort();
 
+  const applied = new Set(
+    (database.prepare('SELECT name FROM _migrations').all() as { name: string }[])
+      .map(r => r.name),
+  );
+
   for (const file of files) {
-    if (file.endsWith('.sql')) {
+    if (file.endsWith('.sql') && !applied.has(file)) {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
       database.exec(sql);
+      database.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
     }
   }
 }

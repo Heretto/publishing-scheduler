@@ -17,10 +17,12 @@ export class JobExecutorService {
       throw new Error(`Schedule ${scheduleId} not found`);
     }
 
+    const publishParameters = schedule.publish_parameters || [];
     const requestPayload = {
       scenarioId: schedule.scenario_id,
       deploymentId: schedule.deployment_id,
       documentIds: schedule.document_ids,
+      parameters: publishParameters,
     };
 
     const job = JobModel.createJob({
@@ -30,17 +32,18 @@ export class JobExecutorService {
     });
 
     try {
-      const result = await this.herettoClient.triggerPublishingJob({
+      const results = await this.herettoClient.triggerPublishingJob({
         scenarioId: schedule.scenario_id,
         deploymentId: schedule.deployment_id,
         documentIds: schedule.document_ids,
+        parameters: publishParameters,
       });
 
       JobModel.updateJob(job.id, {
         status: 'completed',
         completed_at: new Date().toISOString(),
-        heretto_job_id: result.id,
-        response_payload: result as Record<string, unknown>,
+        heretto_job_id: results.map(r => r.id).join(','),
+        response_payload: results as unknown as Record<string, unknown>,
       });
 
       ScheduleModel.updateScheduleLastRun(scheduleId, 'success');

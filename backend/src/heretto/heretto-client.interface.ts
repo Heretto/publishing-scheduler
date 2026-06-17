@@ -25,6 +25,16 @@ export interface HerettoRelease {
 export interface HerettoPublishingJob {
   id: string;
   status: string;
+  fileId: string;
+  [key: string]: unknown;
+}
+
+export interface ScenarioParameter {
+  name: string;
+  displayName: string;
+  type: string;
+  value: unknown;
+  options: unknown[];
   [key: string]: unknown;
 }
 
@@ -32,9 +42,11 @@ export interface IHerettoClient {
   getDeployments(): Promise<HerettoDeployment[]>;
   getScenarios(): Promise<HerettoScenario[]>;
   getReleases(): Promise<HerettoRelease[]>;
+  getScenarioParameters(scenarioId: string): Promise<ScenarioParameter[]>;
   triggerPublishingJob(params: {
     scenarioId: string;
     deploymentId: string;
     documentIds?: string[];
-  }): Promise<HerettoPublishingJob>;
+    parameters?: Record<string, unknown>[];
+  }): Promise<HerettoPublishingJob[]>;
 }

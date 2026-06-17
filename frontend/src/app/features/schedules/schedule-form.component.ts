@@ -11,8 +11,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { ScheduleService } from '../../core/services/schedule.service';
-import { HerettoService, Deployment, Scenario } from '../../core/services/heretto.service';
+import { ScheduleService, Schedule } from '../../core/services/schedule.service';
+import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
@@ -50,9 +50,16 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             </div>
           </div>
 
+          <mat-form-field appearance="outline" class="full-width" *ngIf="branches.length > 0">
+            <mat-label>Branch</mat-label>
+            <mat-select formControlName="branch">
+              <mat-option *ngFor="let b of branches" [value]="b.name">{{ b.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
             <mat-label>Scenario</mat-label>
-            <mat-select formControlName="scenario_id">
+            <mat-select formControlName="scenario_id" (selectionChange)="onScenarioChange($event.value)">
               <mat-option *ngFor="let s of scenarios" [value]="s.id">{{ s.name }}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -62,6 +69,33 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             <mat-hint>Copy the scenario UUID from Heretto CCMS (Publish dialog > scenario name)</mat-hint>
             <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario ID is required</mat-error>
           </mat-form-field>
+
+          <div class="parameters-section" *ngIf="scenarioParameters.length > 0">
+            <label class="section-label">Scenario Parameters</label>
+            <div *ngFor="let param of scenarioParameters" class="parameter-row">
+              <ng-container [ngSwitch]="param.type">
+                <div *ngSwitchCase="'file_picker'" class="file-picker-param">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>{{ param.displayName }}</mat-label>
+                    <input matInput [value]="getParameterValue(param.name)" readonly placeholder="No file selected">
+                  </mat-form-field>
+                  <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
+                    <mat-icon>folder_open</mat-icon>
+                    Browse
+                  </button>
+                </div>
+                <mat-checkbox *ngSwitchCase="'boolean'"
+                  [checked]="getParameterValue(param.name) === true || getParameterValue(param.name) === 'true'"
+                  (change)="setParameterValue(param.name, $event.checked)">
+                  {{ param.displayName }}
+                </mat-checkbox>
+                <mat-form-field *ngSwitchDefault appearance="outline" class="full-width">
+                  <mat-label>{{ param.displayName }}</mat-label>
+                  <input matInput [value]="getParameterValue(param.name) || ''" (input)="setParameterValue(param.name, $any($event.target).value)">
+                </mat-form-field>
+              </ng-container>
+            </div>
+          </div>
 
           <!-- Deployment UI hidden — no API endpoint to trigger deployment publish yet
           <mat-form-field appearance="outline" class="full-width" *ngIf="deployments.length > 0">
@@ -120,13 +154,26 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
       margin-top: 4px;
     }
     .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-    .document-ids-section {
+    .document-ids-section, .file-picker-param {
       display: flex;
       gap: 8px;
       align-items: flex-start;
     }
-    .document-ids-section .full-width { flex: 1; }
+    .document-ids-section .full-width, .file-picker-param .full-width { flex: 1; }
     .browse-btn { margin-top: 4px; height: 56px; }
+    .parameters-section {
+      margin-bottom: 16px;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
+    .section-label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .parameter-row { margin-bottom: 8px; }
   `],
 })
 export class ScheduleFormComponent implements OnInit {
@@ -138,6 +185,9 @@ export class ScheduleFormComponent implements OnInit {
   submitting = false;
   deployments: Deployment[] = [];
   scenarios: Scenario[] = [];
+  branches: CcmsBranch[] = [];
+  scenarioParameters: ScenarioParameter[] = [];
+  parameterOverrides: Record<string, unknown> = {};
 
   constructor(
     private fb: FormBuilder,
@@ -153,8 +203,9 @@ export class ScheduleFormComponent implements OnInit {
       description: [''],
       cron_expression: ['', Validators.required],
       scenario_id: ['', Validators.required],
-      deployment_id: [''], // Deployment UI hidden for now
+      deployment_id: [''],
       document_ids_raw: [''],
+      branch: ['master'],
       enabled: [true],
     });
   }
@@ -168,28 +219,93 @@ export class ScheduleFormComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: s => this.scenarios = s, error: () => {} });
 
+    this.herettoService.getBranches()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: b => this.branches = b, error: () => {} });
+
     this.scheduleId = this.route.snapshot.params['id'];
     if (this.scheduleId) {
       this.isEdit = true;
       this.scheduleService.getById(this.scheduleId)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: s => {
+          next: (s: Schedule) => {
             this.form.patchValue({
               ...s,
               document_ids_raw: s.document_ids.join(', '),
             });
+            // Restore parameter overrides from saved schedule
+            for (const p of (s.publish_parameters || [])) {
+              if (p['name'] && p['value'] !== undefined) {
+                this.parameterOverrides[p['name'] as string] = p['value'];
+              }
+            }
+            // Load parameters for the saved scenario
+            if (s.scenario_id) {
+              this.loadScenarioParameters(s.scenario_id);
+            }
           },
         });
     }
   }
 
-  openDocumentPicker() {
-    const currentIds = this.parseDocumentIds();
+  onScenarioChange(scenarioId: string) {
+    this.parameterOverrides = {};
+    this.scenarioParameters = [];
+    if (scenarioId) {
+      this.loadScenarioParameters(scenarioId);
+    }
+  }
+
+  private loadScenarioParameters(scenarioId: string) {
+    this.herettoService.getScenarioParameters(scenarioId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: params => {
+          this.scenarioParameters = params;
+          // Initialize defaults for parameters that don't have overrides yet
+          for (const p of params) {
+            if (!(p.name in this.parameterOverrides) && p.value !== undefined && p.value !== '') {
+              this.parameterOverrides[p.name] = p.value;
+            }
+          }
+        },
+        error: () => {},
+      });
+  }
+
+  getParameterValue(name: string): unknown {
+    return this.parameterOverrides[name] ?? '';
+  }
+
+  setParameterValue(name: string, value: unknown) {
+    this.parameterOverrides[name] = value;
+  }
+
+  openParameterFilePicker(paramName: string) {
+    const branch = this.form.value.branch || 'master';
     const dialogRef = this.dialog.open(DocumentPickerComponent, {
       width: '700px',
       maxHeight: '85vh',
-      data: { selectedIds: currentIds } as DocumentPickerData,
+      data: { selectedIds: [], branch } as DocumentPickerData,
+    });
+
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(selectedIds => {
+        if (selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0) {
+          this.parameterOverrides[paramName] = selectedIds[0];
+        }
+      });
+  }
+
+  openDocumentPicker() {
+    const currentIds = this.parseDocumentIds();
+    const branch = this.form.value.branch || 'master';
+    const dialogRef = this.dialog.open(DocumentPickerComponent, {
+      width: '700px',
+      maxHeight: '85vh',
+      data: { selectedIds: currentIds, branch } as DocumentPickerData,
     });
 
     dialogRef.afterClosed()
@@ -208,6 +324,10 @@ export class ScheduleFormComponent implements OnInit {
     this.submitting = true;
 
     const value = this.form.value;
+    const publishParameters = this.scenarioParameters
+      .filter(p => p.name in this.parameterOverrides)
+      .map(p => ({ name: p.name, value: this.parameterOverrides[p.name] }));
+
     const input = {
       name: value.name,
       description: value.description,
@@ -215,6 +335,8 @@ export class ScheduleFormComponent implements OnInit {
       scenario_id: value.scenario_id,
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
+      branch: value.branch,
+      publish_parameters: publishParameters,
       enabled: value.enabled,
     };
 

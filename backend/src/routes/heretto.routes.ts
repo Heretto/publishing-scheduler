@@ -14,6 +14,7 @@ export function createHerettoRouter(
 
   router.get('/deployments', asyncHandler(ctrl.listDeployments));
   router.get('/scenarios', asyncHandler(ctrl.listScenarios));
+  router.get('/scenarios/:id/parameters', asyncHandler(ctrl.getScenarioParameters));
   router.get('/releases', asyncHandler(ctrl.listReleases));
 
   if (ccmsClient) {

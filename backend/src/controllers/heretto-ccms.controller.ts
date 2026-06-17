@@ -19,7 +19,11 @@ export function createHerettoCcmsController(client: IHerettoCcmsClient) {
     },
 
     async searchDocuments(req: Request, res: Response) {
-      const results = await client.searchDocuments(req.body);
+      const body = { ...req.body };
+      if (req.query.branch) {
+        body.branch = req.query.branch;
+      }
+      const results = await client.searchDocuments(body);
       res.json(results);
     },
 
@@ -29,7 +33,8 @@ export function createHerettoCcmsController(client: IHerettoCcmsClient) {
         res.status(400).json({ error: 'name query parameter is required' });
         return;
       }
-      const results = await client.searchFolders(name);
+      const branch = req.query.branch as string | undefined;
+      const results = await client.searchFolders(name, branch);
       res.json(results);
     },
   };

@@ -77,10 +77,18 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
     return this.normalizeBranchesResponse(parsed);
   }
 
-  async searchFolders(folderName: string): Promise<CcmsSearchResponse> {
+  private buildSearchPath(branch?: string): string {
+    if (!branch) return this.searchRootPath;
+    const org = config.heretto.org;
+    const repo = config.heretto.repository;
+    return `/db/organizations/${org}/repositories/${branch}/${repo}/documents/`;
+  }
+
+  async searchFolders(folderName: string, branch?: string): Promise<CcmsSearchResponse> {
     const response = await this.searchDocuments({
       queryString: folderName,
       searchResultType: 'FOLDERS_ONLY',
+      branch,
     });
     // The search API doesn't filter by folder name — it searches folder contents.
     // Filter results client-side to match folders whose name contains the query.
@@ -105,7 +113,8 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
     if (query.foldersToSearch) {
       searchBody.foldersToSearch = query.foldersToSearch;
     } else {
-      searchBody.foldersToSearch = { [this.searchRootPath]: true };
+      const rootPath = this.buildSearchPath(query.branch as string | undefined);
+      searchBody.foldersToSearch = { [rootPath]: true };
     }
     const response = await this.searchClient.post('/search', searchBody);
     if (response.status === 204 || !response.data) {
@@ -200,7 +209,7 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
     // With attributeNamePrefix: '', attributes land directly on the parsed object.
     // Children may also use a <name> child element whose text is in _text.
     const childContainer = root.children || root.child;
-    let items: unknown[];
+    let items: Record<string, unknown>[];
 
     if (childContainer && typeof childContainer === 'object' && !Array.isArray(childContainer)) {
       const containerObj = childContainer as Record<string, unknown>;

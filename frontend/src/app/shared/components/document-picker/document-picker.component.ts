@@ -16,6 +16,7 @@ import { Subject, debounceTime, switchMap, of } from 'rxjs';
 
 export interface DocumentPickerData {
   selectedIds: string[];
+  branch?: string;
 }
 
 interface BreadcrumbItem {
@@ -251,7 +252,7 @@ export class DocumentPickerComponent implements OnInit {
         }
         this.searchLoading = true;
         this.searchError = '';
-        return this.herettoService.searchDocuments({ queryString: query });
+        return this.herettoService.searchDocuments({ queryString: query }, this.data?.branch);
       }),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
@@ -299,7 +300,7 @@ export class DocumentPickerComponent implements OnInit {
     if (!this.folderNameQuery) return;
     this.browseLoading = true;
     this.browseError = '';
-    this.herettoService.searchFoldersByName(this.folderNameQuery)
+    this.herettoService.searchFoldersByName(this.folderNameQuery, this.data?.branch)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: response => {

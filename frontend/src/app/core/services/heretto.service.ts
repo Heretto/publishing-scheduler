@@ -50,6 +50,15 @@ export interface CcmsSearchResponse {
   total: number;
 }
 
+export interface ScenarioParameter {
+  name: string;
+  displayName: string;
+  type: string;
+  value: unknown;
+  options: unknown[];
+  [key: string]: unknown;
+}
+
 @Injectable({ providedIn: 'root' })
 export class HerettoService {
   constructor(private api: ApiService) {}
@@ -78,11 +87,18 @@ export class HerettoService {
     return this.api.get<CcmsBranch[]>('/heretto/ccms/branches');
   }
 
-  searchDocuments(query: Record<string, unknown>): Observable<CcmsSearchResponse> {
-    return this.api.post<CcmsSearchResponse>('/heretto/ccms/search', query);
+  getScenarioParameters(scenarioId: string): Observable<ScenarioParameter[]> {
+    return this.api.get<ScenarioParameter[]>(`/heretto/scenarios/${scenarioId}/parameters`);
   }
 
-  searchFoldersByName(name: string): Observable<CcmsSearchResponse> {
-    return this.api.get<CcmsSearchResponse>('/heretto/ccms/folders/search', { name });
+  searchDocuments(query: Record<string, unknown>, branch?: string): Observable<CcmsSearchResponse> {
+    const body = branch ? { ...query, branch } : query;
+    return this.api.post<CcmsSearchResponse>('/heretto/ccms/search', body);
+  }
+
+  searchFoldersByName(name: string, branch?: string): Observable<CcmsSearchResponse> {
+    const params: Record<string, string> = { name };
+    if (branch) params['branch'] = branch;
+    return this.api.get<CcmsSearchResponse>('/heretto/ccms/folders/search', params);
   }
 }

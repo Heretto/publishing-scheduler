@@ -11,6 +11,8 @@ export interface Schedule {
   deployment_id: string;
   document_ids: string[];
   enabled: boolean;
+  branch: string;
+  publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
   created_at: string;
@@ -25,6 +27,8 @@ export interface CreateScheduleInput {
   deployment_id: string;
   document_ids?: string[];
   enabled?: boolean;
+  branch?: string;
+  publish_parameters?: Record<string, unknown>[];
 }
 
 @Injectable({ providedIn: 'root' })

@@ -14,6 +14,8 @@ export const createScheduleSchema = z.object({
   deployment_id: z.coerce.string().default(''),
   document_ids: z.array(z.string().min(1).max(255)).max(1000).default([]),
   enabled: z.boolean().default(true),
+  branch: z.string().default('master'),
+  publish_parameters: z.array(z.record(z.unknown())).default([]),
 });
 
 export const updateScheduleSchema = createScheduleSchema.partial();
@@ -30,6 +32,8 @@ export interface ScheduleRow {
   deployment_id: string;
   document_ids: string;
   enabled: number;
+  branch: string;
+  publish_parameters: string;
   last_run_at: string | null;
   last_run_status: string | null;
   created_at: string;
@@ -45,6 +49,8 @@ export interface FormattedSchedule {
   deployment_id: string;
   document_ids: string[];
   enabled: boolean;
+  branch: string;
+  publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
   created_at: string;
@@ -64,6 +70,7 @@ export function formatSchedule(row: ScheduleRow): FormattedSchedule {
   return {
     ...row,
     document_ids: safeJsonParse<string[]>(row.document_ids, []),
+    publish_parameters: safeJsonParse<Record<string, unknown>[]>(row.publish_parameters, []),
     enabled: Boolean(row.enabled),
   };
 }
@@ -86,8 +93,8 @@ export function createSchedule(input: CreateScheduleInput): FormattedSchedule {
   const now = new Date().toISOString();
 
   db.prepare(`
-    INSERT INTO schedules (id, name, description, cron_expression, scenario_id, deployment_id, document_ids, enabled, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO schedules (id, name, description, cron_expression, scenario_id, deployment_id, document_ids, enabled, branch, publish_parameters, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.name,
@@ -97,6 +104,8 @@ export function createSchedule(input: CreateScheduleInput): FormattedSchedule {
     input.deployment_id,
     JSON.stringify(input.document_ids),
     input.enabled ? 1 : 0,
+    input.branch,
+    JSON.stringify(input.publish_parameters),
     now,
     now,
   );
@@ -123,6 +132,8 @@ export function updateSchedule(id: string, input: UpdateScheduleInput): Formatte
   if (input.deployment_id !== undefined) { fields.push('deployment_id = ?'); values.push(input.deployment_id); }
   if (input.document_ids !== undefined) { fields.push('document_ids = ?'); values.push(JSON.stringify(input.document_ids)); }
   if (input.enabled !== undefined) { fields.push('enabled = ?'); values.push(input.enabled ? 1 : 0); }
+  if (input.branch !== undefined) { fields.push('branch = ?'); values.push(input.branch); }
+  if (input.publish_parameters !== undefined) { fields.push('publish_parameters = ?'); values.push(JSON.stringify(input.publish_parameters)); }
 
   if (fields.length === 0) return existing;
 

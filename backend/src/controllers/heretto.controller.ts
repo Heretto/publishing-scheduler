@@ -17,5 +17,10 @@ export function createHerettoController(client: IHerettoClient) {
       const releases = await client.getReleases();
       res.json(releases);
     },
+
+    async getScenarioParameters(req: Request, res: Response) {
+      const parameters = await client.getScenarioParameters(req.params.id);
+      res.json(parameters);
+    },
   };
 }

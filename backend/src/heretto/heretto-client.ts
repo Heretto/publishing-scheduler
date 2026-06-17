@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { HerettoClientConfig, IHerettoClient, HerettoDeployment, HerettoScenario, HerettoRelease, HerettoPublishingJob } from './heretto-client.interface';
+import { HerettoClientConfig, IHerettoClient, HerettoDeployment, HerettoScenario, HerettoRelease, HerettoPublishingJob, ScenarioParameter } from './heretto-client.interface';
 import { config } from '../config';
 
 export class HerettoClient implements IHerettoClient {
@@ -45,16 +45,39 @@ export class HerettoClient implements IHerettoClient {
     return response.data;
   }
 
+  async getScenarioParameters(scenarioId: string): Promise<ScenarioParameter[]> {
+    const response = await this.client.get(`/publishes/scenarios/${scenarioId}/parameters`);
+    const data = response.data;
+    return Array.isArray(data) ? data : data.content || [];
+  }
+
   async triggerPublishingJob(params: {
     scenarioId: string;
     deploymentId: string;
     documentIds?: string[];
-  }): Promise<HerettoPublishingJob> {
-    const response = await this.client.post('/publishing-jobs', {
-      scenario_id: params.scenarioId,
-      deployment_id: params.deploymentId,
-      document_ids: params.documentIds || [],
-    });
-    return response.data;
+    parameters?: Record<string, unknown>[];
+  }): Promise<HerettoPublishingJob[]> {
+    const documentIds = params.documentIds || [];
+    if (documentIds.length === 0) {
+      throw new Error('At least one document ID is required to trigger a publish');
+    }
+
+    // The Heretto API triggers a publish per file:
+    // POST /files/{fileId}/publishes with { scenario, description, parameters }
+    const results: HerettoPublishingJob[] = [];
+    for (const fileId of documentIds) {
+      const response = await this.client.post(`/files/${fileId}/publishes`, {
+        scenario: Number(params.scenarioId),
+        description: '',
+        parameters: params.parameters || [],
+      });
+      results.push({
+        ...response.data,
+        id: String(response.data.id || response.data.jobId || ''),
+        status: String(response.data.status || 'submitted'),
+        fileId,
+      });
+    }
+    return results;
   }
 }

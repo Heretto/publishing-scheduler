@@ -93,10 +93,11 @@ export function createJob(input: {
   const db = getDatabase();
   const id = uuidv4();
 
+  const now = new Date().toISOString();
   db.prepare(`
     INSERT INTO job_history (id, schedule_id, status, trigger_type, started_at, request_payload)
-    VALUES (?, ?, 'running', ?, datetime('now'), ?)
-  `).run(id, input.schedule_id, input.trigger_type, JSON.stringify(input.request_payload || {}));
+    VALUES (?, ?, 'running', ?, ?, ?)
+  `).run(id, input.schedule_id, input.trigger_type, now, JSON.stringify(input.request_payload || {}));
 
   const created = getJobById(id);
   if (!created) {
