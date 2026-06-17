@@ -10,8 +10,8 @@ export const createScheduleSchema = z.object({
     (expr) => cron.validate(expr),
     { message: 'Invalid cron expression' },
   ),
-  scenario_id: z.string().min(1),
-  deployment_id: z.string().min(1),
+  scenario_id: z.coerce.string().min(1),
+  deployment_id: z.coerce.string().default(''),
   document_ids: z.array(z.string().min(1).max(255)).max(1000).default([]),
   enabled: z.boolean().default(true),
 });
