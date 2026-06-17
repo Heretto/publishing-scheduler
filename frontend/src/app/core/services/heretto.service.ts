@@ -50,12 +50,17 @@ export interface CcmsSearchResponse {
   total: number;
 }
 
+export interface ScenarioParameterOption {
+  displayName: string | null;
+  value: string;
+}
+
 export interface ScenarioParameter {
   name: string;
-  displayName: string;
+  displayName: string | null;
   type: string;
   value: unknown;
-  options: unknown[];
+  options: ScenarioParameterOption[];
   [key: string]: unknown;
 }
 

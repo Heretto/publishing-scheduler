@@ -74,23 +74,29 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             <label class="section-label">Scenario Parameters</label>
             <div *ngFor="let param of scenarioParameters" class="parameter-row">
               <ng-container [ngSwitch]="param.type">
-                <div *ngSwitchCase="'file_picker'" class="file-picker-param">
+                <div *ngSwitchCase="'file_uuid_picker'" class="file-picker-param">
                   <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>{{ param.displayName }}</mat-label>
-                    <input matInput [value]="getParameterValue(param.name)" readonly placeholder="No file selected">
+                    <mat-label>{{ param.displayName || param.name }}</mat-label>
+                    <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
                   </mat-form-field>
                   <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
                     <mat-icon>folder_open</mat-icon>
                     Browse
                   </button>
                 </div>
+                <mat-form-field *ngSwitchCase="'option'" appearance="outline" class="full-width">
+                  <mat-label>{{ param.displayName || param.name }}</mat-label>
+                  <mat-select [value]="getParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
+                    <mat-option *ngFor="let opt of param.options" [value]="opt.value">{{ opt.displayName || opt.value }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
                 <mat-checkbox *ngSwitchCase="'boolean'"
                   [checked]="getParameterValue(param.name) === true || getParameterValue(param.name) === 'true'"
                   (change)="setParameterValue(param.name, $event.checked)">
-                  {{ param.displayName }}
+                  {{ param.displayName || param.name }}
                 </mat-checkbox>
                 <mat-form-field *ngSwitchDefault appearance="outline" class="full-width">
-                  <mat-label>{{ param.displayName }}</mat-label>
+                  <mat-label>{{ param.displayName || param.name }}</mat-label>
                   <input matInput [value]="getParameterValue(param.name) || ''" (input)="setParameterValue(param.name, $any($event.target).value)">
                 </mat-form-field>
               </ng-container>
@@ -114,9 +120,10 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
 
           <div class="document-ids-section">
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Document IDs (comma-separated)</mat-label>
-              <input matInput formControlName="document_ids_raw" placeholder="doc-1, doc-2">
+              <mat-label>Documents</mat-label>
+              <input matInput [value]="documentDisplayValue" readonly placeholder="No documents selected">
             </mat-form-field>
+            <input type="hidden" formControlName="document_ids_raw">
             <button mat-stroked-button type="button" class="browse-btn" (click)="openDocumentPicker()">
               <mat-icon>folder_open</mat-icon>
               Browse
@@ -188,6 +195,8 @@ export class ScheduleFormComponent implements OnInit {
   branches: CcmsBranch[] = [];
   scenarioParameters: ScenarioParameter[] = [];
   parameterOverrides: Record<string, unknown> = {};
+  parameterDisplayValues: Record<string, string> = {};
+  documentDisplayValue = '';
 
   constructor(
     private fb: FormBuilder,
@@ -234,6 +243,10 @@ export class ScheduleFormComponent implements OnInit {
               ...s,
               document_ids_raw: s.document_ids.join(', '),
             });
+            // Show raw IDs as fallback until user re-browses
+            if (s.document_ids.length > 0) {
+              this.documentDisplayValue = s.document_ids.join(', ');
+            }
             // Restore parameter overrides from saved schedule
             for (const p of (s.publish_parameters || [])) {
               if (p['name'] && p['value'] !== undefined) {
@@ -262,6 +275,7 @@ export class ScheduleFormComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: params => {
+          console.log('Scenario parameters:', JSON.stringify(params, null, 2));
           this.scenarioParameters = params;
           // Initialize defaults for parameters that don't have overrides yet
           for (const p of params) {
@@ -292,11 +306,19 @@ export class ScheduleFormComponent implements OnInit {
 
     dialogRef.afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(selectedIds => {
-        if (selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0) {
-          this.parameterOverrides[paramName] = selectedIds[0];
+      .subscribe(items => {
+        if (items && Array.isArray(items) && items.length > 0) {
+          const item = items[0];
+          this.parameterOverrides[paramName] = item.id;
+          this.parameterDisplayValues[paramName] = `${item.title || item.id} (${item.id})`;
         }
       });
+  }
+
+  getParameterDisplayValue(name: string): string {
+    if (this.parameterDisplayValues[name]) return this.parameterDisplayValues[name];
+    const val = this.parameterOverrides[name];
+    return val ? String(val) : '';
   }
 
   openDocumentPicker() {
@@ -310,11 +332,14 @@ export class ScheduleFormComponent implements OnInit {
 
     dialogRef.afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(selectedIds => {
-        if (selectedIds && Array.isArray(selectedIds)) {
+      .subscribe(items => {
+        if (items && Array.isArray(items)) {
           this.form.patchValue({
-            document_ids_raw: selectedIds.join(', '),
+            document_ids_raw: items.map((i: { id: string }) => i.id).join(', '),
           });
+          this.documentDisplayValue = items
+            .map((i: { id: string; title?: string }) => `${i.title || i.id} (${i.id})`)
+            .join(', ');
         }
       });
   }

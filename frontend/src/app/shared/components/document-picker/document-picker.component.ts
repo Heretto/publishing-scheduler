@@ -339,7 +339,7 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   confirm() {
-    const ids = Array.from(this.selectedItems.keys());
-    this.dialogRef.close(ids);
+    const items = Array.from(this.selectedItems.values());
+    this.dialogRef.close(items);
   }
 }
