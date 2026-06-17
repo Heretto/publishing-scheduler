@@ -20,6 +20,7 @@ export function createHerettoRouter(
     const ccmsCtrl = createHerettoCcmsController(ccmsClient);
 
     router.get('/ccms/branches', asyncHandler(ccmsCtrl.listBranches));
+    router.get('/ccms/folders/search', asyncHandler(ccmsCtrl.searchFolders));
     router.get('/ccms/folders/:id', asyncHandler(ccmsCtrl.getFolderContents));
     router.get('/ccms/documents/:id', asyncHandler(ccmsCtrl.getDocumentInfo));
     router.post('/ccms/search', asyncHandler(ccmsCtrl.searchDocuments));

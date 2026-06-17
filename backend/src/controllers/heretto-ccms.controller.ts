@@ -22,5 +22,15 @@ export function createHerettoCcmsController(client: IHerettoCcmsClient) {
       const results = await client.searchDocuments(req.body);
       res.json(results);
     },
+
+    async searchFolders(req: Request, res: Response) {
+      const name = req.query.name as string;
+      if (!name) {
+        res.status(400).json({ error: 'name query parameter is required' });
+        return;
+      }
+      const results = await client.searchFolders(name);
+      res.json(results);
+    },
   };
 }

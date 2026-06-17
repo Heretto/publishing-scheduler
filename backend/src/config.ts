@@ -18,6 +18,9 @@ export const config = {
       .replace('/ezdnxtgen/api/v2', '/ezdnxtgen/api'),
     username: process.env.HERETTO_USERNAME || '',
     password: process.env.HERETTO_PASSWORD || '',
+    org: process.env.HERETTO_ORG || 'jorsek',
+    branch: process.env.HERETTO_BRANCH || 'master',
+    repository: process.env.HERETTO_REPOSITORY || 'content',
   },
 };
 

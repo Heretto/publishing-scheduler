@@ -14,12 +14,18 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
   private restClient: AxiosInstance;
   private searchClient: AxiosInstance;
   private xmlParser: XMLParser;
+  private searchRootPath: string;
 
   constructor(clientConfig?: HerettoClientConfig & { searchBaseUrl?: string }) {
     const auth = {
       username: clientConfig?.username || config.heretto.username,
       password: clientConfig?.password || config.heretto.password,
     };
+
+    const org = config.heretto.org;
+    const branch = config.heretto.branch;
+    const repo = config.heretto.repository;
+    this.searchRootPath = `/db/organizations/${org}/repositories/${branch}/${repo}/documents/`;
 
     this.restClient = axios.create({
       baseURL: clientConfig?.baseUrl || config.heretto.ccmsBaseUrl,
@@ -34,7 +40,7 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
       baseURL: clientConfig?.searchBaseUrl || config.heretto.searchBaseUrl,
       auth,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         Accept: 'application/json',
       },
       timeout: 30000,
@@ -71,6 +77,20 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
     return this.normalizeBranchesResponse(parsed);
   }
 
+  async searchFolders(folderName: string): Promise<CcmsSearchResponse> {
+    const response = await this.searchDocuments({
+      queryString: folderName,
+      searchResultType: 'FOLDERS_ONLY',
+    });
+    // The search API doesn't filter by folder name — it searches folder contents.
+    // Filter results client-side to match folders whose name contains the query.
+    const query = folderName.toLowerCase();
+    const filtered = response.results.filter(r =>
+      r.title.toLowerCase().includes(query)
+    );
+    return { results: filtered, total: filtered.length };
+  }
+
   async searchDocuments(query: Record<string, unknown>): Promise<CcmsSearchResponse> {
     // Build the request body per Heretto CCMS API spec:
     // POST /ezdnxtgen/api/search with {queryString, foldersToSearch, searchResultType}
@@ -80,14 +100,17 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
       startOffset: query.startOffset || 0,
       endOffset: query.endOffset || 50,
     };
-    // foldersToSearch is required — if provided, use it; otherwise search from root
+    // foldersToSearch is required and must use the full db path format:
+    // /db/organizations/{org}/repositories/{branch}/{repo}/documents/
     if (query.foldersToSearch) {
       searchBody.foldersToSearch = query.foldersToSearch;
     } else {
-      // "/" searches from the repository root
-      searchBody.foldersToSearch = { '/': true };
+      searchBody.foldersToSearch = { [this.searchRootPath]: true };
     }
     const response = await this.searchClient.post('/search', searchBody);
+    if (response.status === 204 || !response.data) {
+      return { results: [], total: 0 };
+    }
     return this.normalizeSearchResponse(response.data);
   }
 
@@ -143,11 +166,17 @@ export class HerettoCcmsClient implements IHerettoCcmsClient {
       const entity = (hit.fileEntity || hit) as Record<string, unknown>;
       const metadata = entity.metadata as Record<string, unknown> | undefined;
       const metaData = metadata?.data as Record<string, unknown> | undefined;
+      // Heretto uses uppercase "ID" for the identifier field.
+      // Folders have mimeType: null and @class ending in "FolderImpl".
+      const entityClass = String(entity['@class'] || '');
+      const isFolder = entityClass.endsWith('FolderImpl') || entity.numChildFolders !== undefined;
+      const type = isFolder ? 'folder'
+        : String(entity.mimeType || entity.type || entity.resourceType || '');
       return {
         ...entity,
-        id: String(entity.uuid || entity.id || ''),
+        id: String(entity.ID || entity.uuid || entity.id || ''),
         title: String(metaData?.title || entity.name || entity.title || ''),
-        type: String(entity.mimeType || entity.type || entity.resourceType || ''),
+        type,
       };
     });
     const total = typeof data.totalResults === 'number' ? data.totalResults

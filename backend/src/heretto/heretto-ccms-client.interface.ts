@@ -40,4 +40,5 @@ export interface IHerettoCcmsClient {
   getDocumentInfo(id: string): Promise<CcmsResource>;
   getBranches(): Promise<CcmsBranch[]>;
   searchDocuments(query: Record<string, unknown>): Promise<CcmsSearchResponse>;
+  searchFolders(folderName: string): Promise<CcmsSearchResponse>;
 }

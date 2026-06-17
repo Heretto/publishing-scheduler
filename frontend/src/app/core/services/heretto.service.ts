@@ -81,4 +81,8 @@ export class HerettoService {
   searchDocuments(query: Record<string, unknown>): Observable<CcmsSearchResponse> {
     return this.api.post<CcmsSearchResponse>('/heretto/ccms/search', query);
   }
+
+  searchFoldersByName(name: string): Observable<CcmsSearchResponse> {
+    return this.api.get<CcmsSearchResponse>('/heretto/ccms/folders/search', { name });
+  }
 }

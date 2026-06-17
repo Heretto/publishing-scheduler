@@ -45,10 +45,10 @@ interface BreadcrumbItem {
           </div>
           <div class="folder-prompt" *ngIf="!currentFolder && !browseLoading">
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Root Folder ID</mat-label>
-              <input matInput [(ngModel)]="rootFolderId" placeholder="Enter a folder UUID to browse">
+              <mat-label>Folder Name</mat-label>
+              <input matInput [(ngModel)]="folderNameQuery" placeholder="Enter a folder name to browse">
             </mat-form-field>
-            <button mat-raised-button color="primary" (click)="navigateToFolder(rootFolderId)" [disabled]="!rootFolderId">
+            <button mat-raised-button color="primary" (click)="searchAndBrowseFolder()" [disabled]="!folderNameQuery">
               Browse
             </button>
           </div>
@@ -77,11 +77,30 @@ interface BreadcrumbItem {
           </mat-list>
           <div class="browse-error" *ngIf="browseError">{{ browseError }}</div>
         </mat-tab>
-        <!-- Search disabled — the demo instance search API returns 204 for all queries.
-             The search code is preserved in the component class for when this is resolved. -->
-        <mat-tab label="Search" disabled>
-          <div class="search-unavailable">
-            Search is not available on this Heretto instance. Use Browse to navigate folders.
+        <mat-tab label="Search">
+          <div class="search-section">
+            <mat-form-field appearance="outline" class="full-width search-field">
+              <mat-label>Search documents</mat-label>
+              <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearchInput($event)" placeholder="Type to search...">
+            </mat-form-field>
+            <div class="loading" *ngIf="searchLoading">
+              <mat-spinner diameter="32"></mat-spinner>
+            </div>
+            <mat-list *ngIf="searchResults.length > 0 && !searchLoading">
+              <mat-list-item *ngFor="let item of searchResults" class="item-row">
+                <mat-checkbox
+                  [checked]="isSelected(item.id)"
+                  (change)="toggleSelection(item)"
+                ></mat-checkbox>
+                <mat-icon class="item-icon">description</mat-icon>
+                <span class="item-title">{{ item.title || item.id }}</span>
+                <span class="item-type">{{ item.type }}</span>
+              </mat-list-item>
+            </mat-list>
+            <div class="empty-message" *ngIf="searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && !searchError">
+              No results found
+            </div>
+            <div class="browse-error" *ngIf="searchError">{{ searchError }}</div>
           </div>
         </mat-tab>
       </mat-tab-group>
@@ -150,11 +169,8 @@ interface BreadcrumbItem {
       color: #f44336;
       padding: 8px 0;
     }
-    .search-unavailable {
-      color: #999;
-      font-style: italic;
-      padding: 24px 16px;
-      text-align: center;
+    .search-section {
+      padding-top: 16px;
     }
     .folder-prompt {
       display: flex;
@@ -195,7 +211,7 @@ export class DocumentPickerComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private searchSubject = new Subject<string>();
 
-  rootFolderId = '';
+  folderNameQuery = '';
   currentFolder: CcmsFolder | null = null;
   breadcrumbs: BreadcrumbItem[] = [];
   browseLoading = false;
@@ -275,6 +291,28 @@ export class DocumentPickerComponent implements OnInit {
         error: () => {
           this.browseLoading = false;
           this.browseError = 'Failed to load folder contents.';
+        },
+      });
+  }
+
+  searchAndBrowseFolder() {
+    if (!this.folderNameQuery) return;
+    this.browseLoading = true;
+    this.browseError = '';
+    this.herettoService.searchFoldersByName(this.folderNameQuery)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: response => {
+          if (response.results.length > 0) {
+            this.navigateToFolder(response.results[0].id);
+          } else {
+            this.browseLoading = false;
+            this.browseError = `No folders found matching "${this.folderNameQuery}"`;
+          }
+        },
+        error: () => {
+          this.browseLoading = false;
+          this.browseError = 'Failed to search for folders.';
         },
       });
   }
