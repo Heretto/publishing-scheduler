@@ -138,7 +138,7 @@ a {
 
 .sidenav .mat-toolbar {
   background-color: $heretto-dark-blue !important;
-  color: $heretto-cyan !important;
+  color: $heretto-white !important;
   font-family: 'Satoshi', sans-serif;
   font-weight: 700;
   font-size: 18px;
@@ -146,41 +146,41 @@ a {
 }
 
 .sidenav .mat-mdc-nav-list .mat-mdc-list-item {
-  color: $heretto-cyan !important;
-  --mdc-list-list-item-label-text-color: #{$heretto-cyan} !important;
+  color: $heretto-white !important;
+  --mdc-list-list-item-label-text-color: #{$heretto-white} !important;
 
   .mat-icon {
-    color: $heretto-cyan !important;
+    color: $heretto-white !important;
   }
 
   .mdc-list-item__primary-text {
-    color: $heretto-cyan !important;
+    color: $heretto-white !important;
   }
 
   &:hover {
-    --mdc-list-list-item-label-text-color: #{$heretto-white} !important;
-    color: $heretto-white !important;
+    --mdc-list-list-item-label-text-color: #{$heretto-cyan} !important;
+    color: $heretto-cyan !important;
 
     .mat-icon {
-      color: $heretto-white !important;
+      color: $heretto-cyan !important;
     }
 
     .mdc-list-item__primary-text {
-      color: $heretto-white !important;
+      color: $heretto-cyan !important;
     }
   }
 
   &.active {
     background-color: rgba(121, 236, 221, 0.1) !important;
-    --mdc-list-list-item-label-text-color: #{$heretto-white} !important;
-    color: $heretto-white !important;
+    --mdc-list-list-item-label-text-color: #{$heretto-cyan} !important;
+    color: $heretto-cyan !important;
 
     .mat-icon {
-      color: $heretto-white !important;
+      color: $heretto-cyan !important;
     }
 
     .mdc-list-item__primary-text {
-      color: $heretto-white !important;
+      color: $heretto-cyan !important;
     }
   }
 }
