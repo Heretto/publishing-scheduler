@@ -70,7 +70,7 @@ interface BreadcrumbItem {
                 (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
                 {{ item.title || item.id }}
               </span>
-              <span class="item-type">{{ item.type }}</span>
+              <span class="item-type">{{ formatType(item) }}</span>
             </mat-list-item>
             <mat-list-item *ngIf="currentFolder.children.length === 0">
               <span class="empty-message">This folder is empty</span>
@@ -95,7 +95,7 @@ interface BreadcrumbItem {
                 ></mat-checkbox>
                 <mat-icon class="item-icon">description</mat-icon>
                 <span class="item-title">{{ item.title || item.id }}</span>
-                <span class="item-type">{{ item.type }}</span>
+                <span class="item-type">{{ formatType(item) }}</span>
               </mat-list-item>
             </mat-list>
             <div class="empty-message" *ngIf="searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && !searchError">
@@ -320,6 +320,18 @@ export class DocumentPickerComponent implements OnInit {
 
   onSearchInput(query: string) {
     this.searchSubject.next(query);
+  }
+
+  formatType(item: CcmsResource): string {
+    let type = item.type || '';
+    // Strip "application/" prefix from MIME types (e.g. "application/dita+xml" -> "dita+xml")
+    type = type.replace(/^application\//, '');
+    // For DITA types, prefer the resourceType/topicType if available (e.g. "topic", "concept", "task")
+    const resourceType = item['resourceType'] || item['topicType'] || item['ditaType'];
+    if (resourceType && typeof resourceType === 'string' && type.includes('dita')) {
+      return resourceType;
+    }
+    return type;
   }
 
   isSelected(id: string): boolean {

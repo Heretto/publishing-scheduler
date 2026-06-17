@@ -55,6 +55,10 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
               <a [routerLink]="['/schedules']">{{ s.name }}</a>
             </td>
           </ng-container>
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>Description</th>
+            <td mat-cell *matCellDef="let s">{{ s.description }}</td>
+          </ng-container>
           <ng-container matColumnDef="cron">
             <th mat-header-cell *matHeaderCellDef>Schedule</th>
             <td mat-cell *matCellDef="let s">
@@ -68,8 +72,8 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
               <span *ngIf="!s.last_run_status">Never</span>
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="['name', 'cron', 'lastRun']"></tr>
-          <tr mat-row *matRowDef="let row; columns: ['name', 'cron', 'lastRun']"></tr>
+          <tr mat-header-row *matHeaderRowDef="['name', 'description', 'cron', 'lastRun']"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['name', 'description', 'cron', 'lastRun']"></tr>
         </table>
       </mat-card>
       <ng-template #noSchedules>

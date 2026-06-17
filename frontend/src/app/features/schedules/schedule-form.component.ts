@@ -74,6 +74,16 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             <label class="section-label">Scenario Parameters</label>
             <div *ngFor="let param of scenarioParameters" class="parameter-row">
               <ng-container [ngSwitch]="param.type">
+                <div *ngSwitchCase="'file_picker'" class="file-picker-param">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>{{ param.displayName || param.name }}</mat-label>
+                    <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
+                  </mat-form-field>
+                  <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
+                    <mat-icon>folder_open</mat-icon>
+                    Browse
+                  </button>
+                </div>
                 <div *ngSwitchCase="'file_uuid_picker'" class="file-picker-param">
                   <mat-form-field appearance="outline" class="full-width">
                     <mat-label>{{ param.displayName || param.name }}</mat-label>
@@ -97,7 +107,7 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
                 </mat-checkbox>
                 <mat-form-field *ngSwitchDefault appearance="outline" class="full-width">
                   <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <input matInput [value]="getParameterValue(param.name) || ''" (input)="setParameterValue(param.name, $any($event.target).value)">
+                  <input matInput [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''" (input)="setParameterValue(param.name, $any($event.target).value)">
                 </mat-form-field>
               </ng-container>
             </div>
@@ -283,9 +293,25 @@ export class ScheduleFormComponent implements OnInit {
               this.parameterOverrides[p.name] = p.value;
             }
           }
+          this.resolveRefDisplayValues(params);
         },
         error: () => {},
       });
+  }
+
+  private resolveRefDisplayValues(params: ScenarioParameter[]) {
+    const refParams = params.filter(p => p.type === 'ref' && p.value && typeof p.value === 'string');
+    for (const p of refParams) {
+      const uuid = p.value as string;
+      this.herettoService.getDocumentInfo(uuid)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: doc => {
+            this.parameterDisplayValues[p.name] = `${doc.title || uuid} (${uuid})`;
+          },
+          error: () => {},
+        });
+    }
   }
 
   getParameterValue(name: string): unknown {
