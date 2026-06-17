@@ -177,7 +177,11 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
       align-items: flex-start;
     }
     .document-ids-section .full-width, .file-picker-param .full-width { flex: 1; }
-    .browse-btn { margin-top: 4px; height: 56px; }
+    .document-ids-section .mat-mdc-form-field-subscript-wrapper,
+    .file-picker-param .mat-mdc-form-field-subscript-wrapper {
+      display: none;
+    }
+    .browse-btn { height: 56px; }
     .parameters-section {
       margin-bottom: 16px;
       padding: 12px;
