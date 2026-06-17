@@ -117,11 +117,12 @@ interface DayOption {
     }
     .mode-toggle {
       display: flex;
-      justify-content: flex-end;
+      justify-content: flex-start;
     }
     .full-width { width: 100%; }
     .frequency-row {
       display: flex;
+      margin-bottom: 12px;
     }
     .time-row {
       display: flex;

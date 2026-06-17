@@ -156,9 +156,7 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
     .full-width { width: 100%; margin-bottom: 8px; }
     .cron-section {
       margin-bottom: 16px;
-      padding: 12px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
+      padding: 0;
     }
     .cron-label {
       display: block;
