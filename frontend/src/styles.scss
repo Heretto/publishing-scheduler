@@ -1,4 +1,192 @@
-/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat;
+
+// Heretto brand colors
+$heretto-dark-blue: #011627;
+$heretto-cyan: #79ECDD;
+$heretto-cranberry: #AD4780;
+$heretto-yellow: #F7D48E;
+$heretto-white: #FFFFFF;
+
+// Brand shadows
+$shadow-lvl1: 0px 4px 16px -2px rgba(0, 65, 117, 0.16);
+$shadow-lvl2: 0px 12px 32px -4px rgba(0, 65, 117, 0.16);
+
+// Custom palettes
+$heretto-primary-palette: (
+  50: #e0f7f4,
+  100: #b3ece4,
+  200: #80dfd3,
+  300: #79ECDD,
+  400: #5ce8d3,
+  500: #011627,
+  600: #011220,
+  700: #010e19,
+  800: #010a13,
+  900: #00060c,
+  contrast: (
+    50: $heretto-dark-blue,
+    100: $heretto-dark-blue,
+    200: $heretto-dark-blue,
+    300: $heretto-dark-blue,
+    400: $heretto-dark-blue,
+    500: $heretto-white,
+    600: $heretto-white,
+    700: $heretto-white,
+    800: $heretto-white,
+    900: $heretto-white,
+  ),
+);
+
+$heretto-accent-palette: (
+  50: #fdf5e6,
+  100: #fbe8c0,
+  200: #F7D48E,
+  300: #f5c76a,
+  400: #f3bd50,
+  500: #AD4780,
+  600: #9c3f73,
+  700: #853663,
+  800: #6e2d53,
+  900: #4a1e38,
+  contrast: (
+    50: $heretto-dark-blue,
+    100: $heretto-dark-blue,
+    200: $heretto-dark-blue,
+    300: $heretto-dark-blue,
+    400: $heretto-dark-blue,
+    500: $heretto-white,
+    600: $heretto-white,
+    700: $heretto-white,
+    800: $heretto-white,
+    900: $heretto-white,
+  ),
+);
+
+$heretto-primary: mat.define-palette($heretto-primary-palette, 500);
+$heretto-accent: mat.define-palette($heretto-accent-palette, 500);
+
+$heretto-typography: mat.define-typography-config(
+  $font-family: "'Satoshi', sans-serif",
+);
+
+$heretto-theme: mat.define-light-theme((
+  color: (
+    primary: $heretto-primary,
+    accent: $heretto-accent,
+  ),
+  typography: $heretto-typography,
+));
+
+@include mat.all-component-themes($heretto-theme);
 
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body {
+  margin: 0;
+  font-family: 'Satoshi', sans-serif;
+  color: $heretto-dark-blue;
+  background-color: #f5f7fa;
+}
+
+// Links
+a {
+  color: $heretto-cranberry;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+// Card shadow
+.mat-mdc-card {
+  box-shadow: $shadow-lvl1 !important;
+  border-radius: 8px !important;
+}
+
+// Checkbox accent
+.mat-mdc-checkbox.mat-accent {
+  --mdc-checkbox-selected-checkmark-color: #{$heretto-white};
+  --mdc-checkbox-selected-focus-icon-color: #{$heretto-dark-blue};
+  --mdc-checkbox-selected-hover-icon-color: #{$heretto-dark-blue};
+  --mdc-checkbox-selected-icon-color: #{$heretto-dark-blue};
+  --mdc-checkbox-selected-pressed-icon-color: #{$heretto-dark-blue};
+}
+
+// Form field focus
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: $heretto-dark-blue !important;
+}
+
+.mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+  color: $heretto-dark-blue !important;
+}
+
+// Tab active indicator
+.mat-mdc-tab.mdc-tab--active .mdc-tab-indicator__content--underline {
+  border-color: $heretto-dark-blue !important;
+}
+
+.mat-mdc-tab.mdc-tab--active .mdc-tab__text-label {
+  color: $heretto-dark-blue !important;
+}
+
+// Sidebar
+.sidenav.mat-drawer {
+  width: 220px;
+  background-color: $heretto-dark-blue !important;
+  border-right: none !important;
+}
+
+.sidenav .mat-toolbar {
+  background-color: $heretto-dark-blue !important;
+  color: $heretto-cyan !important;
+  font-family: 'Satoshi', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.3px;
+}
+
+.sidenav .mat-mdc-nav-list .mat-mdc-list-item {
+  color: $heretto-cyan !important;
+  --mdc-list-list-item-label-text-color: #{$heretto-cyan} !important;
+
+  .mat-icon {
+    color: $heretto-cyan !important;
+  }
+
+  .mdc-list-item__primary-text {
+    color: $heretto-cyan !important;
+  }
+
+  &:hover {
+    --mdc-list-list-item-label-text-color: #{$heretto-white} !important;
+    color: $heretto-white !important;
+
+    .mat-icon {
+      color: $heretto-white !important;
+    }
+
+    .mdc-list-item__primary-text {
+      color: $heretto-white !important;
+    }
+  }
+
+  &.active {
+    background-color: rgba(121, 236, 221, 0.1) !important;
+    --mdc-list-list-item-label-text-color: #{$heretto-white} !important;
+    color: $heretto-white !important;
+
+    .mat-icon {
+      color: $heretto-white !important;
+    }
+
+    .mdc-list-item__primary-text {
+      color: $heretto-white !important;
+    }
+  }
+}
+
+// Prevent global link color from applying inside sidebar
+.sidenav a {
+  color: inherit !important;
+  &:hover { text-decoration: none !important; }
+}

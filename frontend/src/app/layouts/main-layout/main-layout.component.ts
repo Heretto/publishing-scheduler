@@ -44,9 +44,7 @@ import { MatIconModule } from '@angular/material/icon';
   `,
   styles: [`
     .layout-container { height: 100vh; }
-    .sidenav { width: 260px; }
     .content { padding: 24px; }
-    .active { background-color: rgba(0, 0, 0, 0.04); }
     .skip-link {
       position: absolute;
       left: -9999px;
@@ -60,8 +58,8 @@ import { MatIconModule } from '@angular/material/icon';
       width: auto;
       height: auto;
       padding: 8px 16px;
-      background: #3f51b5;
-      color: white;
+      background: #011627;
+      color: #79ECDD;
       z-index: 1000;
     }
   `],
