@@ -37,7 +37,10 @@ import { MatIconModule } from '@angular/material/icon';
       <mat-sidenav-content class="content" role="main">
         <a class="skip-link" href="#main-content">Skip to content</a>
         <div class="top-bar">
-          <img src="assets/heretto-logo.svg" alt="Heretto" class="heretto-logo">
+          <div class="top-bar-brand">
+            <img src="assets/heretto-logo.svg" alt="Heretto" class="heretto-logo">
+            <span class="top-bar-label">Open Projects</span>
+          </div>
         </div>
         <div id="main-content">
           <router-outlet></router-outlet>
@@ -53,8 +56,19 @@ import { MatIconModule } from '@angular/material/icon';
       justify-content: flex-end;
       padding: 0 0 16px 0;
     }
+    .top-bar-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
     .heretto-logo {
-      height: 24px;
+      height: 36px;
+    }
+    .top-bar-label {
+      font-size: 16px;
+      color: #666;
+      margin-top: 3px;
+      letter-spacing: 0.3px;
     }
     .skip-link {
       position: absolute;
