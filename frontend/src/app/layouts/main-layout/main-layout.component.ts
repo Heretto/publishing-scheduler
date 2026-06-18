@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
-import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,10 +7,10 @@ import { MatIconModule } from '@angular/material/icon';
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterModule, MatSidenavModule, MatToolbarModule, MatListModule, MatIconModule],
+  imports: [RouterModule, MatToolbarModule, MatListModule, MatIconModule],
   template: `
-    <mat-sidenav-container class="layout-container">
-      <mat-sidenav mode="side" opened class="sidenav" role="navigation" aria-label="Main navigation">
+    <div class="app-layout">
+      <nav class="sidenav" role="navigation" aria-label="Main navigation">
         <mat-toolbar color="primary">
           <span>Publishing Scheduler</span>
         </mat-toolbar>
@@ -33,8 +32,8 @@ import { MatIconModule } from '@angular/material/icon';
             <span matListItemTitle>Settings</span>
           </a>
         </mat-nav-list>
-      </mat-sidenav>
-      <mat-sidenav-content class="content" role="main">
+      </nav>
+      <main class="content" role="main">
         <a class="skip-link" href="#main-content">Skip to content</a>
         <div class="top-bar">
           <div class="top-bar-brand">
@@ -45,12 +44,28 @@ import { MatIconModule } from '@angular/material/icon';
         <div id="main-content">
           <router-outlet></router-outlet>
         </div>
-      </mat-sidenav-content>
-    </mat-sidenav-container>
+      </main>
+    </div>
   `,
   styles: [`
-    .layout-container { height: 100vh; }
-    .content { padding: 24px; }
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+      align-items: flex-start;
+    }
+    .sidenav {
+      width: 220px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .content {
+      flex: 1;
+      padding: 24px;
+      min-width: 0;
+    }
     .top-bar {
       display: flex;
       justify-content: flex-end;

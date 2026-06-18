@@ -77,6 +77,7 @@ $heretto-theme: mat.define-light-theme((
   typography: $heretto-typography,
 ));
 
+@include mat.core();
 @include mat.all-component-themes($heretto-theme);
 
 html, body { height: 100%; }
@@ -130,10 +131,9 @@ a {
 }
 
 // Sidebar
-.sidenav.mat-drawer {
-  width: 220px;
-  background-color: $heretto-dark-blue !important;
-  border-right: none !important;
+.sidenav {
+  background-color: $heretto-dark-blue;
+  border-right: none;
 }
 
 .sidenav .mat-toolbar {
