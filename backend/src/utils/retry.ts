@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { logger } from '../logger';
+import { jobRetries } from '../metrics';
 
 export interface RetryOptions {
   maxAttempts?: number;
@@ -7,6 +8,7 @@ export interface RetryOptions {
   maxDelayMs?: number;
   backoffMultiplier?: number;
   shouldRetry?: (error: Error) => boolean;
+  scheduleId?: string; // For metrics tracking
 }
 
 const defaultShouldRetry = (error: Error): boolean => {
@@ -38,6 +40,7 @@ export async function retryWithBackoff<T>(
     maxDelayMs = config.retry.maxDelayMs,
     backoffMultiplier = config.retry.backoffMultiplier,
     shouldRetry = defaultShouldRetry,
+    scheduleId,
   } = options;
 
   let lastError: Error | null = null;
@@ -59,7 +62,13 @@ export async function retryWithBackoff<T>(
         maxAttempts,
         delayMs,
         error: lastError.message,
+        scheduleId,
       });
+
+      // Track retry metrics
+      if (scheduleId) {
+        jobRetries.inc({ schedule_id: scheduleId });
+      }
 
       await sleep(delayMs);
 

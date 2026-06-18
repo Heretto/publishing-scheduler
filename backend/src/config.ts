@@ -6,6 +6,13 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  cors: {
+    allowedOrigins: process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : process.env.NODE_ENV === 'production'
+      ? [] // In production, require explicit configuration
+      : ['http://localhost:4200', 'http://localhost:3000'], // Development defaults
+  },
   db: {
     path: process.env.DB_PATH || './data/scheduler.db',
   },
@@ -40,6 +47,9 @@ export function validateConfig(): string[] {
   }
   if (!config.heretto.password) {
     warnings.push('HERETTO_PASSWORD is not set — Heretto API calls will fail');
+  }
+  if (config.nodeEnv === 'production' && config.cors.allowedOrigins.length === 0) {
+    warnings.push('CORS_ALLOWED_ORIGINS is not set in production — API will reject all cross-origin requests');
   }
   return warnings;
 }

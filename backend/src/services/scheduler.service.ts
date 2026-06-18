@@ -3,6 +3,7 @@ import { getAllSchedules, getScheduleById, disableSchedule } from '../models/sch
 import { JobExecutorService } from './job-executor.service';
 import { logger } from '../logger';
 import { config } from '../config';
+import { activeSchedules, scheduleFailures, scheduleDisabled } from '../metrics';
 
 export class SchedulerService {
   private tasks: Map<string, cron.ScheduledTask> = new Map();
@@ -20,6 +21,7 @@ export class SchedulerService {
         this.startSchedule(schedule.id, schedule.cron_expression);
       }
     }
+    activeSchedules.set(this.tasks.size);
     logger.info('Scheduler loaded', { activeCount: this.tasks.size });
   }
 
@@ -39,6 +41,9 @@ export class SchedulerService {
         const message = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Scheduled job execution failed', { scheduleId, error: message });
 
+        // Track failure metrics
+        scheduleFailures.inc({ schedule_id: scheduleId, reason: 'execution_error' });
+
         // Check if we should disable this schedule due to consecutive failures
         const schedule = getScheduleById(scheduleId);
         if (schedule && schedule.consecutive_failures >= config.scheduler.maxConsecutiveFailures) {
@@ -48,6 +53,7 @@ export class SchedulerService {
             maxAllowed: config.scheduler.maxConsecutiveFailures,
           });
 
+          scheduleDisabled.inc({ schedule_id: scheduleId });
           disableSchedule(scheduleId, `Auto-disabled after ${schedule.consecutive_failures} consecutive failures`);
           this.stopSchedule(scheduleId);
         }
@@ -55,6 +61,7 @@ export class SchedulerService {
     });
 
     this.tasks.set(scheduleId, task);
+    activeSchedules.set(this.tasks.size);
     return true;
   }
 
@@ -63,6 +70,7 @@ export class SchedulerService {
     if (existing) {
       existing.stop();
       this.tasks.delete(scheduleId);
+      activeSchedules.set(this.tasks.size);
     }
   }
 

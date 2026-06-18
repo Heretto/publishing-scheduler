@@ -4,6 +4,7 @@ import * as JobModel from '../models/job.model';
 import * as ScheduleModel from '../models/schedule.model';
 import { logger } from '../logger';
 import { retryWithBackoff } from '../utils/retry';
+import { jobExecutionDuration, jobExecutionTotal, jobConcurrentExecutions } from '../metrics';
 
 export class JobExecutorService {
   private herettoClient: IHerettoClient;
@@ -36,7 +37,9 @@ export class JobExecutorService {
 
     // Mark job as running
     this.runningJobs.add(scheduleId);
+    jobConcurrentExecutions.inc();
 
+    const startTime = Date.now();
     const publishParameters = schedule.publish_parameters || [];
     const requestPayload = {
       scenarioId: schedule.scenario_id,
@@ -60,7 +63,7 @@ export class JobExecutorService {
           documentIds: schedule.document_ids,
           parameters: publishParameters,
         });
-      });
+      }, { scheduleId });
 
       JobModel.updateJob(job.id, {
         status: 'completed',
@@ -71,6 +74,12 @@ export class JobExecutorService {
 
       ScheduleModel.updateScheduleLastRun(scheduleId, 'success');
       logger.info('Job completed', { jobId: job.id, scheduleId, triggerType });
+
+      // Track metrics
+      const duration = (Date.now() - startTime) / 1000;
+      jobExecutionDuration.observe({ schedule_id: scheduleId, trigger_type: triggerType, status: 'success' }, duration);
+      jobExecutionTotal.inc({ schedule_id: scheduleId, trigger_type: triggerType, status: 'success' });
+
       return JobModel.getJobById(job.id);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -83,10 +92,17 @@ export class JobExecutorService {
 
       ScheduleModel.updateScheduleLastRun(scheduleId, 'failed');
       logger.error('Job failed', { jobId: job.id, scheduleId, triggerType, error: errorMessage });
+
+      // Track metrics
+      const duration = (Date.now() - startTime) / 1000;
+      jobExecutionDuration.observe({ schedule_id: scheduleId, trigger_type: triggerType, status: 'failed' }, duration);
+      jobExecutionTotal.inc({ schedule_id: scheduleId, trigger_type: triggerType, status: 'failed' });
+
       return JobModel.getJobById(job.id);
     } finally {
       // Always remove from running jobs, even if there was an error
       this.runningJobs.delete(scheduleId);
+      jobConcurrentExecutions.dec();
     }
   }
 }

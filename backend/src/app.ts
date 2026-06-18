@@ -7,6 +7,8 @@ import jobsRouter from './routes/jobs.routes';
 import { createHerettoRouter } from './routes/heretto.routes';
 import { errorHandler } from './middleware/error-handler';
 import { generalLimiter } from './middleware/rate-limit';
+import { metricsMiddleware } from './middleware/metrics';
+import { register } from './metrics';
 import { SchedulerService } from './services/scheduler.service';
 import { JobExecutorService } from './services/job-executor.service';
 import { IHerettoClient } from './heretto/heretto-client.interface';
@@ -14,6 +16,7 @@ import { HerettoClient } from './heretto/heretto-client';
 import { IHerettoCcmsClient } from './heretto/heretto-ccms-client.interface';
 import { HerettoCcmsClient } from './heretto/heretto-ccms-client';
 import { getDatabase } from './db/database';
+import { config } from './config';
 
 export interface AppDependencies {
   schedulerService?: SchedulerService;
@@ -29,8 +32,35 @@ export function createApp(deps: AppDependencies = {}) {
   const schedulerService = deps.schedulerService || new SchedulerService(executor);
 
   app.use(helmet());
-  app.use(cors());
+
+  // Configure CORS with allowed origins
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (config.cors.allowedOrigins.length === 0) {
+        // No origins configured - reject all cross-origin requests
+        return callback(new Error('CORS not configured'));
+      }
+
+      if (config.cors.allowedOrigins.includes(origin) || config.cors.allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+    optionsSuccessStatus: 200,
+  };
+
+  app.use(cors(corsOptions));
   app.use(express.json({ limit: '100kb' }));
+
+  // Track metrics for all requests
+  app.use(metricsMiddleware);
 
   // Apply rate limiting to all API routes
   app.use('/api', generalLimiter);
@@ -60,6 +90,16 @@ export function createApp(deps: AppDependencies = {}) {
         scheduler: { activeJobs: schedulerService.getActiveCount() },
       },
     });
+  });
+
+  // Prometheus metrics endpoint
+  app.get('/metrics', async (_req, res) => {
+    try {
+      res.set('Content-Type', register.contentType);
+      res.end(await register.metrics());
+    } catch (error) {
+      res.status(500).end();
+    }
   });
 
   app.use('/api/schedules', createSchedulesRouter(schedulerService, executor));
