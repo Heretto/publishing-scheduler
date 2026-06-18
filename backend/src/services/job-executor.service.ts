@@ -3,19 +3,39 @@ import { HerettoClient } from '../heretto/heretto-client';
 import * as JobModel from '../models/job.model';
 import * as ScheduleModel from '../models/schedule.model';
 import { logger } from '../logger';
+import { retryWithBackoff } from '../utils/retry';
 
 export class JobExecutorService {
   private herettoClient: IHerettoClient;
+  private runningJobs: Set<string> = new Set(); // Track running jobs by schedule ID
 
   constructor(herettoClient?: IHerettoClient) {
     this.herettoClient = herettoClient || new HerettoClient();
   }
 
+  isJobRunning(scheduleId: string): boolean {
+    return this.runningJobs.has(scheduleId);
+  }
+
+  getRunningJobsCount(): number {
+    return this.runningJobs.size;
+  }
+
   async executeJob(scheduleId: string, triggerType: 'scheduled' | 'manual' = 'scheduled') {
+    // Check if job is already running for this schedule
+    if (this.runningJobs.has(scheduleId)) {
+      const message = `Job for schedule ${scheduleId} is already running`;
+      logger.warn('Prevented concurrent job execution', { scheduleId, triggerType });
+      throw new Error(message);
+    }
+
     const schedule = ScheduleModel.getScheduleById(scheduleId);
     if (!schedule) {
       throw new Error(`Schedule ${scheduleId} not found`);
     }
+
+    // Mark job as running
+    this.runningJobs.add(scheduleId);
 
     const publishParameters = schedule.publish_parameters || [];
     const requestPayload = {
@@ -32,11 +52,14 @@ export class JobExecutorService {
     });
 
     try {
-      const results = await this.herettoClient.triggerPublishingJob({
-        scenarioId: schedule.scenario_id,
-        deploymentId: schedule.deployment_id,
-        documentIds: schedule.document_ids,
-        parameters: publishParameters,
+      // Execute with retry logic for transient failures
+      const results = await retryWithBackoff(async () => {
+        return await this.herettoClient.triggerPublishingJob({
+          scenarioId: schedule.scenario_id,
+          deploymentId: schedule.deployment_id,
+          documentIds: schedule.document_ids,
+          parameters: publishParameters,
+        });
       });
 
       JobModel.updateJob(job.id, {
@@ -61,6 +84,9 @@ export class JobExecutorService {
       ScheduleModel.updateScheduleLastRun(scheduleId, 'failed');
       logger.error('Job failed', { jobId: job.id, scheduleId, triggerType, error: errorMessage });
       return JobModel.getJobById(job.id);
+    } finally {
+      // Always remove from running jobs, even if there was an error
+      this.runningJobs.delete(scheduleId);
     }
   }
 }

@@ -36,6 +36,7 @@ export interface ScheduleRow {
   publish_parameters: string;
   last_run_at: string | null;
   last_run_status: string | null;
+  consecutive_failures: number;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +54,7 @@ export interface FormattedSchedule {
   publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
+  consecutive_failures: number;
   created_at: string;
   updated_at: string;
 }
@@ -169,6 +171,23 @@ export function toggleSchedule(id: string, enabled: boolean): FormattedSchedule 
 export function updateScheduleLastRun(id: string, status: string): void {
   const db = getDatabase();
   const now = new Date().toISOString();
-  db.prepare('UPDATE schedules SET last_run_at = ?, last_run_status = ?, updated_at = ? WHERE id = ?')
-    .run(now, status, now, id);
+
+  // If success, reset consecutive failures. If failed, increment.
+  const consecutiveFailures = status === 'success' ? 0 : 'consecutive_failures + 1';
+
+  db.prepare(
+    `UPDATE schedules
+     SET last_run_at = ?,
+         last_run_status = ?,
+         consecutive_failures = ${consecutiveFailures},
+         updated_at = ?
+     WHERE id = ?`
+  ).run(now, status, now, id);
+}
+
+export function disableSchedule(id: string, reason: string): void {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  db.prepare('UPDATE schedules SET enabled = 0, updated_at = ? WHERE id = ?')
+    .run(now, id);
 }

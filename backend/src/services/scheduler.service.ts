@@ -1,7 +1,8 @@
 import cron from 'node-cron';
-import { getAllSchedules } from '../models/schedule.model';
+import { getAllSchedules, getScheduleById, disableSchedule } from '../models/schedule.model';
 import { JobExecutorService } from './job-executor.service';
 import { logger } from '../logger';
+import { config } from '../config';
 
 export class SchedulerService {
   private tasks: Map<string, cron.ScheduledTask> = new Map();
@@ -37,6 +38,19 @@ export class SchedulerService {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Scheduled job execution failed', { scheduleId, error: message });
+
+        // Check if we should disable this schedule due to consecutive failures
+        const schedule = getScheduleById(scheduleId);
+        if (schedule && schedule.consecutive_failures >= config.scheduler.maxConsecutiveFailures) {
+          logger.error('Disabling schedule due to consecutive failures', {
+            scheduleId,
+            consecutiveFailures: schedule.consecutive_failures,
+            maxAllowed: config.scheduler.maxConsecutiveFailures,
+          });
+
+          disableSchedule(scheduleId, `Auto-disabled after ${schedule.consecutive_failures} consecutive failures`);
+          this.stopSchedule(scheduleId);
+        }
       }
     });
 

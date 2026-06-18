@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { config, validateConfig } from './config';
 import { initDatabase, closeDatabase } from './db/database';
 import { SchedulerService } from './services/scheduler.service';
+import { JobExecutorService } from './services/job-executor.service';
 import { pruneOldJobs } from './models/job.model';
 import { logger } from './logger';
 
@@ -13,7 +14,8 @@ for (const w of warnings) {
 initDatabase();
 logger.info('Database initialized');
 
-const schedulerService = new SchedulerService();
+const jobExecutor = new JobExecutorService();
+const schedulerService = new SchedulerService(jobExecutor);
 schedulerService.loadAllSchedules();
 
 const app = createApp({ schedulerService });
@@ -36,20 +38,44 @@ const pruneTimer = setInterval(() => {
   }
 }, PRUNE_INTERVAL_MS);
 
-function shutdown(signal: string) {
+async function shutdown(signal: string) {
   logger.info('Shutdown signal received', { signal });
 
   clearInterval(pruneTimer);
-  schedulerService.stopAll();
-  logger.info('Scheduler stopped');
 
+  // Stop accepting new scheduled jobs
+  schedulerService.stopAll();
+  logger.info('Scheduler stopped - no new jobs will be scheduled');
+
+  // Wait for in-flight jobs to complete
+  const shutdownTimeout = 30000; // 30 seconds
+  const checkInterval = 500; // 500ms
+  const maxChecks = shutdownTimeout / checkInterval;
+  let checks = 0;
+
+  while (jobExecutor.getRunningJobsCount() > 0 && checks < maxChecks) {
+    const runningCount = jobExecutor.getRunningJobsCount();
+    logger.info('Waiting for in-flight jobs to complete', { runningJobs: runningCount });
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+    checks++;
+  }
+
+  if (jobExecutor.getRunningJobsCount() > 0) {
+    logger.warn('Forcing shutdown with jobs still running', {
+      runningJobs: jobExecutor.getRunningJobsCount(),
+    });
+  } else {
+    logger.info('All jobs completed successfully');
+  }
+
+  // Close HTTP server
   server.close(() => {
     closeDatabase();
-    logger.info('Server shut down');
+    logger.info('Server shut down gracefully');
     process.exit(0);
   });
 
-  // Force exit after 10 seconds
+  // Force exit after additional timeout
   setTimeout(() => {
     logger.error('Forced shutdown after timeout');
     process.exit(1);

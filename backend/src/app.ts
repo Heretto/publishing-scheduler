@@ -6,6 +6,7 @@ import { createSchedulesRouter } from './routes/schedules.routes';
 import jobsRouter from './routes/jobs.routes';
 import { createHerettoRouter } from './routes/heretto.routes';
 import { errorHandler } from './middleware/error-handler';
+import { generalLimiter } from './middleware/rate-limit';
 import { SchedulerService } from './services/scheduler.service';
 import { JobExecutorService } from './services/job-executor.service';
 import { IHerettoClient } from './heretto/heretto-client.interface';
@@ -30,6 +31,9 @@ export function createApp(deps: AppDependencies = {}) {
   app.use(helmet());
   app.use(cors());
   app.use(express.json({ limit: '100kb' }));
+
+  // Apply rate limiting to all API routes
+  app.use('/api', generalLimiter);
 
   if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('combined'));

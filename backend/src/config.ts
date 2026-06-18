@@ -22,6 +22,15 @@ export const config = {
     branch: process.env.HERETTO_BRANCH || 'master',
     repository: process.env.HERETTO_REPOSITORY || 'content',
   },
+  retry: {
+    maxAttempts: parseInt(process.env.RETRY_MAX_ATTEMPTS || '3', 10),
+    initialDelayMs: parseInt(process.env.RETRY_INITIAL_DELAY_MS || '1000', 10),
+    maxDelayMs: parseInt(process.env.RETRY_MAX_DELAY_MS || '30000', 10),
+    backoffMultiplier: parseFloat(process.env.RETRY_BACKOFF_MULTIPLIER || '2'),
+  },
+  scheduler: {
+    maxConsecutiveFailures: parseInt(process.env.SCHEDULER_MAX_CONSECUTIVE_FAILURES || '5', 10),
+  },
 };
 
 export function validateConfig(): string[] {
