@@ -247,8 +247,14 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   isDitamap(item: CcmsResource): boolean {
-    const formatted = this.formatType(item);
-    return formatted.includes('ditamap') || (item.type || '').toLowerCase().includes('ditamap');
+    const type = (item.type || '').toLowerCase();
+    const title = (item.title || item.id || '').toLowerCase();
+    // type field may carry MIME type ("application/ditamap+xml"), a short label
+    // ("ditamap"), or a generic tag name ("resource") when the XML has no type
+    // attribute. The filename extension is always present and reliable.
+    return type.includes('ditamap')
+      || this.formatType(item).includes('ditamap')
+      || title.endsWith('.ditamap');
   }
 
   onDitamapOnlyChange(value: boolean) {
