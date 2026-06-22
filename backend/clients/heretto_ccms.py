@@ -26,23 +26,25 @@ def _attr(el: etree._Element, *names: str) -> str:
 class HerettoCcmsClient:
     def __init__(self):
         s = get_settings()
-        auth = (s.heretto_username, s.heretto_password)
+        self._auth = (s.heretto_username, s.heretto_password)
         self._org = s.heretto_org
         self._branch = s.heretto_branch
         self._repo = s.heretto_repository
-        self._search_root = (
-            f"/db/organizations/{self._org}/repositories"
-            f"/{self._branch}/{self._repo}/documents/"
-        )
-        self._rest_client = httpx.AsyncClient(
-            base_url=s.heretto_ccms_base_url,
-            auth=auth,
+        self._rest_base_url = s.heretto_ccms_base_url
+        self._search_base_url = s.heretto_search_base_url
+
+    def _rest_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=self._rest_base_url,
+            auth=self._auth,
             headers={"Accept": "application/xml"},
             timeout=30.0,
         )
-        self._search_client = httpx.AsyncClient(
-            base_url=s.heretto_search_base_url,
-            auth=auth,
+
+    def _search_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=self._search_base_url,
+            auth=self._auth,
             headers={
                 "Content-Type": "application/json; charset=utf-8",
                 "Accept": "application/json",
@@ -51,7 +53,7 @@ class HerettoCcmsClient:
         )
 
     async def get_branches(self) -> list[dict]:
-        async with self._rest_client as c:
+        async with self._rest_client() as c:
             r = await c.get("/branches/", headers={"Accept": "application/xml"})
             try:
                 r.raise_for_status()
@@ -68,10 +70,11 @@ class HerettoCcmsClient:
             return results
 
     async def get_root_folder(self, branch: str | None = None) -> dict:
-        """Return the root documents folder for the configured repository.
+        """Return the content repository root folder (e.g. master/content).
 
-        Discovers the root folder UUID by searching for top-level folders and
-        reading the parentId from the first hit, then fetches that folder.
+        Path: search FOLDERS_ONLY → parentId = documents UUID
+              → fetch documents XML → parent-folder-id = content UUID
+              → return content folder contents.
         """
         root_path = self._build_search_path(branch)
         body: dict[str, Any] = {
@@ -81,7 +84,9 @@ class HerettoCcmsClient:
             "endOffset": 1,
             "foldersToSearch": {root_path: True},
         }
-        async with self._search_client as c:
+
+        # Step 1: discover the documents folder UUID from search results
+        async with self._search_client() as c:
             r = await c.post("/search", json=body)
             if r.status_code == 204 or not r.content:
                 raise HTTPException(status_code=404, detail="CCMS root folder not found")
@@ -93,13 +98,28 @@ class HerettoCcmsClient:
             hits = data.get("hits") or []
             if not hits:
                 raise HTTPException(status_code=404, detail="CCMS root folder not found")
-            root_id = (hits[0].get("fileEntity") or {}).get("parentId")
-            if not root_id:
-                raise HTTPException(status_code=404, detail="CCMS root folder parentId not found")
-        return await self.get_folder_contents(root_id)
+            documents_id = (hits[0].get("fileEntity") or {}).get("parentId")
+            if not documents_id:
+                raise HTTPException(status_code=404, detail="CCMS documents folder not found")
+
+        # Step 2: fetch the documents folder XML to get its parent (the content repo root)
+        async with self._rest_client() as c:
+            r = await c.get(f"/all-files/{documents_id}", headers={"Accept": "application/xml"})
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
+            documents_xml = etree.fromstring(r.content)
+            content_id = documents_xml.get("parent-folder-id")
+            if not content_id:
+                # No parent — documents is already the top; return it as fallback
+                return self._normalize_folder(documents_xml)
+
+        # Step 3: return the content repository root folder
+        return await self.get_folder_contents(content_id)
 
     async def get_folder_contents(self, folder_id: str) -> dict:
-        async with self._rest_client as c:
+        async with self._rest_client() as c:
             r = await c.get(
                 f"/all-files/{folder_id}", headers={"Accept": "application/xml"}
             )
@@ -111,7 +131,7 @@ class HerettoCcmsClient:
             return self._normalize_folder(root)
 
     async def get_document_info(self, doc_id: str) -> dict:
-        async with self._rest_client as c:
+        async with self._rest_client() as c:
             r = await c.get(
                 f"/all-files/{doc_id}", headers={"Accept": "application/xml"}
             )
@@ -149,7 +169,7 @@ class HerettoCcmsClient:
             "endOffset": end_offset,
             "foldersToSearch": folders_to_search or {root_path: True},
         }
-        async with self._search_client as c:
+        async with self._search_client() as c:
             r = await c.post("/search", json=body)
             if r.status_code == 204 or not r.content:
                 return {"results": [], "total": 0}
