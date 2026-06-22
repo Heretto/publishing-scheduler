@@ -5,7 +5,9 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from hop_core.app_factory import create_hop_app
 from hop_core.db import get_session_factory
 from sqlalchemy.orm import Session
@@ -93,6 +95,12 @@ app: FastAPI = create_hop_app(
     description="Scheduled publishing jobs for Heretto content, with SSO and multi-tenancy.",
     include_credentials_router=True,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def _log_validation_error(request: Request, exc: RequestValidationError):
+    logger.error("422 on %s %s: %s", request.method, request.url.path, exc.errors())
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 def _run_migrations():

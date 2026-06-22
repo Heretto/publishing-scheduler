@@ -488,7 +488,7 @@ export class ScheduleFormComponent implements OnInit {
         this.notifications.success(`Schedule ${this.isEdit ? 'updated' : 'created'}`);
         this.router.navigate(['/schedules']);
       },
-      error: () => { this.submitting = false; },
+      error: (err: unknown) => { console.error('Schedule save error:', err); this.submitting = false; },
     });
   }
 

@@ -45,6 +45,13 @@ class ScheduleCreate(BaseModel):
     description: str = ""
     cron_expression: str
     scenario_ids: list[str]
+
+    @field_validator("scenario_ids", mode="before")
+    @classmethod
+    def coerce_scenario_ids(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        return v  # type: ignore[return-value]
     deployment_id: str = ""
     document_ids: list[str] = []
     enabled: bool = True
@@ -58,6 +65,13 @@ class ScheduleUpdate(BaseModel):
     description: str | None = None
     cron_expression: str | None = None
     scenario_ids: list[str] | None = None
+
+    @field_validator("scenario_ids", mode="before")
+    @classmethod
+    def coerce_scenario_ids(cls, v: object) -> list[str] | None:
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        return v  # type: ignore[return-value]
     deployment_id: str | None = None
     document_ids: list[str] | None = None
     enabled: bool | None = None

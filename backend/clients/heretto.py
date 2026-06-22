@@ -55,7 +55,10 @@ class HerettoClient:
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
             data = r.json()
-            return data if isinstance(data, list) else data.get("content", [])
+            items: list[dict] = data if isinstance(data, list) else data.get("content", [])
+            # Normalise id to str — the Heretto API returns integer IDs
+            return [{**s, "id": str(s.get("id") or ""), "name": str(s.get("name") or "")}
+                    for s in items]
 
     async def get_releases(self) -> list[dict]:
         async with self._client() as c:
