@@ -205,8 +205,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       margin-bottom: 20px;
     }
     .page-header h1 { margin: 0; font-size: 24px; }
-    .status-large { transform: scale(1.2); transform-origin: left center; }
-    .header-meta { display: flex; flex-direction: column; gap: 2px; margin-left: 5px; }
+    .status-large { transform: scale(1.2); transform-origin: left center; flex-shrink: 0; }
+    .header-meta { display: flex; flex-direction: column; gap: 2px; margin-left: 28px; }
     .trigger-label { font-size: 13px; color: #666; }
 
     .summary-row {
