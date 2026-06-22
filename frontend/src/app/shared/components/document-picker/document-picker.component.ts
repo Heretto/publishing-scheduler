@@ -44,15 +44,6 @@ interface BreadcrumbItem {
               <span *ngIf="!last"> / </span>
             </span>
           </div>
-          <div class="folder-prompt" *ngIf="!currentFolder && !browseLoading">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Folder Name</mat-label>
-              <input matInput [(ngModel)]="folderNameQuery" placeholder="Enter a folder name to browse">
-            </mat-form-field>
-            <button mat-raised-button color="primary" (click)="searchAndBrowseFolder()" [disabled]="!folderNameQuery">
-              Browse
-            </button>
-          </div>
           <div class="loading" *ngIf="browseLoading">
             <mat-spinner diameter="32"></mat-spinner>
           </div>
@@ -212,7 +203,6 @@ export class DocumentPickerComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private searchSubject = new Subject<string>();
 
-  folderNameQuery = '';
   currentFolder: CcmsFolder | null = null;
   breadcrumbs: BreadcrumbItem[] = [];
   browseLoading = false;
@@ -243,6 +233,7 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.navigateToRoot();
     this.searchSubject.pipe(
       debounceTime(300),
       switchMap(query => {
@@ -271,6 +262,24 @@ export class DocumentPickerComponent implements OnInit {
     });
   }
 
+  navigateToRoot() {
+    this.browseLoading = true;
+    this.browseError = '';
+    this.herettoService.getRootFolder(this.data?.branch)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: folder => {
+          this.browseLoading = false;
+          this.currentFolder = folder;
+          this.breadcrumbs = [{ id: folder.id, title: folder.title || 'Content' }];
+        },
+        error: () => {
+          this.browseLoading = false;
+          this.browseError = 'Failed to load content folder.';
+        },
+      });
+  }
+
   navigateToFolder(folderId: string) {
     if (!folderId) return;
     this.browseLoading = true;
@@ -292,28 +301,6 @@ export class DocumentPickerComponent implements OnInit {
         error: () => {
           this.browseLoading = false;
           this.browseError = 'Failed to load folder contents.';
-        },
-      });
-  }
-
-  searchAndBrowseFolder() {
-    if (!this.folderNameQuery) return;
-    this.browseLoading = true;
-    this.browseError = '';
-    this.herettoService.searchFoldersByName(this.folderNameQuery, this.data?.branch)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: response => {
-          if (response.results.length > 0) {
-            this.navigateToFolder(response.results[0].id);
-          } else {
-            this.browseLoading = false;
-            this.browseError = `No folders found matching "${this.folderNameQuery}"`;
-          }
-        },
-        error: () => {
-          this.browseLoading = false;
-          this.browseError = 'Failed to search for folders.';
         },
       });
   }

@@ -58,14 +58,45 @@ class HerettoCcmsClient:
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
             root = etree.fromstring(r.content)
-            return [
-                {
-                    "id": _attr(b, "id", "uuid") or _text(b.find("id")),
-                    "name": _attr(b, "name") or _text(b.find("name")),
-                    "repository": _attr(b, "repository") or _text(b.find("repository")),
-                }
-                for b in root.iter("branch")
-            ]
+            results = []
+            for b in root.iter("branch"):
+                # <branch name="master"><repository name="content"/></branch>
+                name = _attr(b, "name")
+                repo_el = b.find("repository")
+                repo = _attr(repo_el, "name") if repo_el is not None else ""
+                results.append({"id": name, "name": name, "repository": repo})
+            return results
+
+    async def get_root_folder(self, branch: str | None = None) -> dict:
+        """Return the root documents folder for the configured repository.
+
+        Discovers the root folder UUID by searching for top-level folders and
+        reading the parentId from the first hit, then fetches that folder.
+        """
+        root_path = self._build_search_path(branch)
+        body: dict[str, Any] = {
+            "queryString": "",
+            "searchResultType": "FOLDERS_ONLY",
+            "startOffset": 0,
+            "endOffset": 1,
+            "foldersToSearch": {root_path: True},
+        }
+        async with self._search_client as c:
+            r = await c.post("/search", json=body)
+            if r.status_code == 204 or not r.content:
+                raise HTTPException(status_code=404, detail="CCMS root folder not found")
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
+            data = r.json()
+            hits = data.get("hits") or []
+            if not hits:
+                raise HTTPException(status_code=404, detail="CCMS root folder not found")
+            root_id = (hits[0].get("fileEntity") or {}).get("parentId")
+            if not root_id:
+                raise HTTPException(status_code=404, detail="CCMS root folder parentId not found")
+        return await self.get_folder_contents(root_id)
 
     async def get_folder_contents(self, folder_id: str) -> dict:
         async with self._rest_client as c:
@@ -163,6 +194,7 @@ class HerettoCcmsClient:
                 "id": _attr(child, "id", "uuid") or _text(child.find("id")),
                 "title": (
                     _attr(child, "title")
+                    or _attr(child, "name")          # name is an attribute: <folder name="General" id="..."/>
                     or _text(child.find("title"))
                     or _text(child.find("name"))
                 ),

@@ -50,6 +50,11 @@ async def list_branches():
     return await HerettoCcmsClient().get_branches()
 
 
+@router.get("/ccms/root", dependencies=[_auth])
+async def get_root_folder(branch: str | None = None):
+    return await HerettoCcmsClient().get_root_folder(branch)
+
+
 @router.get("/ccms/folders/search", dependencies=[_auth])
 async def search_folders(
     q: str = Query(alias="q", default=""),
