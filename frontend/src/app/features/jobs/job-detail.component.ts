@@ -110,7 +110,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           <table mat-table [dataSource]="publishResults" class="results-table">
             <ng-container matColumnDef="scenario">
               <th mat-header-cell *matHeaderCellDef>Scenario</th>
-              <td mat-cell *matCellDef="let r" class="mono">{{ r._scenario }}</td>
+              <td mat-cell *matCellDef="let r">{{ scenarioDisplay(r._scenario) }}</td>
             </ng-container>
             <ng-container matColumnDef="locale">
               <th mat-header-cell *matHeaderCellDef>Locale</th>
@@ -121,8 +121,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               </td>
             </ng-container>
             <ng-container matColumnDef="document">
-              <th mat-header-cell *matHeaderCellDef>Document ID</th>
-              <td mat-cell *matCellDef="let r" class="mono small">{{ r.fileId }}</td>
+              <th mat-header-cell *matHeaderCellDef>Document</th>
+              <td mat-cell *matCellDef="let r" class="mono small">{{ documentDisplay(r.fileId) }}</td>
             </ng-container>
             <ng-container matColumnDef="herettoJobId">
               <th mat-header-cell *matHeaderCellDef>Heretto Job ID</th>
