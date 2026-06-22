@@ -1,10 +1,12 @@
 """Heretto CCMS (REST + search) client."""
 
 import httpx
+from fastapi import HTTPException
 from lxml import etree
 from typing import Any
 
 from settings import get_settings
+from clients.heretto import _heretto_exc
 
 
 def _text(el: etree._Element | None) -> str:
@@ -51,7 +53,10 @@ class HerettoCcmsClient:
     async def get_branches(self) -> list[dict]:
         async with self._rest_client as c:
             r = await c.get("/branches/", headers={"Accept": "application/xml"})
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             root = etree.fromstring(r.content)
             return [
                 {
@@ -67,7 +72,10 @@ class HerettoCcmsClient:
             r = await c.get(
                 f"/all-files/{folder_id}", headers={"Accept": "application/xml"}
             )
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             root = etree.fromstring(r.content)
             return self._normalize_folder(root)
 
@@ -76,7 +84,10 @@ class HerettoCcmsClient:
             r = await c.get(
                 f"/all-files/{doc_id}", headers={"Accept": "application/xml"}
             )
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             root = etree.fromstring(r.content)
             return self._normalize_resource(root)
 
@@ -111,7 +122,10 @@ class HerettoCcmsClient:
             r = await c.post("/search", json=body)
             if r.status_code == 204 or not r.content:
                 return {"results": [], "total": 0}
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             return self._normalize_search_response(r.json())
 
     # ── normalizers ───────────────────────────────────────────────────────────

@@ -1,9 +1,21 @@
 """Heretto publishing API client."""
 
 import httpx
+from fastapi import HTTPException
 from typing import Any
 
 from settings import get_settings
+
+
+def _heretto_exc(exc: httpx.HTTPStatusError) -> HTTPException:
+    status = exc.response.status_code
+    if status == 401:
+        return HTTPException(status_code=502, detail="Heretto API: authentication failed — check HERETTO_USERNAME and HERETTO_PASSWORD in .env")
+    if status == 403:
+        return HTTPException(status_code=502, detail="Heretto API: access forbidden")
+    if status == 404:
+        return HTTPException(status_code=404, detail="Heretto API: resource not found")
+    return HTTPException(status_code=502, detail=f"Heretto API returned {status}")
 
 
 class HerettoClient:
@@ -23,7 +35,10 @@ class HerettoClient:
     async def get_deployments(self) -> list[dict]:
         async with self._client() as c:
             r = await c.get("/deployments")
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             data = r.json()
             items: list[dict] = data if isinstance(data, list) else data.get("content", [])
             return [
@@ -35,20 +50,29 @@ class HerettoClient:
     async def get_scenarios(self) -> list[dict]:
         async with self._client() as c:
             r = await c.get("/publishes/scenarios")
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             data = r.json()
             return data if isinstance(data, list) else data.get("content", [])
 
     async def get_releases(self) -> list[dict]:
         async with self._client() as c:
             r = await c.get("/releases")
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             return r.json()
 
     async def get_scenario_parameters(self, scenario_id: str) -> list[dict]:
         async with self._client() as c:
             r = await c.get(f"/publishes/scenarios/{scenario_id}/parameters")
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
             data = r.json()
             return data if isinstance(data, list) else data.get("content", [])
 
@@ -73,7 +97,10 @@ class HerettoClient:
                         "parameters": parameters or [],
                     },
                 )
-                r.raise_for_status()
+                try:
+                    r.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    raise _heretto_exc(exc) from exc
                 data = r.json()
                 results.append({
                     **data,

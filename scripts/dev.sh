@@ -88,6 +88,7 @@ echo ""
       --host 127.0.0.1 \
       --port "$BACKEND_PORT" \
       --reload \
+      --reload-include '*.py' \
       --log-level warning
 ) &
 BACKEND_PID=$!

@@ -25,4 +25,5 @@ exec "$VENV/bin/uvicorn" main:app \
   --host 127.0.0.1 \
   --port "$PORT" \
   --reload \
+  --reload-include '*.py' \
   --log-level info
