@@ -28,7 +28,7 @@ export class JobService {
   constructor(private api: ApiService) {}
 
   getAll(params?: { page?: string; limit?: string; schedule_id?: string; status?: string }): Observable<JobListResponse> {
-    return this.api.get<JobListResponse>('/jobs', params as Record<string, string>);
+    return this.api.get<JobListResponse>('/jobs/', params as Record<string, string>);
   }
 
   getById(id: string): Observable<Job> {

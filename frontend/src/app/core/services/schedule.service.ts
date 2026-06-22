@@ -36,7 +36,7 @@ export class ScheduleService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Schedule[]> {
-    return this.api.get<Schedule[]>('/schedules');
+    return this.api.get<Schedule[]>('/schedules/');
   }
 
   getById(id: string): Observable<Schedule> {
@@ -44,7 +44,7 @@ export class ScheduleService {
   }
 
   create(input: CreateScheduleInput): Observable<Schedule> {
-    return this.api.post<Schedule>('/schedules', input);
+    return this.api.post<Schedule>('/schedules/', input);
   }
 
   update(id: string, input: Partial<CreateScheduleInput>): Observable<Schedule> {
