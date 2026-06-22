@@ -143,35 +143,24 @@ class HerettoCcmsClient:
             return self._normalize_resource(root)
 
     async def get_document_locales(self, doc_id: str) -> list[dict]:
-        """Return [{code, uuid}] for each lang_* metadata entry on the document."""
-        body: dict[str, Any] = {
-            "queryString": doc_id,
-            "searchResultType": "FILES_ONLY",
-            "startOffset": 0,
-            "endOffset": 10,
-            "foldersToSearch": {self._build_search_path(None): True},
-        }
-        async with self._search_client() as c:
-            r = await c.post("/search", json=body)
-            if r.status_code == 204 or not r.content:
-                return []
+        """Return [{code, uuid}] for each lang_* <meta> on the document (via REST XML)."""
+        async with self._rest_client() as c:
+            r = await c.get(f"/all-files/{doc_id}", headers={"Accept": "application/xml"})
             try:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
-            data = r.json()
-            hits = data.get("hits") or []
-            for hit in hits:
-                entity = hit.get("fileEntity") or {}
-                entity_id = str(entity.get("ID") or entity.get("id") or "")
-                if entity_id.lower() == doc_id.lower():
-                    meta_data = (entity.get("metadata") or {}).get("data") or {}
-                    return [
-                        {"code": key[5:], "uuid": str(val)}
-                        for key, val in meta_data.items()
-                        if key.startswith("lang_") and val
-                    ]
-        return []
+            root = etree.fromstring(r.content)
+            results = []
+            metadata_el = root.find("metadata")
+            if metadata_el is not None:
+                for meta in metadata_el.findall("meta"):
+                    name = meta.get("name") or ""
+                    if name.startswith("lang_"):
+                        uuid = (meta.text or "").strip()
+                        if uuid:
+                            results.append({"code": name[5:], "uuid": uuid})
+            return results
 
     async def get_locales_for_documents(self, doc_ids: list[str]) -> list[dict]:
         """Return the intersection of locale codes available across all documents."""
