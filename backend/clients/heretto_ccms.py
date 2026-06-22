@@ -70,11 +70,14 @@ class HerettoCcmsClient:
             return results
 
     async def get_root_folder(self, branch: str | None = None) -> dict:
-        """Return the content repository root folder (e.g. master/content).
+        """Return the documents folder (the first user-visible level in Heretto).
 
-        Path: search FOLDERS_ONLY → parentId = documents UUID
-              → fetch documents XML → parent-folder-id = content UUID
-              → return content folder contents.
+        The CCMS path is .../repositories/{branch}/{repo}/documents/ — the
+        "documents" container is an internal node that users never see in the
+        Heretto UI, so we start the browser one level inside it.
+
+        Path: search FOLDERS_ONLY inside the documents path → parentId = documents UUID
+              → return documents folder contents directly.
         """
         root_path = self._build_search_path(branch)
         body: dict[str, Any] = {
@@ -85,7 +88,7 @@ class HerettoCcmsClient:
             "foldersToSearch": {root_path: True},
         }
 
-        # Step 1: discover the documents folder UUID from search results
+        # Discover the documents folder UUID via its children's parentId
         async with self._search_client() as c:
             r = await c.post("/search", json=body)
             if r.status_code == 204 or not r.content:
@@ -102,21 +105,8 @@ class HerettoCcmsClient:
             if not documents_id:
                 raise HTTPException(status_code=404, detail="CCMS documents folder not found")
 
-        # Step 2: fetch the documents folder XML to get its parent (the content repo root)
-        async with self._rest_client() as c:
-            r = await c.get(f"/all-files/{documents_id}", headers={"Accept": "application/xml"})
-            try:
-                r.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                raise _heretto_exc(exc) from exc
-            documents_xml = etree.fromstring(r.content)
-            content_id = documents_xml.get("parent-folder-id")
-            if not content_id:
-                # No parent — documents is already the top; return it as fallback
-                return self._normalize_folder(documents_xml)
-
-        # Step 3: return the content repository root folder
-        return await self.get_folder_contents(content_id)
+        # Return the documents folder contents — this is what users see as the root
+        return await self.get_folder_contents(documents_id)
 
     async def get_folder_contents(self, folder_id: str) -> dict:
         async with self._rest_client() as c:
