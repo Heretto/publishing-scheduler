@@ -85,7 +85,9 @@ class HerettoClient:
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
             data = r.json()
-            return data if isinstance(data, list) else data.get("content", [])
+            params = data if isinstance(data, list) else data.get("content", [])
+            logger.info("Scenario %s parameters (raw): %s", scenario_id, params)
+            return params
 
     async def trigger_publishing_job(
         self,
@@ -97,13 +99,27 @@ class HerettoClient:
         if not document_ids:
             raise ValueError("At least one document ID is required to trigger a publish")
 
+        def _coerce_param_value(v: Any) -> str:
+            if isinstance(v, list):
+                return ",".join(str(x) for x in v)
+            return str(v) if v is not None else ""
+
         results = []
         async with self._client() as c:
             for file_id in document_ids:
+                # Merge all parameters into a single key-value object
+                merged_params: dict = {}
+                for p in (parameters or []):
+                    v = p.get("value")
+                    # Skip parameters with no meaningful value — sending empty strings
+                    # or empty lists would override scenario defaults with nothing.
+                    if v is None or v == [] or v == "":
+                        continue
+                    merged_params[p["name"]] = _coerce_param_value(v)
                 body = {
                     "scenario": int(scenario_id),
                     "description": "",
-                    "parameters": parameters or [],
+                    "parameters": [merged_params] if merged_params else [],
                 }
                 logger.info(
                     "Heretto publish POST /files/%s/publishes body=%s",

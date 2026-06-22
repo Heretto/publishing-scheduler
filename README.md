@@ -10,15 +10,16 @@
 ## 🌟 Features
 
 - **🕐 Flexible Scheduling** - Create cron-based schedules with visual builder or advanced cron expressions
-- **📊 Real-Time Monitoring** - Prometheus metrics for observability and alerting
+- **🌍 Locale-Aware Publishing** - Select source and/or translated locales per schedule; each locale triggers a separate Heretto publish job automatically
+- **🗺️ DITA Map Filtering** - Document picker filters to DITA maps only, with full folder browsing of your CCMS content repository
+- **🎭 Multiple Scenarios** - Assign multiple publishing scenarios to a single schedule; each runs as an independent publish job
+- **📄 Multiple Output Formats** - Choose multiple output types (PDF, HTML5, XHTML, etc.) per scenario in a single schedule
 - **🔄 Automatic Retry** - Exponential backoff for transient failures (network, timeouts, 5xx errors)
 - **🛡️ Circuit Breaker** - Auto-disable schedules after consecutive failures to prevent resource waste
-- **⚡ Rate Limiting** - Multi-tier protection against API abuse and DDoS attacks
-- **🔒 Secure CORS** - Production-ready cross-origin configuration
-- **📈 Job History** - Complete audit trail with request/response payloads and error tracking
+- **📈 Job History** - Complete audit trail with per-publish-result detail, including scenario, locale, document ID, and Heretto job ID
 - **🎯 Manual Triggers** - Override schedules and run jobs on-demand
 - **🚦 Graceful Shutdown** - Waits for in-flight jobs during server restarts
-- **🧪 Test Coverage** - 107+ passing tests covering critical functionality
+- **🧪 Test Coverage** - Comprehensive test suite covering scheduling, locale, and publishing features
 
 ## 📋 Table of Contents
 
@@ -256,9 +257,13 @@ npm run dev
    - **Description:** "Builds all product documentation daily at 2 AM"
    - **Schedule:** Use the cron builder or enter `0 2 * * *`
    - **Deployment:** Select your target deployment
-   - **Scenario:** Choose the publishing scenario
-   - **Documents:** Select documents to publish
+   - **Scenarios:** Choose one or more publishing scenarios — each selected scenario triggers a separate publish job per run
+   - **Output Formats:** For each scenario, select one or more output types (PDF, HTML5, XHTML, DITA, Markdown); each output type runs as an independent job
+   - **Locales:** Select "Source" to publish the source language and/or any translated locales present in your CCMS — each locale triggers its own publish job
+   - **Documents:** Browse your CCMS content repository (filtered to DITA maps by default) and select the maps to publish
 4. **Save** - The schedule will start automatically
+
+> **How jobs multiply:** A schedule with 2 scenarios × 2 output formats × 3 locales × 1 document = 12 Heretto publish jobs per run. Each is tracked individually in the Job History detail view.
 
 ### Managing Schedules
 

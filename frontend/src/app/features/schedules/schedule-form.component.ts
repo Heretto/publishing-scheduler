@@ -464,7 +464,13 @@ export class ScheduleFormComponent implements OnInit {
     const value = this.form.getRawValue();
     const publishParameters = this.scenarioParameters
       .filter(p => p.name in this.parameterOverrides)
-      .map(p => ({ name: p.name, value: this.parameterOverrides[p.name] }));
+      .map(p => {
+        // Preserve all raw fields Heretto returned (including id if present) so the
+        // publish endpoint can match parameters correctly. Strip options[] which is
+        // display-only and would bloat stored data.
+        const { options: _opts, ...rest } = p as Record<string, unknown>;
+        return { ...rest, value: this.parameterOverrides[p.name] };
+      });
 
     const input = {
       name: value.name,
