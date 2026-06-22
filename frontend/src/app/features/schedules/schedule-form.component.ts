@@ -140,13 +140,13 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             </button>
           </div>
 
-          <mat-form-field appearance="outline" class="full-width" *ngIf="locales.length > 0">
+          <mat-form-field appearance="outline" class="full-width">
             <mat-label>Locale</mat-label>
             <mat-select formControlName="locale">
               <mat-option value="">Source (default)</mat-option>
               <mat-option *ngFor="let l of locales" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
             </mat-select>
-            <mat-hint>Publish localised content instead of the source documents</mat-hint>
+            <mat-hint>{{ localeFieldHint }}</mat-hint>
           </mat-form-field>
 
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
@@ -219,6 +219,8 @@ export class ScheduleFormComponent implements OnInit {
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
   locales: CcmsLocale[] = [];
+  localeLoading = false;
+  localeHint = '';
 
   constructor(
     private fb: FormBuilder,
@@ -237,7 +239,7 @@ export class ScheduleFormComponent implements OnInit {
       deployment_id: [''],
       document_ids_raw: [''],
       branch: ['master'],
-      locale: [''],
+      locale: [{ value: '', disabled: true }],
       enabled: [true],
     });
   }
@@ -296,17 +298,41 @@ export class ScheduleFormComponent implements OnInit {
     }
   }
 
+  get localeFieldHint(): string {
+    if (this.localeLoading) return 'Loading available locales\u2026';
+    if (this.localeHint) return this.localeHint;
+    return 'Select documents first to load available locales';
+  }
+
   private fetchLocalesForCurrentDocs() {
     const docIds = this.parseDocumentIds();
     if (docIds.length === 0) {
       this.locales = [];
+      this.localeHint = '';
+      this.form.get('locale')?.disable();
       return;
     }
+    this.localeLoading = true;
+    this.localeHint = '';
+    this.form.get('locale')?.disable();
     this.herettoService.getLocalesForDocuments(docIds)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: locales => { this.locales = locales; },
-        error: () => { this.locales = []; },
+        next: locales => {
+          this.localeLoading = false;
+          this.locales = locales;
+          if (locales.length > 0) {
+            this.localeHint = `${locales.length} locale${locales.length > 1 ? 's' : ''} available`;
+            this.form.get('locale')?.enable();
+          } else {
+            this.localeHint = 'No locales found for selected documents';
+          }
+        },
+        error: () => {
+          this.localeLoading = false;
+          this.locales = [];
+          this.localeHint = 'Could not load locales';
+        },
       });
   }
 
@@ -414,7 +440,7 @@ export class ScheduleFormComponent implements OnInit {
     if (this.form.invalid || this.submitting) return;
     this.submitting = true;
 
-    const value = this.form.value;
+    const value = this.form.getRawValue();
     const publishParameters = this.scenarioParameters
       .filter(p => p.name in this.parameterOverrides)
       .map(p => ({ name: p.name, value: this.parameterOverrides[p.name] }));

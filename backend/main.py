@@ -99,17 +99,21 @@ def _run_migrations():
     """Apply incremental schema changes for existing databases."""
     from sqlalchemy import text
     from hop_core.db import get_engine
-    engine = get_engine()
-    migrations = [
-        "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
-    ]
-    with engine.connect() as conn:
-        for sql in migrations:
-            try:
-                conn.execute(text(sql))
-                conn.commit()
-            except Exception:
-                pass  # Column already exists
+    try:
+        engine = get_engine()
+        migrations = [
+            "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
+        ]
+        with engine.connect() as conn:
+            for sql in migrations:
+                try:
+                    conn.execute(text(sql))
+                    conn.commit()
+                    logger.info("DB migration applied: %s", sql)
+                except Exception:
+                    pass  # Column already exists
+    except Exception as exc:
+        logger.warning("DB migration skipped: %s", exc)
 
 
 @app.on_event("startup")
