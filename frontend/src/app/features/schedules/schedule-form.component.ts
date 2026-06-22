@@ -62,16 +62,16 @@ function requireNonEmpty(control: AbstractControl) {
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
-            <mat-label>Output Format(s)</mat-label>
+            <mat-label>Publishing Scenario(s)</mat-label>
             <mat-select formControlName="scenario_ids" multiple (selectionChange)="onScenarioChange($event.value)">
               <mat-option *ngFor="let s of scenarios" [value]="s.id">{{ s.name }}</mat-option>
             </mat-select>
-            <mat-hint *ngIf="selectedScenarioCount > 1">Scenario parameters shown for first selected format</mat-hint>
-            <mat-error *ngIf="form.get('scenario_ids')?.hasError('required')">At least one output format is required</mat-error>
+            <mat-hint *ngIf="selectedScenarioCount > 1">Output formats shown for first selected scenario</mat-hint>
+            <mat-error *ngIf="form.get('scenario_ids')?.hasError('required')">At least one publishing scenario is required</mat-error>
           </mat-form-field>
 
           <div class="parameters-section" *ngIf="scenarioParameters.length > 0">
-            <label class="section-label">Scenario Parameters</label>
+            <label class="section-label">Output Format(s)</label>
             <div *ngFor="let param of scenarioParameters" class="parameter-row">
               <ng-container [ngSwitch]="param.type">
                 <div *ngSwitchCase="'file_picker'" class="file-picker-param">
@@ -96,7 +96,7 @@ function requireNonEmpty(control: AbstractControl) {
                 </div>
                 <mat-form-field *ngSwitchCase="'option'" appearance="outline" class="full-width">
                   <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <mat-select [value]="getParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
+                  <mat-select multiple [value]="getOptionParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
                     <mat-option *ngFor="let opt of param.options" [value]="opt.value">{{ opt.displayName || opt.value }}</mat-option>
                   </mat-select>
                 </mat-form-field>
@@ -362,8 +362,12 @@ export class ScheduleFormComponent implements OnInit {
           console.log('Scenario parameters:', JSON.stringify(params, null, 2));
           this.scenarioParameters = params;
           for (const p of params) {
-            if (!(p.name in this.parameterOverrides) && p.value !== undefined && p.value !== '') {
-              this.parameterOverrides[p.name] = p.value;
+            if (!(p.name in this.parameterOverrides)) {
+              if (p.type === 'option') {
+                this.parameterOverrides[p.name] = p.value !== undefined && p.value !== '' ? [String(p.value)] : [];
+              } else if (p.value !== undefined && p.value !== '') {
+                this.parameterOverrides[p.name] = p.value;
+              }
             }
           }
           this.resolveRefDisplayValues(params);
@@ -389,6 +393,13 @@ export class ScheduleFormComponent implements OnInit {
 
   getParameterValue(name: string): unknown {
     return this.parameterOverrides[name] ?? '';
+  }
+
+  getOptionParameterValue(name: string): string[] {
+    const val = this.parameterOverrides[name];
+    if (Array.isArray(val)) return val as string[];
+    if (val && typeof val === 'string') return [val];
+    return [];
   }
 
   setParameterValue(name: string, value: unknown) {
