@@ -59,6 +59,7 @@ class Schedule(Base):
     document_ids = Column(Text, default="[]")       # JSON array
     enabled = Column(Boolean, default=True)
     branch = Column(String(255), default="master")
+    locale = Column(String(50), default="")
     publish_parameters = Column(Text, default="[]") # JSON array
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     last_run_status = Column(String(50), nullable=True)

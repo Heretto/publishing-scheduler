@@ -95,8 +95,26 @@ app: FastAPI = create_hop_app(
 )
 
 
+def _run_migrations():
+    """Apply incremental schema changes for existing databases."""
+    from sqlalchemy import text
+    from hop_core.db import get_engine
+    engine = get_engine()
+    migrations = [
+        "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
+
+
 @app.on_event("startup")
 async def on_startup():
+    _run_migrations()
     sched.start()
     _load_schedules()
     asyncio.create_task(_prune_old_jobs())

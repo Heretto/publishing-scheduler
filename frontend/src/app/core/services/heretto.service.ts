@@ -50,6 +50,10 @@ export interface CcmsSearchResponse {
   total: number;
 }
 
+export interface CcmsLocale {
+  code: string;
+}
+
 export interface ScenarioParameterOption {
   displayName: string | null;
   value: string;
@@ -98,6 +102,10 @@ export class HerettoService {
 
   getScenarioParameters(scenarioId: string): Observable<ScenarioParameter[]> {
     return this.api.get<ScenarioParameter[]>(`/heretto/scenarios/${scenarioId}/parameters`);
+  }
+
+  getLocalesForDocuments(docIds: string[]): Observable<CcmsLocale[]> {
+    return this.api.post<CcmsLocale[]>('/heretto/ccms/locales', { document_ids: docIds });
   }
 
   searchDocuments(query: Record<string, unknown>, branch?: string): Observable<CcmsSearchResponse> {

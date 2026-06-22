@@ -12,7 +12,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
-import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter } from '../../core/services/heretto.service';
+import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
@@ -140,6 +140,15 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
             </button>
           </div>
 
+          <mat-form-field appearance="outline" class="full-width" *ngIf="locales.length > 0">
+            <mat-label>Locale</mat-label>
+            <mat-select formControlName="locale">
+              <mat-option value="">Source (default)</mat-option>
+              <mat-option *ngFor="let l of locales" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
+            </mat-select>
+            <mat-hint>Publish localised content instead of the source documents</mat-hint>
+          </mat-form-field>
+
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
 
           <div class="actions">
@@ -209,6 +218,7 @@ export class ScheduleFormComponent implements OnInit {
   parameterOverrides: Record<string, unknown> = {};
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
+  locales: CcmsLocale[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -227,6 +237,7 @@ export class ScheduleFormComponent implements OnInit {
       deployment_id: [''],
       document_ids_raw: [''],
       branch: ['master'],
+      locale: [''],
       enabled: [true],
     });
   }
@@ -254,10 +265,12 @@ export class ScheduleFormComponent implements OnInit {
             this.form.patchValue({
               ...s,
               document_ids_raw: s.document_ids.join(', '),
+              locale: s.locale || '',
             });
             // Show raw IDs as fallback until user re-browses
             if (s.document_ids.length > 0) {
               this.documentDisplayValue = s.document_ids.join(', ');
+              this.fetchLocalesForCurrentDocs();
             }
             // Restore parameter overrides from saved schedule
             for (const p of (s.publish_parameters || [])) {
@@ -272,6 +285,29 @@ export class ScheduleFormComponent implements OnInit {
           },
         });
     }
+  }
+
+  getLanguageName(code: string): string {
+    try {
+      const dn = new Intl.DisplayNames(['en'], { type: 'language' });
+      return dn.of(code.replace('_', '-')) || code;
+    } catch {
+      return code;
+    }
+  }
+
+  private fetchLocalesForCurrentDocs() {
+    const docIds = this.parseDocumentIds();
+    if (docIds.length === 0) {
+      this.locales = [];
+      return;
+    }
+    this.herettoService.getLocalesForDocuments(docIds)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: locales => { this.locales = locales; },
+        error: () => { this.locales = []; },
+      });
   }
 
   onScenarioChange(scenarioId: string) {
@@ -364,10 +400,12 @@ export class ScheduleFormComponent implements OnInit {
         if (items && Array.isArray(items)) {
           this.form.patchValue({
             document_ids_raw: items.map((i: { id: string }) => i.id).join(', '),
+            locale: '',
           });
           this.documentDisplayValue = items
             .map((i: { id: string; title?: string }) => `${i.title || i.id} (${i.id})`)
             .join(', ');
+          this.fetchLocalesForCurrentDocs();
         }
       });
   }
@@ -389,6 +427,7 @@ export class ScheduleFormComponent implements OnInit {
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
       branch: value.branch,
+      locale: value.locale || '',
       publish_parameters: publishParameters,
       enabled: value.enabled,
     };

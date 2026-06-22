@@ -12,6 +12,7 @@ export interface Schedule {
   document_ids: string[];
   enabled: boolean;
   branch: string;
+  locale: string;
   publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
@@ -28,6 +29,7 @@ export interface CreateScheduleInput {
   document_ids?: string[];
   enabled?: boolean;
   branch?: string;
+  locale?: string;
   publish_parameters?: Record<string, unknown>[];
 }
 

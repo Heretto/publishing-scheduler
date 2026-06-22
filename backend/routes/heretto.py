@@ -25,6 +25,10 @@ class SearchBody(BaseModel):
     endOffset: int = 50
 
 
+class LocalesBody(BaseModel):
+    document_ids: list[str]
+
+
 @router.get("/deployments", dependencies=[_auth])
 async def list_deployments():
     return await HerettoClient().get_deployments()
@@ -53,6 +57,11 @@ async def list_branches():
 @router.get("/ccms/root", dependencies=[_auth])
 async def get_root_folder(branch: str | None = None):
     return await HerettoCcmsClient().get_root_folder(branch)
+
+
+@router.post("/ccms/locales", dependencies=[_auth])
+async def get_locales_for_documents(body: LocalesBody):
+    return await HerettoCcmsClient().get_locales_for_documents(body.document_ids)
 
 
 @router.get("/ccms/folders/search", dependencies=[_auth])

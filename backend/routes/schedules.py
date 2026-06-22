@@ -34,6 +34,7 @@ class ScheduleCreate(BaseModel):
     document_ids: list[str] = []
     enabled: bool = True
     branch: str = "master"
+    locale: str = ""
     publish_parameters: list[dict] = []
 
 
@@ -46,6 +47,7 @@ class ScheduleUpdate(BaseModel):
     document_ids: list[str] | None = None
     enabled: bool | None = None
     branch: str | None = None
+    locale: str | None = None
     publish_parameters: list[dict] | None = None
 
 
@@ -67,6 +69,7 @@ def _fmt(s: Schedule) -> dict:
         "document_ids": json.loads(s.document_ids or "[]"),
         "enabled": s.enabled,
         "branch": s.branch,
+        "locale": s.locale or "",
         "publish_parameters": json.loads(s.publish_parameters or "[]"),
         "last_run_at": s.last_run_at.isoformat() if s.last_run_at else None,
         "last_run_status": s.last_run_status,
@@ -141,6 +144,7 @@ def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
         document_ids=json.dumps(body.document_ids),
         enabled=body.enabled,
         branch=body.branch,
+        locale=body.locale,
         publish_parameters=json.dumps(body.publish_parameters),
     )
     db.add(s)
@@ -173,6 +177,8 @@ def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB)
         s.enabled = body.enabled
     if body.branch is not None:
         s.branch = body.branch
+    if body.locale is not None:
+        s.locale = body.locale
     if body.publish_parameters is not None:
         s.publish_parameters = json.dumps(body.publish_parameters)
 

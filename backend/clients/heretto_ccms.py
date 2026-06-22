@@ -142,6 +142,62 @@ class HerettoCcmsClient:
             root = etree.fromstring(r.content)
             return self._normalize_resource(root)
 
+    async def get_document_locales(self, doc_id: str) -> list[dict]:
+        """Return [{code, uuid}] for each lang_* metadata entry on the document."""
+        body: dict[str, Any] = {
+            "queryString": doc_id,
+            "searchResultType": "FILES_ONLY",
+            "startOffset": 0,
+            "endOffset": 10,
+            "foldersToSearch": {self._build_search_path(None): True},
+        }
+        async with self._search_client() as c:
+            r = await c.post("/search", json=body)
+            if r.status_code == 204 or not r.content:
+                return []
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
+            data = r.json()
+            hits = data.get("hits") or []
+            for hit in hits:
+                entity = hit.get("fileEntity") or {}
+                entity_id = str(entity.get("ID") or entity.get("id") or "")
+                if entity_id.lower() == doc_id.lower():
+                    meta_data = (entity.get("metadata") or {}).get("data") or {}
+                    return [
+                        {"code": key[5:], "uuid": str(val)}
+                        for key, val in meta_data.items()
+                        if key.startswith("lang_") and val
+                    ]
+        return []
+
+    async def get_locales_for_documents(self, doc_ids: list[str]) -> list[dict]:
+        """Return the intersection of locale codes available across all documents."""
+        if not doc_ids:
+            return []
+
+        all_locales: list[list[dict]] = []
+        for doc_id in doc_ids:
+            locales = await self.get_document_locales(doc_id)
+            all_locales.append(locales)
+
+        if not all_locales:
+            return []
+
+        # Intersect by code
+        common_codes = set(l["code"] for l in all_locales[0])
+        for doc_locales in all_locales[1:]:
+            common_codes &= set(l["code"] for l in doc_locales)
+
+        # Build result using the first document's UUIDs as examples (not surfaced to user)
+        result = sorted(
+            [{"code": l["code"]} for l in all_locales[0] if l["code"] in common_codes],
+            key=lambda x: x["code"],
+        )
+        return result
+
     async def search_folders(self, folder_name: str, branch: str | None = None) -> dict:
         result = await self.search_documents(
             query_string=folder_name,

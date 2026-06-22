@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from clients.heretto import HerettoClient
+from clients.heretto_ccms import HerettoCcmsClient
 from models import JobHistory, Schedule
 from settings import get_settings
 
@@ -58,11 +59,24 @@ class JobExecutorService:
 
         doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
         params: list[dict] = json.loads(schedule.publish_parameters or "[]")
+
+        # Resolve locale UUIDs — swap each source doc with its localised counterpart
+        locale = getattr(schedule, "locale", "") or ""
+        if locale and doc_ids:
+            ccms = HerettoCcmsClient()
+            resolved: list[str] = []
+            for doc_id in doc_ids:
+                locales = await ccms.get_document_locales(doc_id)
+                locale_map = {l["code"]: l["uuid"] for l in locales}
+                resolved.append(locale_map.get(locale, doc_id))
+            doc_ids = resolved
+
         request_payload = {
             "scenarioId": schedule.scenario_id,
             "deploymentId": schedule.deployment_id,
             "documentIds": doc_ids,
             "parameters": params,
+            **({"locale": locale} if locale else {}),
         }
 
         job = JobHistory(
