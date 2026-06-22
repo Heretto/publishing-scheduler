@@ -17,7 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
     .status-success, .status-completed { background-color: #79ECDD !important; color: #011627 !important; }
     .status-failed { background-color: #AD4780 !important; color: #FFFFFF !important; }
     .status-running, .status-pending { background-color: #F7D48E !important; color: #011627 !important; }
-    .badge-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+    .badge-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; vertical-align: middle; margin-top: -2px; }
   `],
 })
 export class StatusBadgeComponent {
