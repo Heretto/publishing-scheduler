@@ -63,10 +63,9 @@ interface BreadcrumbItem {
               <mat-checkbox
                 [checked]="isSelected(item.id)"
                 (change)="toggleSelection(item)"
-                *ngIf="item.type !== 'folder'"
+                [style.visibility]="item.type === 'folder' ? 'hidden' : 'visible'"
               ></mat-checkbox>
-              <mat-icon *ngIf="item.type === 'folder'" class="item-icon">folder</mat-icon>
-              <mat-icon *ngIf="item.type !== 'folder'" class="item-icon">description</mat-icon>
+              <mat-icon class="item-icon">{{ item.type === 'folder' ? 'folder' : 'description' }}</mat-icon>
               <span class="item-title"
                 [class.clickable]="item.type === 'folder'"
                 (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
@@ -156,7 +155,7 @@ interface BreadcrumbItem {
       gap: 8px;
       cursor: default;
     }
-    .item-icon { color: #666; margin-right: 4px; }
+    .item-icon { color: #666; margin-right: 4px; vertical-align: middle; }
     .item-title { flex: 1; }
     .item-title.clickable { cursor: pointer; color: #1976d2; }
     .item-title.clickable:hover { text-decoration: underline; }
