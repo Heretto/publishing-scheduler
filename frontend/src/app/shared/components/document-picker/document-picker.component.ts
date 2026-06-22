@@ -11,8 +11,11 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatListModule } from '@angular/material/list';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { HerettoService, CcmsResource, CcmsFolder } from '../../../core/services/heretto.service';
 import { Subject, debounceTime, switchMap, of } from 'rxjs';
+
+const DITAMAP_ONLY_KEY = 'docpicker_ditamap_only';
 
 export interface DocumentPickerData {
   selectedIds: string[];
@@ -30,11 +33,19 @@ interface BreadcrumbItem {
   imports: [
     CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatTabsModule, MatListModule,
-    MatCheckboxModule, MatProgressSpinnerModule,
+    MatCheckboxModule, MatProgressSpinnerModule, MatSlideToggleModule,
   ],
   template: `
     <h2 mat-dialog-title>Select Documents</h2>
     <mat-dialog-content class="picker-content">
+      <div class="filter-bar">
+        <mat-slide-toggle
+          [checked]="ditamapOnly"
+          (change)="onDitamapOnlyChange($event.checked)"
+          color="primary">
+          DITA maps only
+        </mat-slide-toggle>
+      </div>
       <mat-tab-group>
         <mat-tab label="Browse">
           <div class="breadcrumbs" *ngIf="breadcrumbs.length > 0">
@@ -48,7 +59,7 @@ interface BreadcrumbItem {
             <mat-spinner diameter="32"></mat-spinner>
           </div>
           <mat-list *ngIf="currentFolder && !browseLoading">
-            <mat-list-item *ngFor="let item of currentFolder.children" class="item-row">
+            <mat-list-item *ngFor="let item of filteredChildren" class="item-row">
               <mat-checkbox
                 [checked]="isSelected(item.id)"
                 (change)="toggleSelection(item)"
@@ -63,8 +74,8 @@ interface BreadcrumbItem {
               </span>
               <span class="item-type">{{ formatType(item) }}</span>
             </mat-list-item>
-            <mat-list-item *ngIf="currentFolder.children.length === 0">
-              <span class="empty-message">This folder is empty</span>
+            <mat-list-item *ngIf="filteredChildren.length === 0">
+              <span class="empty-message">{{ ditamapOnly ? 'No DITA maps in this folder' : 'This folder is empty' }}</span>
             </mat-list-item>
           </mat-list>
           <div class="browse-error" *ngIf="browseError">{{ browseError }}</div>
@@ -78,8 +89,8 @@ interface BreadcrumbItem {
             <div class="loading" *ngIf="searchLoading">
               <mat-spinner diameter="32"></mat-spinner>
             </div>
-            <mat-list *ngIf="searchResults.length > 0 && !searchLoading">
-              <mat-list-item *ngFor="let item of searchResults" class="item-row">
+            <mat-list *ngIf="filteredSearchResults.length > 0 && !searchLoading">
+              <mat-list-item *ngFor="let item of filteredSearchResults" class="item-row">
                 <mat-checkbox
                   [checked]="isSelected(item.id)"
                   (change)="toggleSelection(item)"
@@ -89,8 +100,8 @@ interface BreadcrumbItem {
                 <span class="item-type">{{ formatType(item) }}</span>
               </mat-list-item>
             </mat-list>
-            <div class="empty-message" *ngIf="searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && !searchError">
-              No results found
+            <div class="empty-message" *ngIf="searchQuery.length >= 2 && filteredSearchResults.length === 0 && !searchLoading && !searchError">
+              {{ searchResults.length > 0 && ditamapOnly ? 'No DITA maps match your search' : 'No results found' }}
             </div>
             <div class="browse-error" *ngIf="searchError">{{ searchError }}</div>
           </div>
@@ -118,6 +129,13 @@ interface BreadcrumbItem {
       min-width: 500px;
       min-height: 400px;
       max-height: 70vh;
+    }
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      padding: 8px 0 4px;
+      border-bottom: 1px solid #e0e0e0;
+      margin-bottom: 4px;
     }
     .full-width { width: 100%; }
     .search-field { margin-top: 16px; }
@@ -213,7 +231,30 @@ export class DocumentPickerComponent implements OnInit {
   searchLoading = false;
   searchError = '';
 
+  ditamapOnly = localStorage.getItem(DITAMAP_ONLY_KEY) === 'true';
+
   selectedItems = new Map<string, CcmsResource>();
+
+  get filteredChildren(): CcmsResource[] {
+    const children = this.currentFolder?.children ?? [];
+    if (!this.ditamapOnly) return children;
+    return children.filter(item => item.type === 'folder' || this.isDitamap(item));
+  }
+
+  get filteredSearchResults(): CcmsResource[] {
+    if (!this.ditamapOnly) return this.searchResults;
+    return this.searchResults.filter(item => this.isDitamap(item));
+  }
+
+  isDitamap(item: CcmsResource): boolean {
+    const formatted = this.formatType(item);
+    return formatted.includes('ditamap') || (item.type || '').toLowerCase().includes('ditamap');
+  }
+
+  onDitamapOnlyChange(value: boolean) {
+    this.ditamapOnly = value;
+    localStorage.setItem(DITAMAP_ONLY_KEY, String(value));
+  }
 
   constructor(
     private herettoService: HerettoService,
