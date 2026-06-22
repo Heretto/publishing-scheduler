@@ -1,21 +1,29 @@
 """Heretto publishing API client."""
 
 import httpx
+import logging
 from fastapi import HTTPException
 from typing import Any
 
 from settings import get_settings
 
+logger = logging.getLogger(__name__)
+
 
 def _heretto_exc(exc: httpx.HTTPStatusError) -> HTTPException:
     status = exc.response.status_code
+    try:
+        body = exc.response.text[:500].strip()
+    except Exception:
+        body = ""
+    detail_suffix = f" — {body}" if body else ""
     if status == 401:
         return HTTPException(status_code=502, detail="Heretto API: authentication failed — check HERETTO_USERNAME and HERETTO_PASSWORD in .env")
     if status == 403:
         return HTTPException(status_code=502, detail="Heretto API: access forbidden")
     if status == 404:
         return HTTPException(status_code=404, detail="Heretto API: resource not found")
-    return HTTPException(status_code=502, detail=f"Heretto API returned {status}")
+    return HTTPException(status_code=502, detail=f"Heretto API returned {status}{detail_suffix}")
 
 
 class HerettoClient:
@@ -92,13 +100,19 @@ class HerettoClient:
         results = []
         async with self._client() as c:
             for file_id in document_ids:
-                r = await c.post(
-                    f"/files/{file_id}/publishes",
-                    json={
-                        "scenario": int(scenario_id),
-                        "description": "",
-                        "parameters": parameters or [],
-                    },
+                body = {
+                    "scenario": int(scenario_id),
+                    "description": "",
+                    "parameters": parameters or [],
+                }
+                logger.info(
+                    "Heretto publish POST /files/%s/publishes body=%s",
+                    file_id, body,
+                )
+                r = await c.post(f"/files/{file_id}/publishes", json=body)
+                logger.info(
+                    "Heretto publish response: status=%d body=%s",
+                    r.status_code, r.text[:500],
                 )
                 try:
                     r.raise_for_status()
