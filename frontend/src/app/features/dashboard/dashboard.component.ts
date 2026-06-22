@@ -37,8 +37,16 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
       </mat-card>
       <mat-card>
         <mat-card-content>
-          <div class="stat-value">{{ recentJobs.length }}</div>
-          <div class="stat-label">Recent Jobs</div>
+          <div class="stat-value">{{ totalJobs }}</div>
+          <div class="stat-label">Total Jobs</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-content>
+          <div class="stat-value" [class.rate-good]="successRate >= 80" [class.rate-warn]="successRate >= 50 && successRate < 80" [class.rate-bad]="successRate < 50">
+            {{ recentJobs.length ? successRate + '%' : '—' }}
+          </div>
+          <div class="stat-label">Success Rate (recent)</div>
         </mat-card-content>
       </mat-card>
     </div>
@@ -91,6 +99,14 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
           </ng-container>
+          <ng-container matColumnDef="schedule">
+            <th mat-header-cell *matHeaderCellDef>Schedule</th>
+            <td mat-cell *matCellDef="let j">
+              <a [routerLink]="['/schedules', j.schedule_id, 'edit']" class="table-link">
+                {{ j.schedule_name || j.schedule_id }}
+              </a>
+            </td>
+          </ng-container>
           <ng-container matColumnDef="trigger">
             <th mat-header-cell *matHeaderCellDef>Trigger</th>
             <td mat-cell *matCellDef="let j">{{ j.trigger_type }}</td>
@@ -99,8 +115,14 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
             <th mat-header-cell *matHeaderCellDef>Started</th>
             <td mat-cell *matCellDef="let j">{{ j.started_at | date:'short' }}</td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="['status', 'trigger', 'startedAt']"></tr>
-          <tr mat-row *matRowDef="let row; columns: ['status', 'trigger', 'startedAt']"></tr>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let j">
+              <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="['status', 'schedule', 'trigger', 'startedAt', 'actions']"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['status', 'schedule', 'trigger', 'startedAt', 'actions']"></tr>
         </table>
       </mat-card>
       <ng-template #noJobs>
@@ -123,8 +145,13 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
     .stats-row mat-card { flex: 1; text-align: center; }
     .stat-value { font-size: 2rem; font-weight: bold; }
     .stat-label { color: #666; }
+    .rate-good { color: #2e7d32; }
+    .rate-warn { color: #e65100; }
+    .rate-bad { color: #c62828; }
     h2 { margin-top: 24px; }
     .error-card { margin-top: 16px; color: #f44336; }
+    .table-link { color: inherit; text-decoration: none; font-weight: 500; }
+    .table-link:hover { text-decoration: underline; }
   `],
 })
 export class DashboardComponent implements OnInit {
@@ -132,11 +159,17 @@ export class DashboardComponent implements OnInit {
 
   schedules: Schedule[] = [];
   recentJobs: Job[] = [];
+  totalJobs = 0;
   loading = true;
   errorMessage = '';
 
   get activeSchedules() { return this.schedules.filter(s => s.enabled).length; }
   get totalSchedules() { return this.schedules.length; }
+  get successRate(): number {
+    if (!this.recentJobs.length) return 0;
+    const succeeded = this.recentJobs.filter(j => j.status === 'completed' || j.status === 'success').length;
+    return Math.round((succeeded / this.recentJobs.length) * 100);
+  }
 
   constructor(
     private scheduleService: ScheduleService,
@@ -151,10 +184,10 @@ export class DashboardComponent implements OnInit {
         error: () => { this.loading = false; this.errorMessage = 'Failed to load schedules'; },
       });
 
-    this.jobService.getAll({ limit: '5' })
+    this.jobService.getAll({ limit: '10' })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: r => this.recentJobs = r.data,
+        next: r => { this.recentJobs = r.data; this.totalJobs = r.total; },
         error: () => {},
       });
   }

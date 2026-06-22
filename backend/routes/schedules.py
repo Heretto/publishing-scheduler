@@ -98,11 +98,11 @@ def _fmt(s: Schedule) -> dict:
         "branch": s.branch,
         "locales": _parse_ids(s.locale),
         "publish_parameters": json.loads(s.publish_parameters or "[]"),
-        "last_run_at": s.last_run_at.isoformat() if s.last_run_at else None,
+        "last_run_at": s.last_run_at.isoformat() + "+00:00" if s.last_run_at else None,
         "last_run_status": s.last_run_status,
         "consecutive_failures": s.consecutive_failures,
-        "created_at": s.created_at.isoformat() if s.created_at else None,
-        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        "created_at": s.created_at.isoformat() + "+00:00" if s.created_at else None,
+        "updated_at": s.updated_at.isoformat() + "+00:00" if s.updated_at else None,
     }
 
 

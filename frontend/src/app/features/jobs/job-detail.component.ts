@@ -164,7 +164,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           <dl class="detail-grid">
             <dt>Scenarios</dt>
             <dd>
-              <span class="chip" *ngFor="let s of requestScenarios">{{ s }}</span>
+              <span class="chip" *ngFor="let s of requestScenarios">{{ scenarioDisplay(s) }}</span>
               <span *ngIf="requestScenarios.length === 0" class="muted">—</span>
             </dd>
             <dt>Locales</dt>
@@ -176,7 +176,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
             </dd>
             <dt>Documents</dt>
             <dd class="doc-list">
-              <span class="mono small" *ngFor="let d of requestDocuments">{{ d }}</span>
+              <span class="mono small" *ngFor="let d of requestDocuments">{{ documentDisplay(d) }}</span>
               <span *ngIf="requestDocuments.length === 0" class="muted">—</span>
             </dd>
             <ng-container *ngIf="requestParameters.length > 0">
@@ -206,7 +206,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     }
     .page-header h1 { margin: 0; font-size: 24px; }
     .status-large { transform: scale(1.2); transform-origin: left center; }
-    .header-meta { display: flex; flex-direction: column; gap: 2px; }
+    .header-meta { display: flex; flex-direction: column; gap: 2px; margin-left: 5px; }
     .trigger-label { font-size: 13px; color: #666; }
 
     .summary-row {
@@ -351,5 +351,15 @@ export class JobDetailComponent implements OnInit {
 
   get requestParameters(): Record<string, unknown>[] {
     return this.job?.request_payload?.parameters ?? [];
+  }
+
+  scenarioDisplay(id: string): string {
+    const name = (this.job?.request_payload?.scenarioNames ?? {})[id];
+    return name ? `${name} (${id})` : id;
+  }
+
+  documentDisplay(id: string): string {
+    const name = (this.job?.request_payload?.documentNames ?? {})[id];
+    return name ? `${name} (${id})` : id;
   }
 }

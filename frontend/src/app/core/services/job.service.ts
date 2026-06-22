@@ -30,6 +30,8 @@ export interface Job {
     locales?: string[];
     documentIds?: string[];
     parameters?: Record<string, unknown>[];
+    scenarioNames?: Record<string, string>;
+    documentNames?: Record<string, string>;
   };
   response_payload: JobResponsePayload;
   error: string | null;

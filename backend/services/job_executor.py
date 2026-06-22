@@ -79,6 +79,25 @@ class JobExecutorService:
         if not locales_list:
             locales_list = [""]
 
+        # Best-effort: fetch names for request-payload enrichment (used at view time)
+        scenario_name_map: dict[str, str] = {}
+        document_name_map: dict[str, str] = {}
+        try:
+            all_scenarios = await self._client.get_scenarios()
+            scenario_name_map = {s["id"]: s["name"] for s in all_scenarios}
+        except Exception:
+            logger.debug("Could not fetch scenario names for enrichment")
+
+        if source_doc_ids:
+            try:
+                _name_ccms = HerettoCcmsClient()
+                for doc_id in source_doc_ids:
+                    info = await _name_ccms.get_document_info(doc_id)
+                    if info.get("title"):
+                        document_name_map[doc_id] = info["title"]
+            except Exception:
+                logger.debug("Could not fetch document names for enrichment")
+
         # Pre-resolve locale → document IDs mapping
         locale_doc_map: dict[str, list[str]] = {"": source_doc_ids}
         non_source = [l for l in locales_list if l]
@@ -98,6 +117,8 @@ class JobExecutorService:
             "locales": locales_list,
             "documentIds": source_doc_ids,
             "parameters": params,
+            "scenarioNames": scenario_name_map,
+            "documentNames": document_name_map,
         }
 
         job = JobHistory(
