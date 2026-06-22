@@ -1,4 +1,4 @@
-"""Job executor — runs a Heretto publishing job for a schedule."""
+"""Job executor — runs Heretto publishing jobs for all scenario × locale combos."""
 
 import asyncio
 import json
@@ -15,6 +15,19 @@ from settings import get_settings
 logger = logging.getLogger(__name__)
 
 
+def _parse_ids(value: str | None) -> list[str]:
+    """Return a list from a stored JSON array or a legacy bare string."""
+    if not value:
+        return []
+    v = value.strip()
+    if v.startswith('['):
+        try:
+            return [str(x) for x in json.loads(v)]
+        except json.JSONDecodeError:
+            pass
+    return [v]
+
+
 async def _retry(coro_fn, max_attempts: int, initial_delay_ms: int, max_delay_ms: int, multiplier: float):
     delay = initial_delay_ms / 1000
     for attempt in range(1, max_attempts + 1):
@@ -29,10 +42,10 @@ async def _retry(coro_fn, max_attempts: int, initial_delay_ms: int, max_delay_ms
 
 
 class JobExecutorService:
-    """Executes Heretto publishing jobs with concurrency guard and retry."""
+    """Executes all scenario × locale publish combinations for a schedule."""
 
     def __init__(self):
-        self._running: set[str] = set()  # schedule IDs currently executing
+        self._running: set[str] = set()
         self._client = HerettoClient()
 
     def is_running(self, schedule_id: str) -> bool:
@@ -57,26 +70,34 @@ class JobExecutorService:
         self._running.add(schedule_id)
         s = get_settings()
 
-        doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
+        source_doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
         params: list[dict] = json.loads(schedule.publish_parameters or "[]")
+        scenario_ids = _parse_ids(schedule.scenario_id)
+        locales_list = _parse_ids(getattr(schedule, "locale", "") or "")
 
-        # Resolve locale UUIDs — swap each source doc with its localised counterpart
-        locale = getattr(schedule, "locale", "") or ""
-        if locale and doc_ids:
+        # Treat empty locales as source-only
+        if not locales_list:
+            locales_list = [""]
+
+        # Pre-resolve locale → document IDs mapping
+        locale_doc_map: dict[str, list[str]] = {"": source_doc_ids}
+        non_source = [l for l in locales_list if l]
+        if non_source and source_doc_ids:
             ccms = HerettoCcmsClient()
-            resolved: list[str] = []
-            for doc_id in doc_ids:
-                locales = await ccms.get_document_locales(doc_id)
-                locale_map = {l["code"]: l["uuid"] for l in locales}
-                resolved.append(locale_map.get(locale, doc_id))
-            doc_ids = resolved
+            for locale in non_source:
+                resolved: list[str] = []
+                for doc_id in source_doc_ids:
+                    doc_locales = await ccms.get_document_locales(doc_id)
+                    lmap = {lc["code"]: lc["uuid"] for lc in doc_locales}
+                    resolved.append(lmap.get(locale, doc_id))
+                locale_doc_map[locale] = resolved
 
+        combos = [(sid, loc) for sid in scenario_ids for loc in locales_list]
         request_payload = {
-            "scenarioId": schedule.scenario_id,
-            "deploymentId": schedule.deployment_id,
-            "documentIds": doc_ids,
+            "scenarios": scenario_ids,
+            "locales": locales_list,
+            "documentIds": source_doc_ids,
             "parameters": params,
-            **({"locale": locale} if locale else {}),
         }
 
         job = JobHistory(
@@ -89,36 +110,54 @@ class JobExecutorService:
         db.commit()
         db.refresh(job)
 
-        try:
-            results = await _retry(
-                lambda: self._client.trigger_publishing_job(
-                    scenario_id=schedule.scenario_id,
-                    deployment_id=schedule.deployment_id,
-                    document_ids=doc_ids,
-                    parameters=params,
-                ),
-                max_attempts=s.retry_max_attempts,
-                initial_delay_ms=s.retry_initial_delay_ms,
-                max_delay_ms=s.retry_max_delay_ms,
-                multiplier=s.retry_backoff_multiplier,
-            )
+        all_results: list[dict] = []
+        errors: list[str] = []
 
-            job.status = "completed"
+        try:
+            for scenario_id, locale in combos:
+                doc_ids = locale_doc_map.get(locale, source_doc_ids)
+                label = f"scenario={scenario_id}, locale={locale or 'source'}"
+                try:
+                    results = await _retry(
+                        _make_publish_fn(
+                            self._client, scenario_id, schedule.deployment_id, doc_ids, params
+                        ),
+                        max_attempts=s.retry_max_attempts,
+                        initial_delay_ms=s.retry_initial_delay_ms,
+                        max_delay_ms=s.retry_max_delay_ms,
+                        multiplier=s.retry_backoff_multiplier,
+                    )
+                    for r in results:
+                        r["_scenario"] = scenario_id
+                        r["_locale"] = locale or "source"
+                    all_results.extend(results)
+                    logger.info("Published %s", label)
+                except Exception as exc:
+                    err = f"{label}: {exc}"
+                    errors.append(err)
+                    logger.error("Publish failed — %s", err)
+
+            if errors and not all_results:
+                raise RuntimeError("; ".join(errors))
+
+            job.status = "failed" if errors else "completed"
             job.completed_at = datetime.now(timezone.utc)
-            job.heretto_job_id = ",".join(r["id"] for r in results)
-            job.response_payload = json.dumps(results)
+            job.heretto_job_id = ",".join(r["id"] for r in all_results if r.get("id"))
+            job.response_payload = json.dumps({"results": all_results, "errors": errors})
 
             schedule.last_run_at = datetime.now(timezone.utc)
-            schedule.last_run_status = "success"
-            schedule.consecutive_failures = 0
+            schedule.last_run_status = job.status
+            if job.status == "completed":
+                schedule.consecutive_failures = 0
+            else:
+                schedule.consecutive_failures = (schedule.consecutive_failures or 0) + 1
 
             db.commit()
-            logger.info("Job completed: %s (schedule=%s)", job.id, schedule_id)
+            logger.info("Job %s: %s (schedule=%s)", job.id, job.status, schedule_id)
             return self._format_job(job)
 
         except Exception as exc:
             error_msg = str(exc)
-
             job.status = "failed"
             job.completed_at = datetime.now(timezone.utc)
             job.error = error_msg
@@ -127,13 +166,11 @@ class JobExecutorService:
             schedule.last_run_status = "failed"
             schedule.consecutive_failures = (schedule.consecutive_failures or 0) + 1
 
-            # Auto-disable after too many consecutive failures
             if schedule.consecutive_failures >= s.scheduler_max_consecutive_failures:
                 schedule.enabled = False
                 logger.error(
                     "Auto-disabling schedule %s after %d consecutive failures",
-                    schedule_id,
-                    schedule.consecutive_failures,
+                    schedule_id, schedule.consecutive_failures,
                 )
 
             db.commit()
@@ -157,3 +194,16 @@ class JobExecutorService:
             "response_payload": json.loads(job.response_payload or "{}"),
             "error": job.error,
         }
+
+
+def _make_publish_fn(client: HerettoClient, scenario_id: str, deployment_id: str,
+                     doc_ids: list[str], params: list[dict]):
+    """Return a zero-arg coroutine factory for use with _retry (avoids closure pitfalls)."""
+    async def _fn():
+        return await client.trigger_publishing_job(
+            scenario_id=scenario_id,
+            deployment_id=deployment_id,
+            document_ids=doc_ids,
+            parameters=params,
+        )
+    return _fn

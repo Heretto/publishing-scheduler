@@ -7,12 +7,12 @@ export interface Schedule {
   name: string;
   description: string;
   cron_expression: string;
-  scenario_id: string;
+  scenario_ids: string[];
   deployment_id: string;
   document_ids: string[];
   enabled: boolean;
   branch: string;
-  locale: string;
+  locales: string[];
   publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
@@ -24,12 +24,12 @@ export interface CreateScheduleInput {
   name: string;
   description?: string;
   cron_expression: string;
-  scenario_id: string;
+  scenario_ids: string[];
   deployment_id: string;
   document_ids?: string[];
   enabled?: boolean;
   branch?: string;
-  locale?: string;
+  locales?: string[];
   publish_parameters?: Record<string, unknown>[];
 }
 

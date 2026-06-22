@@ -23,18 +23,33 @@ OrgCtx = Annotated[CurrentUserContext, Depends(get_current_active_user_with_org)
 DB = Annotated[Session, Depends(get_db)]
 
 
+# ── helpers ────────────────────────────────────────────────────────────────────
+
+def _parse_ids(value: str | None) -> list[str]:
+    """Return a list from a stored JSON array or a legacy bare string."""
+    if not value:
+        return []
+    v = value.strip()
+    if v.startswith('['):
+        try:
+            return [str(x) for x in json.loads(v)]
+        except json.JSONDecodeError:
+            pass
+    return [v]
+
+
 # ── Pydantic schemas ───────────────────────────────────────────────────────────
 
 class ScheduleCreate(BaseModel):
     name: str
     description: str = ""
     cron_expression: str
-    scenario_id: str
+    scenario_ids: list[str]
     deployment_id: str = ""
     document_ids: list[str] = []
     enabled: bool = True
     branch: str = "master"
-    locale: str = ""
+    locales: list[str] = []
     publish_parameters: list[dict] = []
 
 
@@ -42,20 +57,18 @@ class ScheduleUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     cron_expression: str | None = None
-    scenario_id: str | None = None
+    scenario_ids: list[str] | None = None
     deployment_id: str | None = None
     document_ids: list[str] | None = None
     enabled: bool | None = None
     branch: str | None = None
-    locale: str | None = None
+    locales: list[str] | None = None
     publish_parameters: list[dict] | None = None
 
 
 class ToggleBody(BaseModel):
     enabled: bool
 
-
-# ── helpers ────────────────────────────────────────────────────────────────────
 
 def _fmt(s: Schedule) -> dict:
     return {
@@ -64,12 +77,12 @@ def _fmt(s: Schedule) -> dict:
         "name": s.name,
         "description": s.description,
         "cron_expression": s.cron_expression,
-        "scenario_id": s.scenario_id,
+        "scenario_ids": _parse_ids(s.scenario_id),
         "deployment_id": s.deployment_id,
         "document_ids": json.loads(s.document_ids or "[]"),
         "enabled": s.enabled,
         "branch": s.branch,
-        "locale": s.locale or "",
+        "locales": _parse_ids(s.locale),
         "publish_parameters": json.loads(s.publish_parameters or "[]"),
         "last_run_at": s.last_run_at.isoformat() if s.last_run_at else None,
         "last_run_status": s.last_run_status,
@@ -139,12 +152,12 @@ def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
         name=body.name,
         description=body.description,
         cron_expression=body.cron_expression,
-        scenario_id=body.scenario_id,
+        scenario_id=json.dumps(body.scenario_ids),
         deployment_id=body.deployment_id,
         document_ids=json.dumps(body.document_ids),
         enabled=body.enabled,
         branch=body.branch,
-        locale=body.locale,
+        locale=json.dumps(body.locales),
         publish_parameters=json.dumps(body.publish_parameters),
     )
     db.add(s)
@@ -167,8 +180,8 @@ def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB)
         s.description = body.description
     if body.cron_expression is not None:
         s.cron_expression = body.cron_expression
-    if body.scenario_id is not None:
-        s.scenario_id = body.scenario_id
+    if body.scenario_ids is not None:
+        s.scenario_id = json.dumps(body.scenario_ids)
     if body.deployment_id is not None:
         s.deployment_id = body.deployment_id
     if body.document_ids is not None:
@@ -177,8 +190,8 @@ def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB)
         s.enabled = body.enabled
     if body.branch is not None:
         s.branch = body.branch
-    if body.locale is not None:
-        s.locale = body.locale
+    if body.locales is not None:
+        s.locale = json.dumps(body.locales)
     if body.publish_parameters is not None:
         s.publish_parameters = json.dumps(body.publish_parameters)
 

@@ -1,7 +1,7 @@
 import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -16,6 +16,10 @@ import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, Cc
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
+
+function requireNonEmpty(control: AbstractControl) {
+  return Array.isArray(control.value) && control.value.length > 0 ? null : { required: true };
+}
 
 @Component({
   selector: 'app-schedule-form',
@@ -58,16 +62,12 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
-            <mat-label>Scenario</mat-label>
-            <mat-select formControlName="scenario_id" (selectionChange)="onScenarioChange($event.value)">
+            <mat-label>Output Format(s)</mat-label>
+            <mat-select formControlName="scenario_ids" multiple (selectionChange)="onScenarioChange($event.value)">
               <mat-option *ngFor="let s of scenarios" [value]="s.id">{{ s.name }}</mat-option>
             </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length === 0">
-            <mat-label>Publishing Scenario ID</mat-label>
-            <input matInput formControlName="scenario_id" placeholder="e.g. a1b2c3d4-5678-90ab-cdef-1234567890ab">
-            <mat-hint>Copy the scenario UUID from Heretto CCMS (Publish dialog > scenario name)</mat-hint>
-            <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario ID is required</mat-error>
+            <mat-hint *ngIf="selectedScenarioCount > 1">Scenario parameters shown for first selected format</mat-hint>
+            <mat-error *ngIf="form.get('scenario_ids')?.hasError('required')">At least one output format is required</mat-error>
           </mat-form-field>
 
           <div class="parameters-section" *ngIf="scenarioParameters.length > 0">
@@ -141,10 +141,10 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
           </div>
 
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Locale</mat-label>
-            <mat-select formControlName="locale">
-              <mat-option value="">Source (default)</mat-option>
-              <mat-option *ngFor="let l of locales" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
+            <mat-label>Locale(s)</mat-label>
+            <mat-select formControlName="locales" multiple>
+              <mat-option value="">Source (original language)</mat-option>
+              <mat-option *ngFor="let l of localeOptions" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
             </mat-select>
             <mat-hint>{{ localeFieldHint }}</mat-hint>
           </mat-form-field>
@@ -218,9 +218,13 @@ export class ScheduleFormComponent implements OnInit {
   parameterOverrides: Record<string, unknown> = {};
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
-  locales: CcmsLocale[] = [];
+  localeOptions: CcmsLocale[] = [];
   localeLoading = false;
   localeHint = '';
+
+  get selectedScenarioCount(): number {
+    return (this.form.get('scenario_ids')?.value as string[] | null)?.length ?? 0;
+  }
 
   constructor(
     private fb: FormBuilder,
@@ -235,11 +239,11 @@ export class ScheduleFormComponent implements OnInit {
       name: ['', Validators.required],
       description: [''],
       cron_expression: ['', Validators.required],
-      scenario_id: ['', Validators.required],
+      scenario_ids: [[], requireNonEmpty],
       deployment_id: [''],
       document_ids_raw: [''],
       branch: ['master'],
-      locale: [{ value: '', disabled: true }],
+      locales: [{ value: [], disabled: true }],
       enabled: [true],
     });
   }
@@ -267,26 +271,30 @@ export class ScheduleFormComponent implements OnInit {
             this.form.patchValue({
               ...s,
               document_ids_raw: s.document_ids.join(', '),
-              locale: s.locale || '',
+              scenario_ids: s.scenario_ids || [],
+              locales: s.locales || [],
             });
-            // Show raw IDs as fallback until user re-browses
             if (s.document_ids.length > 0) {
               this.documentDisplayValue = s.document_ids.join(', ');
-              this.fetchLocalesForCurrentDocs();
+              this.fetchLocalesForCurrentDocs(s.locales || []);
             }
-            // Restore parameter overrides from saved schedule
             for (const p of (s.publish_parameters || [])) {
               if (p['name'] && p['value'] !== undefined) {
                 this.parameterOverrides[p['name'] as string] = p['value'];
               }
             }
-            // Load parameters for the saved scenario
-            if (s.scenario_id) {
-              this.loadScenarioParameters(s.scenario_id);
+            if (s.scenario_ids?.length > 0) {
+              this.loadScenarioParameters(s.scenario_ids[0]);
             }
           },
         });
     }
+  }
+
+  get localeFieldHint(): string {
+    if (this.localeLoading) return 'Loading available locales\u2026';
+    if (this.localeHint) return this.localeHint;
+    return 'Select documents first to see available locales';
   }
 
   getLanguageName(code: string): string {
@@ -298,49 +306,51 @@ export class ScheduleFormComponent implements OnInit {
     }
   }
 
-  get localeFieldHint(): string {
-    if (this.localeLoading) return 'Loading available locales\u2026';
-    if (this.localeHint) return this.localeHint;
-    return 'Select documents first to load available locales';
-  }
-
-  private fetchLocalesForCurrentDocs() {
+  private fetchLocalesForCurrentDocs(preserveSelection: string[] = []) {
     const docIds = this.parseDocumentIds();
     if (docIds.length === 0) {
-      this.locales = [];
+      this.localeOptions = [];
       this.localeHint = '';
-      this.form.get('locale')?.disable();
+      this.form.get('locales')?.disable();
       return;
     }
     this.localeLoading = true;
     this.localeHint = '';
-    this.form.get('locale')?.disable();
+    this.form.get('locales')?.disable();
     this.herettoService.getLocalesForDocuments(docIds)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: locales => {
           this.localeLoading = false;
-          this.locales = locales;
+          this.localeOptions = locales;
+          // Always enable — "Source" option is always available
+          this.form.get('locales')?.enable();
           if (locales.length > 0) {
-            this.localeHint = `${locales.length} locale${locales.length > 1 ? 's' : ''} available`;
-            this.form.get('locale')?.enable();
+            this.localeHint = `${locales.length} localised language${locales.length > 1 ? 's' : ''} available`;
           } else {
-            this.localeHint = 'No locales found for selected documents';
+            this.localeHint = 'No translations found — only "Source" is available';
+          }
+          // Re-apply saved/previous selection where still valid
+          if (preserveSelection.length > 0) {
+            const validCodes = new Set(['', ...locales.map(l => l.code)]);
+            const kept = preserveSelection.filter(c => validCodes.has(c));
+            this.form.get('locales')?.setValue(kept);
           }
         },
         error: () => {
           this.localeLoading = false;
-          this.locales = [];
+          this.localeOptions = [];
+          this.form.get('locales')?.enable();
           this.localeHint = 'Could not load locales';
         },
       });
   }
 
-  onScenarioChange(scenarioId: string) {
+  onScenarioChange(scenarioIds: string[]) {
     this.parameterOverrides = {};
     this.scenarioParameters = [];
-    if (scenarioId) {
-      this.loadScenarioParameters(scenarioId);
+    if (scenarioIds.length > 0) {
+      this.loadScenarioParameters(scenarioIds[0]);
     }
   }
 
@@ -351,7 +361,6 @@ export class ScheduleFormComponent implements OnInit {
         next: params => {
           console.log('Scenario parameters:', JSON.stringify(params, null, 2));
           this.scenarioParameters = params;
-          // Initialize defaults for parameters that don't have overrides yet
           for (const p of params) {
             if (!(p.name in this.parameterOverrides) && p.value !== undefined && p.value !== '') {
               this.parameterOverrides[p.name] = p.value;
@@ -426,11 +435,12 @@ export class ScheduleFormComponent implements OnInit {
         if (items && Array.isArray(items)) {
           this.form.patchValue({
             document_ids_raw: items.map((i: { id: string }) => i.id).join(', '),
-            locale: '',
           });
           this.documentDisplayValue = items
             .map((i: { id: string; title?: string }) => `${i.title || i.id} (${i.id})`)
             .join(', ');
+          // Reset locale selection and reload options for the new documents
+          this.form.get('locales')?.setValue([]);
           this.fetchLocalesForCurrentDocs();
         }
       });
@@ -449,11 +459,11 @@ export class ScheduleFormComponent implements OnInit {
       name: value.name,
       description: value.description,
       cron_expression: value.cron_expression,
-      scenario_id: value.scenario_id,
+      scenario_ids: value.scenario_ids || [],
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
       branch: value.branch,
-      locale: value.locale || '',
+      locales: value.locales || [],
       publish_parameters: publishParameters,
       enabled: value.enabled,
     };
