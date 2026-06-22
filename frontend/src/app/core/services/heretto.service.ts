@@ -93,8 +93,7 @@ export class HerettoService {
   }
 
   getRootFolder(branch?: string): Observable<CcmsFolder> {
-    const params = branch ? { branch } : {};
-    return this.api.get<CcmsFolder>('/heretto/ccms/root', params);
+    return this.api.get<CcmsFolder>('/heretto/ccms/root', branch ? { branch } : undefined);
   }
 
   getScenarioParameters(scenarioId: string): Observable<ScenarioParameter[]> {
