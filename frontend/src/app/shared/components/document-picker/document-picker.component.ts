@@ -196,7 +196,7 @@ interface BreadcrumbItem {
           <div class="selected-docs">
             <div class="doc-entry" *ngFor="let item of selectedItemsList">
               <div class="doc-chip-row">
-                <span class="chip">
+                <span class="chip" [class.status-mismatch]="selectedStatusFilter && !matchesStatusFilter(item)">
                   <mat-icon class="chip-doc-icon">description</mat-icon>
                   {{ item.title || item.id }}
                   <ng-container *ngIf="isDitamap(item)">
@@ -600,16 +600,34 @@ export class DocumentPickerComponent implements OnInit {
     if (this.searchQuery.length >= 2) {
       this._runSearch(this.searchQuery);
     }
-    // Fetch statuses for current folder children if filter is active
-    if (this.selectedStatusFilter && this.currentFolder) {
-      this.fetchStatusForFolder(this.currentFolder.children);
-    }
-    // Fetch statuses for maps inside already-selected folders
     if (this.selectedStatusFilter) {
+      // Fetch statuses for current folder children
+      if (this.currentFolder) {
+        this.fetchStatusForFolder(this.currentFolder.children);
+      }
+      // Fetch statuses for maps inside already-selected folders
       this.selectedFolders.forEach((_, folderId) => {
         const state = this.folderMaps.get(folderId);
         if (state && !state.loading) {
           this.fetchStatusForFolder(state.maps);
+        }
+      });
+      // Fetch statuses for individually selected documents
+      this.selectedItems.forEach((_, id) => {
+        if (!this.documentStatuses.has(id) && !this.statusLoadingIds.has(id)) {
+          this.statusLoadingIds.add(id);
+          this.herettoService.getDocumentStatus(id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: result => {
+                this.documentStatuses.set(id, result.status);
+                this.statusLoadingIds.delete(id);
+              },
+              error: () => {
+                this.documentStatuses.set(id, '');
+                this.statusLoadingIds.delete(id);
+              },
+            });
         }
       });
     }

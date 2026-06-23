@@ -20,6 +20,7 @@ from routes import jobs as jobs_router
 from routes import heretto as heretto_router
 from routes import dashboard as dashboard_router
 from services import scheduler as sched
+from services import status_cache
 from services.job_executor import JobExecutorService
 from settings import get_settings
 
@@ -69,6 +70,28 @@ async def _prune_old_jobs():
             logger.error("Failed to prune old jobs: %s", exc)
         finally:
             db.close()
+
+
+async def _load_status_cache():
+    """Populate the in-memory document status cache from the Heretto search API."""
+    from clients.heretto_ccms import HerettoCcmsClient
+    try:
+        status_map = await HerettoCcmsClient().fetch_status_map()
+        status_cache.populate(status_map)
+    except Exception as exc:
+        logger.warning("Failed to populate status cache at startup: %s", exc)
+
+
+async def _refresh_status_cache():
+    """Background task — refreshes the status cache once per hour."""
+    from clients.heretto_ccms import HerettoCcmsClient
+    while True:
+        await asyncio.sleep(60 * 60)  # once per hour
+        try:
+            status_map = await HerettoCcmsClient().fetch_status_map()
+            status_cache.populate(status_map)
+        except Exception as exc:
+            logger.warning("Failed to refresh status cache: %s", exc)
 
 
 def _load_schedules():
@@ -129,6 +152,8 @@ async def _lifespan(app: FastAPI):
         sched.start()
         _load_schedules()
         asyncio.create_task(_prune_old_jobs())
+        asyncio.create_task(_load_status_cache())
+        asyncio.create_task(_refresh_status_cache())
         logger.info("Publishing Scheduler started")
         yield
         sched.shutdown(wait=True)

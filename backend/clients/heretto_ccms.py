@@ -1,5 +1,6 @@
 """Heretto CCMS (REST + search) client."""
 
+import asyncio
 import httpx
 import logging
 from fastapi import HTTPException
@@ -281,58 +282,80 @@ class HerettoCcmsClient:
                 raise _heretto_exc(exc) from exc
             return self._normalize_search_response(r.json())
 
-    async def get_status_values(self, branch: str | None = None) -> list[str]:
-        """Return sorted unique status values by sampling the first 1 000 files.
+    async def fetch_status_map(self, branch: str | None = None) -> dict[str, str]:
+        """Return ``{doc_id: status}`` for every file in the repo.
 
-        Uses searchResultType=FILES_ONLY (required for empty-query searches to
-        return results rather than 204) and collects distinct status strings
-        from hit metadata. Caps at 1 000 files so the request completes quickly
-        regardless of repository size — status values are few and distributed
-        throughout the repo, so this sample reliably finds all of them.
+        Fetches the first page to discover totalResults, then issues remaining
+        page requests with bounded concurrency (5 at a time) so we scan the
+        full repo quickly without overloading Heretto's server.  Documents with
+        no status metadata are included with an empty string value.
         """
         root_path = self._build_search_path(branch)
-        values: set[str] = set()
         batch = 200
-        offset = 0
-        max_files = 1000
+        max_concurrent = 5
 
-        while True:
-            body: dict[str, Any] = {
-                "queryString": "",
-                "searchResultType": "FILES_ONLY",
-                "startOffset": offset,
-                "endOffset": offset + batch,
-                "foldersToSearch": {root_path: True},
-            }
-            async with self._search_client() as c:
+        def _extract(data: dict) -> dict[str, str]:
+            found: dict[str, str] = {}
+            hits = data.get("hits") or data.get("results") or data.get("items") or []
+            for hit in hits:
+                entity = hit.get("fileEntity") or hit
+                doc_id = str(
+                    entity.get("ID") or entity.get("uuid") or entity.get("id") or ""
+                ).strip()
+                if not doc_id:
+                    continue
+                meta_data = (entity.get("metadata") or {}).get("data") or {}
+                status = str(meta_data.get("status") or "").strip()
+                found[doc_id] = status
+            return found
+
+        async def _fetch_page(c: httpx.AsyncClient, sem: asyncio.Semaphore, offset: int) -> dict | None:
+            async with sem:
+                body: dict[str, Any] = {
+                    "queryString": "",
+                    "searchResultType": "FILES_ONLY",
+                    "startOffset": offset,
+                    "endOffset": offset + batch,
+                    "foldersToSearch": {root_path: True},
+                }
                 r = await c.post("/search", json=body)
                 if r.status_code == 204 or not r.content:
-                    break
+                    return None
                 try:
                     r.raise_for_status()
                 except httpx.HTTPStatusError as exc:
                     raise _heretto_exc(exc) from exc
-                data = r.json()
+                return r.json()
 
-            hits = data.get("hits") or data.get("results") or data.get("items") or []
-            if not hits:
-                break
+        status_map: dict[str, str] = {}
 
-            for hit in hits:
-                entity = hit.get("fileEntity") or hit
-                meta_data = (entity.get("metadata") or {}).get("data") or {}
-                status = str(meta_data.get("status") or "").strip()
-                if status:
-                    values.add(status)
+        async with self._search_client() as c:
+            sem = asyncio.Semaphore(max_concurrent)
+            first = await _fetch_page(c, sem, 0)
+            if not first:
+                return {}
 
-            total = data.get("totalResults")
+            status_map.update(_extract(first))
+            total = first.get("totalResults")
             if not isinstance(total, int):
-                total = data.get("total", 0)
-            offset += len(hits)
-            if offset >= total or len(hits) < batch or offset >= max_files:
-                break
+                total = first.get("total", 0)
 
-        return sorted(values)
+            remaining = list(range(batch, total, batch))
+            if remaining:
+                pages = await asyncio.gather(
+                    *[_fetch_page(c, sem, offset) for offset in remaining],
+                    return_exceptions=True,
+                )
+                for page in pages:
+                    if isinstance(page, dict):
+                        status_map.update(_extract(page))
+
+        return status_map
+
+    async def get_status_values(self, branch: str | None = None) -> list[str]:
+        """Return sorted unique non-empty status values from all files in the repo."""
+        status_map = await self.fetch_status_map(branch)
+        return sorted({v for v in status_map.values() if v})
 
     async def get_document_status(self, doc_id: str) -> str:
         """Return the status metadata value for a document, or empty string."""

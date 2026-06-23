@@ -9,6 +9,7 @@ from hop_core.api.dependencies import get_current_active_user
 
 from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
+from services import status_cache
 
 router = APIRouter(prefix="/heretto", tags=["heretto"])
 
@@ -104,9 +105,14 @@ async def search_documents(body: SearchBody):
 
 @router.get("/ccms/metadata/status-values", dependencies=[_auth])
 async def get_status_values(branch: str | None = None):
+    if status_cache.is_ready():
+        return status_cache.get_distinct_values()
     return await HerettoCcmsClient().get_status_values(branch)
 
 
 @router.get("/ccms/documents/{doc_id}/status", dependencies=[_auth])
 async def get_document_status(doc_id: str):
+    cached = status_cache.get(doc_id)
+    if cached is not None:
+        return {"status": cached}
     return {"status": await HerettoCcmsClient().get_document_status(doc_id)}
