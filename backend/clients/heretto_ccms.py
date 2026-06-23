@@ -315,51 +315,6 @@ class HerettoCcmsClient:
                 values.add(status)
         return sorted(values)
 
-    async def debug_status_raw(self, branch: str | None = None) -> dict:
-        """Diagnostic: returns raw API responses to help debug status loading."""
-        root_path = self._build_search_path(branch)
-        b = branch or self._branch
-
-        # Search approach
-        search_body: dict[str, Any] = {
-            "queryString": "",
-            "searchResultType": "FILES_ONLY",
-            "startOffset": 0,
-            "endOffset": 5,
-            "foldersToSearch": {root_path: True},
-        }
-        async with self._search_client() as c:
-            sr = await c.post("/search", json=search_body)
-            search_code = sr.status_code
-            search_data = sr.json() if sr.content else None
-
-        # REST approach (include-metas)
-        rest_path = f"/branches/{b}/repositories/{self._repo}/documents/"
-        async with self._rest_client() as c:
-            rr = await c.get(rest_path, params={"include-metas": "status"})
-            rest_code = rr.status_code
-            rest_preview = rr.text[:3000] if rr.content else None
-
-        first_hit_meta = None
-        if search_data:
-            hits = search_data.get("hits") or []
-            if hits:
-                first_hit_meta = (hits[0].get("fileEntity") or {}).get("metadata")
-
-        return {
-            "search": {
-                "status_code": search_code,
-                "response_keys": list(search_data.keys()) if search_data else [],
-                "facet_results": search_data.get("facetResults") if search_data else None,
-                "hit_count": len((search_data or {}).get("hits") or []),
-                "first_hit_metadata": first_hit_meta,
-            },
-            "rest": {
-                "status_code": rest_code,
-                "response_xml_preview": rest_preview,
-            },
-        }
-
     async def get_document_status(self, doc_id: str) -> str:
         """Return the status metadata value for a document, or empty string."""
         async with self._rest_client() as c:
