@@ -48,6 +48,17 @@ interface BreadcrumbItem {
           color="primary">
           DITA maps only
         </mat-slide-toggle>
+        <span class="status-filter-wrap">
+          <label class="status-filter-label">Status</label>
+          <select class="status-filter-select"
+                  [(ngModel)]="selectedStatusFilter"
+                  (focus)="onStatusSelectFocus()"
+                  (change)="onStatusFilterChange()">
+            <option value="">Any status</option>
+            <option *ngIf="statusValuesLoading" disabled value="">Loading…</option>
+            <option *ngFor="let s of statusValues" [value]="s">{{ s }}</option>
+          </select>
+        </span>
       </div>
       <mat-tab-group>
         <mat-tab label="Browse">
@@ -62,12 +73,16 @@ interface BreadcrumbItem {
             <mat-spinner diameter="32"></mat-spinner>
           </div>
           <mat-list *ngIf="currentFolder && !browseLoading">
-            <mat-list-item *ngFor="let item of filteredChildren" class="item-row">
+            <mat-list-item *ngFor="let item of filteredChildren" class="item-row"
+              [class.status-mismatch]="selectedStatusFilter && item.type !== 'folder' && !matchesStatusFilter(item)">
               <mat-checkbox
                 [checked]="item.type === 'folder' ? isFolderSelected(item.id) : isSelected(item.id)"
+                [disabled]="!!(selectedStatusFilter && item.type !== 'folder' && !matchesStatusFilter(item))"
                 (change)="item.type === 'folder' ? toggleFolderSelection(item) : toggleSelection(item)"
               ></mat-checkbox>
-              <mat-icon class="item-icon">{{ item.type === 'folder' ? 'folder' : 'description' }}</mat-icon>
+              <mat-icon class="item-icon" [class.loading-icon]="statusLoadingIds.has(item.id)">
+                {{ item.type === 'folder' ? 'folder' : (statusLoadingIds.has(item.id) ? 'hourglass_empty' : 'description') }}
+              </mat-icon>
               <span class="item-title"
                 [class.clickable]="item.type === 'folder'"
                 (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
@@ -428,6 +443,39 @@ interface BreadcrumbItem {
       margin-left: 4px;
       color: #666;
     }
+    .status-filter-wrap {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 16px;
+      gap: 6px;
+    }
+    .status-filter-label {
+      font-size: 13px;
+      color: #555;
+      white-space: nowrap;
+    }
+    .status-filter-select {
+      height: 28px;
+      font-size: 13px;
+      border: 1px solid rgba(0,0,0,0.28);
+      border-radius: 4px;
+      padding: 0 6px;
+      background: white;
+      color: #333;
+      cursor: pointer;
+      min-width: 110px;
+      max-width: 160px;
+    }
+    .status-filter-select:focus {
+      outline: 2px solid #1976d2;
+      border-color: transparent;
+    }
+    .status-mismatch {
+      opacity: 0.4;
+    }
+    .loading-icon {
+      color: #aaa;
+    }
   `],
 })
 export class DocumentPickerComponent implements OnInit {
@@ -446,6 +494,12 @@ export class DocumentPickerComponent implements OnInit {
 
   ditamapOnly = localStorage.getItem(DITAMAP_ONLY_KEY) === 'true';
 
+  selectedStatusFilter = '';
+  statusValues: string[] = [];
+  statusValuesLoading = false;
+  documentStatuses = new Map<string, string>();
+  statusLoadingIds = new Set<string>();
+
   selectedItems = new Map<string, CcmsResource>();
   selectedFolders = new Map<string, CcmsResource>();
   folderMaps = new Map<string, { loading: boolean; maps: CcmsResource[] }>();
@@ -460,8 +514,10 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   get filteredSearchResults(): CcmsResource[] {
-    if (!this.ditamapOnly || this.data?.allowAllTypes) return this.searchResults;
-    return this.searchResults.filter(item => this.isDitamap(item));
+    let results = this.searchResults;
+    if (this.ditamapOnly && !this.data?.allowAllTypes) results = results.filter(item => this.isDitamap(item));
+    if (this.selectedStatusFilter) results = results.filter(item => item.status === this.selectedStatusFilter);
+    return results;
   }
 
   isDitamap(item: CcmsResource): boolean {
@@ -480,6 +536,62 @@ export class DocumentPickerComponent implements OnInit {
   onDitamapOnlyChange(value: boolean) {
     this.ditamapOnly = value;
     localStorage.setItem(DITAMAP_ONLY_KEY, String(value));
+  }
+
+  onStatusSelectFocus() {
+    if (this.statusValues.length > 0 || this.statusValuesLoading) return;
+    this.statusValuesLoading = true;
+    this.herettoService.getStatusValues(this.data?.branch)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: values => {
+          this.statusValues = values;
+          this.statusValuesLoading = false;
+        },
+        error: () => {
+          this.statusValuesLoading = false;
+        },
+      });
+  }
+
+  onStatusFilterChange() {
+    // Re-run search if there's an active query
+    if (this.searchQuery.length >= 2) {
+      this._runSearch(this.searchQuery);
+    }
+    // Fetch statuses for current folder children if filter is active
+    if (this.selectedStatusFilter && this.currentFolder) {
+      this.fetchStatusForFolder(this.currentFolder.children);
+    }
+  }
+
+  fetchStatusForFolder(children: CcmsResource[]) {
+    if (!this.selectedStatusFilter) return;
+    for (const item of children) {
+      if (item.type === 'folder') continue;
+      if (this.documentStatuses.has(item.id) || this.statusLoadingIds.has(item.id)) continue;
+      this.statusLoadingIds.add(item.id);
+      this.herettoService.getDocumentStatus(item.id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: result => {
+            this.documentStatuses.set(item.id, result.status);
+            this.statusLoadingIds.delete(item.id);
+          },
+          error: () => {
+            this.documentStatuses.set(item.id, '');
+            this.statusLoadingIds.delete(item.id);
+          },
+        });
+    }
+  }
+
+  matchesStatusFilter(item: CcmsResource): boolean {
+    if (!this.selectedStatusFilter) return true;
+    if (item.type === 'folder') return true;
+    if (this.statusLoadingIds.has(item.id)) return true;
+    if (!this.documentStatuses.has(item.id)) return true;
+    return this.documentStatuses.get(item.id) === this.selectedStatusFilter;
   }
 
   constructor(
@@ -562,6 +674,7 @@ export class DocumentPickerComponent implements OnInit {
           this.browseLoading = false;
           this.currentFolder = folder;
           this.breadcrumbs = [{ id: folder.id, title: folder.title || 'Content' }];
+          this.fetchStatusForFolder(folder.children);
         },
         error: () => {
           this.browseLoading = false;
@@ -587,6 +700,7 @@ export class DocumentPickerComponent implements OnInit {
           } else {
             this.breadcrumbs.push({ id: folderId, title: folder.title || folderId });
           }
+          this.fetchStatusForFolder(folder.children);
         },
         error: () => {
           this.browseLoading = false;
@@ -604,19 +718,26 @@ export class DocumentPickerComponent implements OnInit {
       return;
     }
     this.searchLoading = true;
-    this.searchTimer = setTimeout(() => {
-      this.herettoService.searchDocuments({ queryString: query }, this.data?.branch)
-        .subscribe({
-          next: result => {
-            this.searchLoading = false;
-            this.searchResults = result.results;
-          },
-          error: () => {
-            this.searchLoading = false;
-            this.searchError = 'Search failed. Check your connection.';
-          },
-        });
-    }, 300);
+    this.searchTimer = setTimeout(() => this._runSearch(query), 300);
+  }
+
+  private _runSearch(query: string) {
+    if (!query || query.length < 2) return;
+    this.searchLoading = true;
+    this.searchError = '';
+    const searchBody: Record<string, unknown> = { queryString: query };
+    if (this.selectedStatusFilter) searchBody['statusFilter'] = this.selectedStatusFilter;
+    this.herettoService.searchDocuments(searchBody, this.data?.branch)
+      .subscribe({
+        next: result => {
+          this.searchLoading = false;
+          this.searchResults = result.results;
+        },
+        error: () => {
+          this.searchLoading = false;
+          this.searchError = 'Search failed. Check your connection.';
+        },
+      });
   }
 
   formatType(item: CcmsResource): string {

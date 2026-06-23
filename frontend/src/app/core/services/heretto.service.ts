@@ -34,6 +34,7 @@ export interface CcmsResource {
   owner?: string;
   created?: string;
   modified?: string;
+  status?: string;
   [key: string]: unknown;
 }
 
@@ -128,5 +129,14 @@ export class HerettoService {
     const params: Record<string, string> = { name };
     if (branch) params['branch'] = branch;
     return this.api.get<CcmsSearchResponse>('/heretto/ccms/folders/search', params);
+  }
+
+  getStatusValues(branch?: string): Observable<string[]> {
+    const params = branch ? { branch } : undefined;
+    return this.api.get<string[]>('/heretto/ccms/metadata/status-values', params);
+  }
+
+  getDocumentStatus(id: string): Observable<{ status: string }> {
+    return this.api.get<{ status: string }>(`/heretto/ccms/documents/${id}/status`);
   }
 }

@@ -23,6 +23,7 @@ class SearchBody(BaseModel):
     foldersToSearch: dict | None = None
     startOffset: int = 0
     endOffset: int = 50
+    statusFilter: str | None = None
 
 
 class LocalesBody(BaseModel):
@@ -89,6 +90,7 @@ async def get_document_info(doc_id: str):
 
 @router.post("/ccms/search", dependencies=[_auth])
 async def search_documents(body: SearchBody):
+    drilldowns = [["status", body.statusFilter]] if body.statusFilter else None
     return await HerettoCcmsClient().search_documents(
         query_string=body.queryString,
         search_result_type=body.searchResultType,
@@ -96,4 +98,21 @@ async def search_documents(body: SearchBody):
         folders_to_search=body.foldersToSearch,
         start_offset=body.startOffset,
         end_offset=body.endOffset,
+        drilldowns=drilldowns,
     )
+
+
+@router.get("/ccms/metadata/status-values", dependencies=[_auth])
+async def get_status_values(branch: str | None = None):
+    return await HerettoCcmsClient().get_status_values(branch)
+
+
+@router.get("/ccms/debug/status-raw", dependencies=[_auth])
+async def debug_status_raw(branch: str | None = None):
+    """Diagnostic endpoint — remove after debugging."""
+    return await HerettoCcmsClient().debug_status_raw(branch)
+
+
+@router.get("/ccms/documents/{doc_id}/status", dependencies=[_auth])
+async def get_document_status(doc_id: str):
+    return {"status": await HerettoCcmsClient().get_document_status(doc_id)}
