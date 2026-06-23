@@ -55,9 +55,8 @@ def remove_schedule(schedule_id: str) -> None:
 def next_run_time(schedule_id: str) -> str | None:
     """Return ISO-8601 next fire time for a scheduled job, or None."""
     job = _scheduler.get_job(f"schedule:{schedule_id}")
-    if job and job.next_run_time:
-        return job.next_run_time.isoformat()
-    return None
+    nrt = getattr(job, "next_run_time", None) if job else None
+    return nrt.isoformat() if nrt else None
 
 
 def is_active(schedule_id: str) -> bool:
