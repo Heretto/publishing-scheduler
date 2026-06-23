@@ -127,7 +127,11 @@ interface BreadcrumbItem {
                     <span class="maps-empty" *ngIf="state.maps.length === 0">No DITA maps in this folder</span>
                     <div class="maps-list" *ngIf="state.maps.length > 0">
                       <span class="maps-label">{{ state.maps.length }} map{{ state.maps.length === 1 ? '' : 's' }}:</span>
-                      <span class="map-name" *ngFor="let map of state.maps; let last = last">{{ map.title || map.id }}{{ last ? '' : ', ' }}</span>
+                      <div class="maps-scroll-wrapper">
+                        <ul class="maps-bullet-list">
+                          <li *ngFor="let map of state.maps">{{ map.title || map.id }}</li>
+                        </ul>
+                      </div>
                     </div>
                   </ng-container>
                 </ng-container>
@@ -307,17 +311,37 @@ interface BreadcrumbItem {
     }
     .maps-list {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 2px;
-      align-items: baseline;
     }
     .maps-label {
       font-weight: 500;
-      margin-right: 4px;
-      white-space: nowrap;
     }
-    .map-name {
+    .maps-scroll-wrapper {
+      position: relative;
+    }
+    .maps-scroll-wrapper::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 22px;
+      background: linear-gradient(transparent, rgba(255,255,255,0.95));
+      pointer-events: none;
+    }
+    .maps-bullet-list {
+      max-height: 210px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: 2px 0 0 0;
+      padding-left: 16px;
+      padding-bottom: 8px;
       color: #444;
+    }
+    .maps-bullet-list li {
+      list-style: disc;
+      padding: 1px 0;
     }
     .selected-docs {
       margin-top: 8px;
