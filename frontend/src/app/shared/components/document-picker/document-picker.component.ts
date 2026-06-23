@@ -149,10 +149,38 @@ interface BreadcrumbItem {
                         <span class="maps-empty" *ngIf="filtered.length === 0">No maps match the selected status filter</span>
                         <div class="maps-list" *ngIf="filtered.length > 0">
                           <span class="maps-label">{{ filtered.length }} map{{ filtered.length === 1 ? '' : 's' }}:</span>
-                          <div class="maps-scroll-wrapper">
-                            <ul class="maps-bullet-list">
-                              <li *ngFor="let map of filtered">{{ map.title || map.id }}</li>
-                            </ul>
+                          <div class="folder-map-entries">
+                            <div class="doc-entry" *ngFor="let map of filtered">
+                              <div class="doc-chip-row">
+                                <span class="chip">
+                                  <mat-icon class="chip-doc-icon">description</mat-icon>
+                                  {{ map.title || map.id }}
+                                  <button class="release-btn" (click)="toggleReleaseMenu(map.id)">
+                                    {{ getReleaseName(map.id) }}<mat-icon class="release-arrow">arrow_drop_down</mat-icon>
+                                  </button>
+                                </span>
+                              </div>
+                              <div class="release-panel" *ngIf="releaseMenuOpenId === map.id">
+                                <div class="release-loading" *ngIf="releaseOptions.get(map.id)?.loading">Loading releases&hellip;</div>
+                                <ng-container *ngIf="!releaseOptions.get(map.id)?.loading">
+                                  <div class="release-option"
+                                       [class.release-selected]="!selectedReleases.has(map.id)"
+                                       (click)="clearRelease(map.id)">
+                                    Latest (always current)
+                                  </div>
+                                  <div class="release-option"
+                                       *ngFor="let rel of releaseOptions.get(map.id)?.releases"
+                                       [class.release-selected]="selectedReleases.get(map.id)?.id === rel.id"
+                                       (click)="selectRelease(map.id, rel)">
+                                    {{ rel.name }}<span class="release-meta" *ngIf="rel.completedDateTime"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
+                                    <span class="release-branch" *ngIf="rel.branchOfOriginName"> ({{ rel.branchOfOriginName }})</span>
+                                  </div>
+                                  <div class="release-empty" *ngIf="releaseOptions.get(map.id)?.releases?.length === 0">
+                                    No releases available
+                                  </div>
+                                </ng-container>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </ng-container>
@@ -373,6 +401,15 @@ interface BreadcrumbItem {
     .maps-bullet-list li {
       list-style: disc;
       padding: 1px 0;
+    }
+    .folder-map-entries {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 210px;
+      overflow-y: auto;
+      margin-top: 4px;
+      padding-bottom: 2px;
     }
     .selected-docs {
       margin-top: 8px;
