@@ -13,7 +13,6 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { HerettoService, CcmsResource, CcmsFolder } from '../../../core/services/heretto.service';
-import { Subject, debounceTime, switchMap, of } from 'rxjs';
 
 const DITAMAP_ONLY_KEY = 'docpicker_ditamap_only';
 
@@ -71,7 +70,7 @@ interface BreadcrumbItem {
                 (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
                 {{ item.title || item.id }}
               </span>
-              <span class="item-type">{{ formatType(item) }}</span>
+              <span class="item-type">{{ item['name'] || formatType(item) }}</span>
             </mat-list-item>
             <mat-list-item *ngIf="filteredChildren.length === 0">
               <span class="empty-message">{{ ditamapOnly ? 'No DITA maps in this folder' : 'This folder is empty' }}</span>
@@ -96,7 +95,7 @@ interface BreadcrumbItem {
                 ></mat-checkbox>
                 <mat-icon class="item-icon">description</mat-icon>
                 <span class="item-title">{{ item.title || item.id }}</span>
-                <span class="item-type">{{ formatType(item) }}</span>
+                <span class="item-type">{{ item['name'] || formatType(item) }}</span>
               </mat-list-item>
             </mat-list>
             <div class="empty-message" *ngIf="searchQuery.length >= 2 && filteredSearchResults.length === 0 && !searchLoading && !searchError">
@@ -163,6 +162,7 @@ interface BreadcrumbItem {
       font-size: 12px;
       color: #999;
       text-transform: uppercase;
+      margin-left: 5px;
     }
     .loading {
       display: flex;
@@ -218,7 +218,7 @@ interface BreadcrumbItem {
 })
 export class DocumentPickerComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
-  private searchSubject = new Subject<string>();
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   currentFolder: CcmsFolder | null = null;
   breadcrumbs: BreadcrumbItem[] = [];
@@ -248,12 +248,14 @@ export class DocumentPickerComponent implements OnInit {
   isDitamap(item: CcmsResource): boolean {
     const type = (item.type || '').toLowerCase();
     const title = (item.title || item.id || '').toLowerCase();
+    const name = ((item['name'] as string) || '').toLowerCase();
     // type field may carry MIME type ("application/ditamap+xml"), a short label
     // ("ditamap"), or a generic tag name ("resource") when the XML has no type
-    // attribute. The filename extension is always present and reliable.
+    // attribute. The filename (name) or title extension is always reliable.
     return type.includes('ditamap')
       || this.formatType(item).includes('ditamap')
-      || title.endsWith('.ditamap');
+      || title.endsWith('.ditamap')
+      || name.endsWith('.ditamap');
   }
 
   onDitamapOnlyChange(value: boolean) {
@@ -280,32 +282,6 @@ export class DocumentPickerComponent implements OnInit {
 
   ngOnInit() {
     this.navigateToRoot();
-    this.searchSubject.pipe(
-      debounceTime(300),
-      switchMap(query => {
-        if (!query || query.length < 2) {
-          this.searchLoading = false;
-          return of(null);
-        }
-        this.searchLoading = true;
-        this.searchError = '';
-        return this.herettoService.searchDocuments({ queryString: query }, this.data?.branch);
-      }),
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe({
-      next: result => {
-        this.searchLoading = false;
-        if (result) {
-          this.searchResults = result.results;
-        } else {
-          this.searchResults = [];
-        }
-      },
-      error: () => {
-        this.searchLoading = false;
-        this.searchError = 'Search failed. Check your connection.';
-      },
-    });
   }
 
   navigateToRoot() {
@@ -352,7 +328,27 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   onSearchInput(query: string) {
-    this.searchSubject.next(query);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchResults = [];
+    this.searchError = '';
+    if (!query || query.length < 2) {
+      this.searchLoading = false;
+      return;
+    }
+    this.searchLoading = true;
+    this.searchTimer = setTimeout(() => {
+      this.herettoService.searchDocuments({ queryString: query }, this.data?.branch)
+        .subscribe({
+          next: result => {
+            this.searchLoading = false;
+            this.searchResults = result.results;
+          },
+          error: () => {
+            this.searchLoading = false;
+            this.searchError = 'Search failed. Check your connection.';
+          },
+        });
+    }, 300);
   }
 
   formatType(item: CcmsResource): string {

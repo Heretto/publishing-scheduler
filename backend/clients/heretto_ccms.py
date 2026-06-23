@@ -1,12 +1,15 @@
 """Heretto CCMS (REST + search) client."""
 
 import httpx
+import logging
 from fastapi import HTTPException
 from lxml import etree
 from typing import Any
 
 from settings import get_settings
 from clients.heretto import _heretto_exc
+
+logger = logging.getLogger(__name__)
 
 
 def _text(el: etree._Element | None) -> str:
@@ -268,15 +271,21 @@ class HerettoCcmsClient:
             meta_data = metadata.get("data") or {}
             entity_class = str(entity.get("@class") or "")
             is_folder = entity_class.endswith("FolderImpl") or "numChildFolders" in entity
+            name = str(entity.get("name") or "")
             resource_type = (
                 "folder"
                 if is_folder
                 else str(entity.get("mimeType") or entity.get("type") or "")
             )
+            # Heretto search returns "application/xml" for all content types; upgrade
+            # to "application/ditamap+xml" when the actual filename tells us otherwise.
+            if resource_type == "application/xml" and name.lower().endswith(".ditamap"):
+                resource_type = "application/ditamap+xml"
             results.append({
                 "id": str(entity.get("ID") or entity.get("uuid") or entity.get("id") or ""),
-                "title": str(meta_data.get("title") or entity.get("name") or entity.get("title") or ""),
+                "title": str(meta_data.get("title") or name or entity.get("title") or ""),
                 "type": resource_type,
+                "name": name,
             })
         total = (
             data.get("totalResults")
