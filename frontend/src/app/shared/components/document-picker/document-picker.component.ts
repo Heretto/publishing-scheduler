@@ -144,14 +144,19 @@ interface BreadcrumbItem {
                   <span class="maps-loading" *ngIf="state.loading">Loading maps&hellip;</span>
                   <ng-container *ngIf="!state.loading">
                     <span class="maps-empty" *ngIf="state.maps.length === 0">No DITA maps in this folder</span>
-                    <div class="maps-list" *ngIf="state.maps.length > 0">
-                      <span class="maps-label">{{ state.maps.length }} map{{ state.maps.length === 1 ? '' : 's' }}:</span>
-                      <div class="maps-scroll-wrapper">
-                        <ul class="maps-bullet-list">
-                          <li *ngFor="let map of state.maps">{{ map.title || map.id }}</li>
-                        </ul>
-                      </div>
-                    </div>
+                    <ng-container *ngIf="state.maps.length > 0">
+                      <ng-container *ngIf="filteredFolderMaps(state.maps) as filtered">
+                        <span class="maps-empty" *ngIf="filtered.length === 0">No maps match the selected status filter</span>
+                        <div class="maps-list" *ngIf="filtered.length > 0">
+                          <span class="maps-label">{{ filtered.length }} map{{ filtered.length === 1 ? '' : 's' }}:</span>
+                          <div class="maps-scroll-wrapper">
+                            <ul class="maps-bullet-list">
+                              <li *ngFor="let map of filtered">{{ map.title || map.id }}</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </ng-container>
+                    </ng-container>
                   </ng-container>
                 </ng-container>
               </div>
@@ -562,6 +567,24 @@ export class DocumentPickerComponent implements OnInit {
     if (this.selectedStatusFilter && this.currentFolder) {
       this.fetchStatusForFolder(this.currentFolder.children);
     }
+    // Fetch statuses for maps inside already-selected folders
+    if (this.selectedStatusFilter) {
+      this.selectedFolders.forEach((_, folderId) => {
+        const state = this.folderMaps.get(folderId);
+        if (state && !state.loading) {
+          this.fetchStatusForFolder(state.maps);
+        }
+      });
+    }
+  }
+
+  filteredFolderMaps(maps: CcmsResource[]): CcmsResource[] {
+    if (!this.selectedStatusFilter) return maps;
+    return maps.filter(map => {
+      if (this.statusLoadingIds.has(map.id)) return true;
+      if (!this.documentStatuses.has(map.id)) return true;
+      return this.documentStatuses.get(map.id) === this.selectedStatusFilter;
+    });
   }
 
   fetchStatusForFolder(children: CcmsResource[]) {
@@ -652,6 +675,7 @@ export class DocumentPickerComponent implements OnInit {
         next: (folder: CcmsFolder) => {
           const maps = folder.children.filter(child => this.isDitamap(child));
           this.folderMaps.set(folderId, { loading: false, maps });
+          this.fetchStatusForFolder(maps);
         },
         error: () => {
           this.folderMaps.set(folderId, { loading: false, maps: [] });
