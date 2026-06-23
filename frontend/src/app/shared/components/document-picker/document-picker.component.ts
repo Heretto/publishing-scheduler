@@ -234,8 +234,14 @@ interface BreadcrumbItem {
       gap: 8px;
       cursor: default;
     }
+    .item-row ::ng-deep .mdc-list-item__primary-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
     .item-icon { color: #666; margin-right: 4px; vertical-align: middle; }
-    .item-title { flex: 1; }
+    .item-title { min-width: 0; }
     .item-title.clickable { cursor: pointer; color: #1976d2; }
     .item-title.clickable:hover { text-decoration: underline; }
     .item-type {
