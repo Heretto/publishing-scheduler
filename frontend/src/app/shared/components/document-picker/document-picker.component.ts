@@ -713,6 +713,11 @@ export class DocumentPickerComponent implements OnInit {
           const maps = folder.children.filter(child => this.isDitamap(child));
           this.folderMaps.set(folderId, { loading: false, maps });
           this.fetchStatusForFolder(maps);
+          // Update folder title if still showing the UUID placeholder
+          const existing = this.selectedFolders.get(folderId);
+          if (existing && existing.title === folderId) {
+            this.selectedFolders.set(folderId, { ...existing, title: folder.title || folderId });
+          }
         },
         error: () => {
           this.folderMaps.set(folderId, { loading: false, maps: [] });
@@ -722,6 +727,23 @@ export class DocumentPickerComponent implements OnInit {
 
   ngOnInit() {
     this.navigateToRoot();
+    // Fetch real titles for pre-selected documents (constructor seeds them with
+    // UUID as a placeholder since we don't have the title at construction time)
+    this.selectedItems.forEach((item, id) => {
+      if (item.title === id) {
+        this.herettoService.getDocumentInfo(id)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
+            next: info => {
+              const existing = this.selectedItems.get(id);
+              if (existing) {
+                this.selectedItems.set(id, { ...existing, title: info.title || id, type: info.type || existing.type });
+              }
+            },
+            error: () => { /* keep UUID as fallback */ },
+          });
+      }
+    });
   }
 
   navigateToRoot() {

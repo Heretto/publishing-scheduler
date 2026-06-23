@@ -282,16 +282,19 @@ class HerettoCcmsClient:
             return self._normalize_search_response(r.json())
 
     async def get_status_values(self, branch: str | None = None) -> list[str]:
-        """Return sorted unique status values by paginating all files in the repo.
+        """Return sorted unique status values by sampling the first 1 000 files.
 
         Uses searchResultType=FILES_ONLY (required for empty-query searches to
         return results rather than 204) and collects distinct status strings
-        from hit metadata across all pages.
+        from hit metadata. Caps at 1 000 files so the request completes quickly
+        regardless of repository size — status values are few and distributed
+        throughout the repo, so this sample reliably finds all of them.
         """
         root_path = self._build_search_path(branch)
         values: set[str] = set()
         batch = 200
         offset = 0
+        max_files = 1000
 
         while True:
             body: dict[str, Any] = {
@@ -326,7 +329,7 @@ class HerettoCcmsClient:
             if not isinstance(total, int):
                 total = data.get("total", 0)
             offset += len(hits)
-            if offset >= total or len(hits) < batch:
+            if offset >= total or len(hits) < batch or offset >= max_files:
                 break
 
         return sorted(values)
