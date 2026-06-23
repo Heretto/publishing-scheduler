@@ -100,14 +100,22 @@ function requireNonEmpty(control: AbstractControl) {
                     <mat-option *ngFor="let opt of param.options" [value]="opt.value">{{ opt.displayName || opt.value }}</mat-option>
                   </mat-select>
                 </mat-form-field>
+                <mat-form-field *ngSwitchCase="'ref'" appearance="outline" class="full-width">
+                  <mat-label>{{ param.displayName || param.name }}</mat-label>
+                  <input matInput [value]="getParameterDisplayValue(param.name)" readonly>
+                </mat-form-field>
                 <mat-checkbox *ngSwitchCase="'boolean'"
                   [checked]="getParameterValue(param.name) === true || getParameterValue(param.name) === 'true'"
-                  (change)="setParameterValue(param.name, $event.checked)">
+                  [disabled]="scenarioParametersReadOnly"
+                  (change)="!scenarioParametersReadOnly && setParameterValue(param.name, $event.checked)">
                   {{ param.displayName || param.name }}
                 </mat-checkbox>
                 <mat-form-field *ngSwitchDefault appearance="outline" class="full-width">
                   <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <input matInput [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''" (input)="setParameterValue(param.name, $any($event.target).value)">
+                  <input matInput
+                    [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''"
+                    [readonly]="scenarioParametersReadOnly"
+                    (input)="!scenarioParametersReadOnly && setParameterValue(param.name, $any($event.target).value)">
                 </mat-form-field>
               </ng-container>
             </div>
@@ -215,6 +223,7 @@ export class ScheduleFormComponent implements OnInit {
   scenarios: Scenario[] = [];
   branches: CcmsBranch[] = [];
   scenarioParameters: ScenarioParameter[] = [];
+  scenarioParametersReadOnly = false;
   parameterOverrides: Record<string, unknown> = {};
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
@@ -349,6 +358,7 @@ export class ScheduleFormComponent implements OnInit {
   onScenarioChange(scenarioIds: string[]) {
     this.parameterOverrides = {};
     this.scenarioParameters = [];
+    this.scenarioParametersReadOnly = false;
     if (scenarioIds.length > 0) {
       this.loadScenarioParameters(scenarioIds[0]);
     }
@@ -361,6 +371,9 @@ export class ScheduleFormComponent implements OnInit {
         next: params => {
           console.log('Scenario parameters:', JSON.stringify(params, null, 2));
           this.scenarioParameters = params;
+          // Scenarios with 'ref' type params have system-managed file references
+          // (e.g. PDF Generator); those params should not be user-editable.
+          this.scenarioParametersReadOnly = params.some(p => p['type'] === 'ref');
           for (const p of params) {
             if (!(p.name in this.parameterOverrides)) {
               if (p.type === 'option') {
