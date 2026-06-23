@@ -12,6 +12,8 @@
 - **🕐 Flexible Scheduling** - Create cron-based schedules with visual builder or advanced cron expressions
 - **🌍 Locale-Aware Publishing** - Select source and/or translated locales per schedule; each locale triggers a separate Heretto publish job automatically
 - **🗺️ DITA Map Filtering** - Document picker filters to DITA maps only, with full folder browsing of your CCMS content repository
+- **📁 Folder-Based Scheduling** - Select an entire folder to publish all DITA maps it contains; folder references are resolved dynamically at run time, so maps added to the folder after the schedule was created are automatically included in future runs
+- **🏷️ Release Publishing** - Pin a specific named release (snapshot) of a DITA map for scheduled publishing instead of always using the latest version; the release picker appears inline in the document picker and displays releases by their user-given name
 - **🎭 Multiple Scenarios** - Assign multiple publishing scenarios to a single schedule; each runs as an independent publish job
 - **📄 Multiple Output Formats** - Choose multiple output types (PDF, HTML5, XHTML, etc.) per scenario in a single schedule
 - **🔄 Automatic Retry** - Exponential backoff for transient failures (network, timeouts, 5xx errors)
@@ -260,7 +262,10 @@ npm run dev
    - **Scenarios:** Choose one or more publishing scenarios — each selected scenario triggers a separate publish job per run
    - **Output Formats:** For each scenario, select one or more output types (PDF, HTML5, XHTML, DITA, Markdown); each output type runs as an independent job
    - **Locales:** Select "Source" to publish the source language and/or any translated locales present in your CCMS — each locale triggers its own publish job
-   - **Documents:** Browse your CCMS content repository (filtered to DITA maps by default) and select the maps to publish
+   - **Documents:** Browse your CCMS content repository and select individual DITA maps, entire folders, or a mix of both
+     - Check a **folder's checkbox** to include all DITA maps currently in that folder; a live preview of which maps are included appears beneath the folder chip in the selection summary
+     - Folder references are **dynamic** — maps added to the folder after the schedule was saved are automatically picked up on the next run
+     - For any selected DITA map, click **"Latest ▾"** in the selection summary to pin a specific named release (snapshot) instead of publishing the latest version
 4. **Save** - The schedule will start automatically
 
 > **How jobs multiply:** A schedule with 2 scenarios × 2 output formats × 3 locales × 1 document = 12 Heretto publish jobs per run. Each is tracked individually in the Job History detail view.
@@ -600,6 +605,8 @@ job_concurrent_executions
 - cron_expression
 - scenario_id, deployment_id
 - document_ids (JSON array)
+- folder_ids (JSON array)          -- folders whose DITA maps are resolved at run time
+- document_releases (JSON object)  -- {mapId: snapshotFileId} for pinned releases
 - enabled (BOOLEAN)
 - branch, publish_parameters (JSON)
 - consecutive_failures (INTEGER)
@@ -900,6 +907,8 @@ docker compose restart backend
   "scenario_id": "123",
   "deployment_id": "456",
   "document_ids": ["doc-1", "doc-2"],
+  "folder_ids": ["folder-uuid"],
+  "document_releases": { "doc-1": "snapshot-file-uuid" },
   "enabled": true,
   "publish_parameters": []
 }
@@ -950,6 +959,12 @@ Query params:
 **`GET /api/heretto/scenarios`** - List publishing scenarios
 
 **`GET /api/heretto/scenarios/:id/parameters`** - Get scenario parameters
+
+**`GET /api/heretto/ccms/root`** - Get root CCMS folder contents
+
+**`GET /api/heretto/ccms/folders/:id`** - Get folder contents
+
+**`GET /api/heretto/ccms/documents/:id/releases`** - List named releases for a DITA map, newest first
 
 ### Metrics
 
