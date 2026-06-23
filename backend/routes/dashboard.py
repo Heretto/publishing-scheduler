@@ -51,7 +51,7 @@ def get_summary(ctx: OrgCtx, db: DB):
 
     # ── daily_volumes (last 14 days) ───────────────────────────────────────────
     cutoff_14 = datetime.now(timezone.utc) - timedelta(days=14)
-    date_col = func.strftime("%Y-%m-%d", JobHistory.started_at)
+    date_col = func.date(JobHistory.started_at)
     vol_rows = (
         db.query(date_col, JobHistory.status, func.count())
         .filter(JobHistory.schedule_id.in_(org_ids), JobHistory.started_at >= cutoff_14)

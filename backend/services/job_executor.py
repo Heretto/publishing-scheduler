@@ -5,27 +5,16 @@ import json
 import logging
 from datetime import datetime, timezone
 
+import httpx
 from sqlalchemy.orm import Session
 
 from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
 from models import JobHistory, Schedule
 from settings import get_settings
+from utils import parse_ids
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_ids(value: str | None) -> list[str]:
-    """Return a list from a stored JSON array or a legacy bare string."""
-    if not value:
-        return []
-    v = value.strip()
-    if v.startswith('['):
-        try:
-            return [str(x) for x in json.loads(v)]
-        except json.JSONDecodeError:
-            pass
-    return [v]
 
 
 async def _retry(coro_fn, max_attempts: int, initial_delay_ms: int, max_delay_ms: int, multiplier: float):
@@ -54,6 +43,74 @@ class JobExecutorService:
     def running_count(self) -> int:
         return len(self._running)
 
+    async def _resolve_source_docs(
+        self, source_doc_ids: list[str], folder_ids: list[str]
+    ) -> list[str]:
+        """Append DITA maps found in each folder, deduplicate, return merged list."""
+        if folder_ids:
+            try:
+                ccms = HerettoCcmsClient()
+                for folder_id in folder_ids:
+                    maps = await ccms.get_ditamaps_in_folder(folder_id)
+                    source_doc_ids.extend(m["id"] for m in maps)
+            except (httpx.HTTPError, httpx.TransportError, KeyError, TypeError) as exc:
+                logger.warning("Could not resolve folder IDs to DITA maps: %s", exc)
+        return list(dict.fromkeys(source_doc_ids))  # deduplicate, preserve order
+
+    async def _fetch_name_maps(
+        self, scenario_ids: list[str], source_doc_ids: list[str]
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """Best-effort fetch of scenario and document names for payload enrichment.
+        Returns (scenario_name_map, document_name_map). Never raises."""
+        scenario_name_map: dict[str, str] = {}
+        document_name_map: dict[str, str] = {}
+        try:
+            all_scenarios = await self._client.get_scenarios()
+            scenario_name_map = {s["id"]: s["name"] for s in all_scenarios}
+        except (httpx.HTTPError, httpx.TransportError) as exc:
+            logger.debug("Could not fetch scenario names for enrichment: %s", exc)
+        if source_doc_ids:
+            try:
+                ccms = HerettoCcmsClient()
+                for doc_id in source_doc_ids:
+                    info = await ccms.get_document_info(doc_id)
+                    if info.get("title"):
+                        document_name_map[doc_id] = info["title"]
+            except (httpx.HTTPError, httpx.TransportError, KeyError) as exc:
+                logger.debug("Could not fetch document names for enrichment: %s", exc)
+        return scenario_name_map, document_name_map
+
+    async def _build_locale_doc_map(
+        self, source_doc_ids: list[str], locales_list: list[str]
+    ) -> dict[str, list[str]]:
+        """Build {locale: [doc_ids]} mapping via CCMS locale resolution.
+        The "" key always present for source-language documents."""
+        locale_doc_map: dict[str, list[str]] = {"": source_doc_ids}
+        non_source = [l for l in locales_list if l]
+        if non_source and source_doc_ids:
+            ccms = HerettoCcmsClient()
+            for locale in non_source:
+                resolved: list[str] = []
+                for doc_id in source_doc_ids:
+                    doc_locales = await ccms.get_document_locales(doc_id)
+                    lmap = {lc["code"]: lc["uuid"] for lc in doc_locales}
+                    resolved.append(lmap.get(locale, doc_id))
+                locale_doc_map[locale] = resolved
+        return locale_doc_map
+
+    def _apply_release_pinning(
+        self,
+        locale_doc_map: dict[str, list[str]],
+        document_releases: dict[str, str],
+    ) -> dict[str, list[str]]:
+        """Swap any map ID that has a pinned release. Returns updated map."""
+        if not document_releases:
+            return locale_doc_map
+        return {
+            locale: [document_releases.get(did, did) for did in doc_ids]
+            for locale, doc_ids in locale_doc_map.items()
+        }
+
     async def execute(
         self,
         schedule_id: str,
@@ -73,67 +130,21 @@ class JobExecutorService:
         source_doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
         folder_ids: list[str] = json.loads(getattr(schedule, "folder_ids", None) or "[]")
         params: list[dict] = json.loads(schedule.publish_parameters or "[]")
-        scenario_ids = _parse_ids(schedule.scenario_id)
-        locales_list = _parse_ids(getattr(schedule, "locale", "") or "")
+        scenario_ids = parse_ids(schedule.scenario_id)
+        locales_list = parse_ids(getattr(schedule, "locale", "") or "")
 
         # Treat empty locales as source-only
         if not locales_list:
             locales_list = [""]
 
-        # Resolve folder IDs to their current direct-child DITA maps
-        if folder_ids:
-            try:
-                _folder_ccms = HerettoCcmsClient()
-                for folder_id in folder_ids:
-                    maps = await _folder_ccms.get_ditamaps_in_folder(folder_id)
-                    source_doc_ids.extend(m["id"] for m in maps)
-            except Exception:
-                logger.warning("Could not resolve folder IDs to DITA maps")
+        source_doc_ids = await self._resolve_source_docs(source_doc_ids, folder_ids)
+        scenario_name_map, document_name_map = await self._fetch_name_maps(scenario_ids, source_doc_ids)
+        locale_doc_map = await self._build_locale_doc_map(source_doc_ids, locales_list)
 
-        # Deduplicate while preserving order
-        source_doc_ids = list(dict.fromkeys(source_doc_ids))
-
-        # Best-effort: fetch names for request-payload enrichment (used at view time)
-        scenario_name_map: dict[str, str] = {}
-        document_name_map: dict[str, str] = {}
-        try:
-            all_scenarios = await self._client.get_scenarios()
-            scenario_name_map = {s["id"]: s["name"] for s in all_scenarios}
-        except Exception:
-            logger.debug("Could not fetch scenario names for enrichment")
-
-        if source_doc_ids:
-            try:
-                _name_ccms = HerettoCcmsClient()
-                for doc_id in source_doc_ids:
-                    info = await _name_ccms.get_document_info(doc_id)
-                    if info.get("title"):
-                        document_name_map[doc_id] = info["title"]
-            except Exception:
-                logger.debug("Could not fetch document names for enrichment")
-
-        # Pre-resolve locale → document IDs mapping
-        locale_doc_map: dict[str, list[str]] = {"": source_doc_ids}
-        non_source = [l for l in locales_list if l]
-        if non_source and source_doc_ids:
-            ccms = HerettoCcmsClient()
-            for locale in non_source:
-                resolved: list[str] = []
-                for doc_id in source_doc_ids:
-                    doc_locales = await ccms.get_document_locales(doc_id)
-                    lmap = {lc["code"]: lc["uuid"] for lc in doc_locales}
-                    resolved.append(lmap.get(locale, doc_id))
-                locale_doc_map[locale] = resolved
-
-        # Apply release pinning: swap any map ID that has a pinned release
         document_releases: dict[str, str] = json.loads(
             getattr(schedule, "document_releases", None) or "{}"
         )
-        if document_releases:
-            for locale in locale_doc_map:
-                locale_doc_map[locale] = [
-                    document_releases.get(did, did) for did in locale_doc_map[locale]
-                ]
+        locale_doc_map = self._apply_release_pinning(locale_doc_map, document_releases)
 
         combos = [(sid, loc) for sid in scenario_ids for loc in locales_list]
         request_payload = {

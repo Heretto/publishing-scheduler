@@ -106,26 +106,13 @@ async def _log_validation_error(request: Request, exc: RequestValidationError):
 
 
 def _run_migrations():
-    """Apply incremental schema changes for existing databases."""
-    from sqlalchemy import text
-    from hop_core.db import get_engine
-    try:
-        engine = get_engine()
-        migrations = [
-            "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
-            "ALTER TABLE schedules ADD COLUMN folder_ids TEXT DEFAULT '[]'",
-            "ALTER TABLE schedules ADD COLUMN document_releases TEXT DEFAULT '{}'",
-        ]
-        for sql in migrations:
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text(sql))
-                    conn.commit()
-                    logger.info("DB migration applied: %s", sql)
-            except Exception:
-                pass  # Column already exists
-    except Exception as exc:
-        logger.warning("DB migration skipped: %s", exc)
+    """Apply pending Alembic migrations."""
+    import os
+    from alembic.config import Config
+    from alembic import command
+    cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+    command.upgrade(cfg, "head")
+    logger.info("Database migrations up to date")
 
 
 @app.on_event("startup")

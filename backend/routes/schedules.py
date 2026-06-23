@@ -13,6 +13,7 @@ from hop_core.db import get_db
 
 from models import Schedule
 from services import scheduler as sched
+from utils import parse_ids
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +22,6 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 # Shared dependency aliases
 OrgCtx = Annotated[CurrentUserContext, Depends(get_current_active_user_with_org)]
 DB = Annotated[Session, Depends(get_db)]
-
-
-# ── helpers ────────────────────────────────────────────────────────────────────
-
-def _parse_ids(value: str | None) -> list[str]:
-    """Return a list from a stored JSON array or a legacy bare string."""
-    if not value:
-        return []
-    v = value.strip()
-    if v.startswith('['):
-        try:
-            return [str(x) for x in json.loads(v)]
-        except json.JSONDecodeError:
-            pass
-    return [v]
 
 
 # ── Pydantic schemas ───────────────────────────────────────────────────────────
@@ -95,14 +81,14 @@ def _fmt(s: Schedule) -> dict:
         "name": s.name,
         "description": s.description,
         "cron_expression": s.cron_expression,
-        "scenario_ids": _parse_ids(s.scenario_id),
+        "scenario_ids": parse_ids(s.scenario_id),
         "deployment_id": s.deployment_id,
         "document_ids": json.loads(s.document_ids or "[]"),
         "folder_ids": json.loads(s.folder_ids or "[]"),
         "document_releases": json.loads(s.document_releases or "{}"),
         "enabled": s.enabled,
         "branch": s.branch,
-        "locales": _parse_ids(s.locale),
+        "locales": parse_ids(s.locale),
         "publish_parameters": json.loads(s.publish_parameters or "[]"),
         "last_run_at": s.last_run_at.isoformat() + "+00:00" if s.last_run_at else None,
         "last_run_status": s.last_run_status,

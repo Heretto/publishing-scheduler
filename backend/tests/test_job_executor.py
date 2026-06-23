@@ -1,6 +1,7 @@
 """Tests for JobExecutorService — multi-scenario × locale execution."""
 
 import json
+import httpx
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -71,6 +72,7 @@ def executor(mock_settings):
     mock_client.trigger_publishing_job = AsyncMock(return_value=[
         {"id": "job-heretto-1", "status": "submitted", "fileId": "doc-1"}
     ])
+    mock_client.get_scenarios = AsyncMock(return_value=[])
     svc._client = mock_client
     return svc, mock_client
 
@@ -156,6 +158,7 @@ class TestExecute:
         mock_ccms.get_document_locales = AsyncMock(
             return_value=[{"code": "fr-fr", "uuid": "doc-fr-uuid"}]
         )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -184,6 +187,7 @@ class TestExecute:
         mock_ccms.get_document_locales = AsyncMock(
             return_value=[{"code": "fr-fr", "uuid": "doc-fr-uuid"}]  # only French
         )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -215,6 +219,7 @@ class TestExecute:
             {"code": "fr-fr", "uuid": "doc-fr"},
             {"code": "de-de", "uuid": "doc-de"},
         ])
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -339,6 +344,7 @@ class TestFolderResolution:
         mock_ccms.get_ditamaps_in_folder = AsyncMock(
             return_value=[{"id": "map-from-folder", "title": "Map", "name": "map.ditamap"}]
         )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -361,6 +367,7 @@ class TestFolderResolution:
         mock_ccms.get_ditamaps_in_folder = AsyncMock(
             return_value=[{"id": "folder-map", "title": "FM", "name": "fm.ditamap"}]
         )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -384,6 +391,7 @@ class TestFolderResolution:
         mock_ccms.get_ditamaps_in_folder = AsyncMock(
             return_value=[{"id": "shared-map", "title": "S", "name": "s.ditamap"}]
         )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -401,6 +409,7 @@ class TestFolderResolution:
 
         mock_ccms = MagicMock()
         mock_ccms.get_ditamaps_in_folder = AsyncMock(return_value=[])
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -416,7 +425,10 @@ class TestFolderResolution:
         db, job = _make_db(schedule)
 
         mock_ccms = MagicMock()
-        mock_ccms.get_ditamaps_in_folder = AsyncMock(side_effect=RuntimeError("CCMS down"))
+        mock_ccms.get_ditamaps_in_folder = AsyncMock(
+            side_effect=httpx.HTTPError("CCMS down")
+        )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
@@ -495,6 +507,7 @@ class TestReleasePinning:
         mock_ccms.get_document_locales = AsyncMock(
             return_value=[{"code": "fr-fr", "uuid": "fr-map-uuid"}]
         )
+        mock_ccms.get_document_info = AsyncMock(return_value={})
 
         with patch("services.job_executor.JobHistory") as MockJobHistory, \
              patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
