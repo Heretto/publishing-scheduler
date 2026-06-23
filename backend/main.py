@@ -115,19 +115,27 @@ def _run_migrations():
     logger.info("Database migrations up to date")
 
 
-@app.on_event("startup")
-async def on_startup():
-    _run_migrations()
-    sched.start()
-    _load_schedules()
-    asyncio.create_task(_prune_old_jobs())
-    logger.info("Publishing Scheduler started")
+# @app.on_event("startup/shutdown") does not fire when the app is created with
+# an explicit lifespan= (Starlette 0.20+, which hop-core uses). Capture the
+# hop-core lifespan and wrap it so our startup runs inside it — after
+# hop-core's init_db() has completed.
+_hop_lifespan = app.router.lifespan_context
 
 
-@app.on_event("shutdown")
-async def on_shutdown():
-    sched.shutdown(wait=True)
-    logger.info("Publishing Scheduler shut down")
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    async with _hop_lifespan(app):
+        _run_migrations()
+        sched.start()
+        _load_schedules()
+        asyncio.create_task(_prune_old_jobs())
+        logger.info("Publishing Scheduler started")
+        yield
+        sched.shutdown(wait=True)
+        logger.info("Publishing Scheduler shut down")
+
+
+app.router.lifespan_context = _lifespan
 
 
 @app.get("/api/health")
