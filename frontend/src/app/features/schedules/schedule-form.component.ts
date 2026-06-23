@@ -411,7 +411,7 @@ export class ScheduleFormComponent implements OnInit {
     const dialogRef = this.dialog.open(DocumentPickerComponent, {
       width: '700px',
       maxHeight: '85vh',
-      data: { selectedIds: [], branch } as DocumentPickerData,
+      data: { selectedIds: [], branch, allowAllTypes: true } as DocumentPickerData,
     });
 
     dialogRef.afterClosed()

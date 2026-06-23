@@ -19,6 +19,8 @@ const DITAMAP_ONLY_KEY = 'docpicker_ditamap_only';
 export interface DocumentPickerData {
   selectedIds: string[];
   branch?: string;
+  /** When true, disables the DITA maps-only filter (e.g. for ditaval/parameter file pickers) */
+  allowAllTypes?: boolean;
 }
 
 interface BreadcrumbItem {
@@ -37,7 +39,7 @@ interface BreadcrumbItem {
   template: `
     <h2 mat-dialog-title>Select Documents</h2>
     <mat-dialog-content class="picker-content">
-      <div class="filter-bar">
+      <div class="filter-bar" *ngIf="!data?.allowAllTypes">
         <mat-slide-toggle
           [checked]="ditamapOnly"
           (change)="onDitamapOnlyChange($event.checked)"
@@ -236,12 +238,12 @@ export class DocumentPickerComponent implements OnInit {
 
   get filteredChildren(): CcmsResource[] {
     const children = this.currentFolder?.children ?? [];
-    if (!this.ditamapOnly) return children;
+    if (!this.ditamapOnly || this.data?.allowAllTypes) return children;
     return children.filter(item => item.type === 'folder' || this.isDitamap(item));
   }
 
   get filteredSearchResults(): CcmsResource[] {
-    if (!this.ditamapOnly) return this.searchResults;
+    if (!this.ditamapOnly || this.data?.allowAllTypes) return this.searchResults;
     return this.searchResults.filter(item => this.isDitamap(item));
   }
 
