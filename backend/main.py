@@ -112,6 +112,7 @@ def _run_migrations():
         migrations = [
             "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
             "ALTER TABLE schedules ADD COLUMN folder_ids TEXT DEFAULT '[]'",
+            "ALTER TABLE schedules ADD COLUMN document_releases TEXT DEFAULT '{}'",
         ]
         for sql in migrations:
             try:

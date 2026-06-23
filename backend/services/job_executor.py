@@ -125,11 +125,22 @@ class JobExecutorService:
                     resolved.append(lmap.get(locale, doc_id))
                 locale_doc_map[locale] = resolved
 
+        # Apply release pinning: swap any map ID that has a pinned release
+        document_releases: dict[str, str] = json.loads(
+            getattr(schedule, "document_releases", None) or "{}"
+        )
+        if document_releases:
+            for locale in locale_doc_map:
+                locale_doc_map[locale] = [
+                    document_releases.get(did, did) for did in locale_doc_map[locale]
+                ]
+
         combos = [(sid, loc) for sid in scenario_ids for loc in locales_list]
         request_payload = {
             "scenarios": scenario_ids,
             "locales": locales_list,
             "documentIds": source_doc_ids,
+            "documentReleases": document_releases,
             "parameters": params,
             "scenarioNames": scenario_name_map,
             "documentNames": document_name_map,

@@ -12,13 +12,14 @@ import { MatListModule } from '@angular/material/list';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { HerettoService, CcmsResource, CcmsFolder } from '../../../core/services/heretto.service';
+import { HerettoService, CcmsResource, CcmsFolder, CcmsRelease } from '../../../core/services/heretto.service';
 
 const DITAMAP_ONLY_KEY = 'docpicker_ditamap_only';
 
 export interface DocumentPickerData {
   selectedIds: string[];
   selectedFolderIds?: string[];
+  selectedReleases?: Record<string, { id: string; name: string }>;
   branch?: string;
   /** When true, disables the DITA maps-only filter (e.g. for ditaval/parameter file pickers) */
   allowAllTypes?: boolean;
@@ -136,11 +137,41 @@ interface BreadcrumbItem {
         </div>
         <div *ngIf="selectedItems.size > 0" [style.margin-top]="selectedFolders.size > 0 ? '8px' : '0'">
           <strong>{{ selectedItems.size }} document(s) selected</strong>
-          <div class="selected-chips">
-            <span class="chip" *ngFor="let item of selectedItemsList">
-              {{ item.title || item.id }}
-              <mat-icon class="chip-remove" (click)="removeSelection(item.id)">close</mat-icon>
-            </span>
+          <div class="selected-docs">
+            <div class="doc-entry" *ngFor="let item of selectedItemsList">
+              <div class="doc-chip-row">
+                <span class="chip">
+                  <mat-icon class="chip-doc-icon">description</mat-icon>
+                  {{ item.title || item.id }}
+                  <ng-container *ngIf="isDitamap(item)">
+                    <button class="release-btn" (click)="toggleReleaseMenu(item.id)">
+                      {{ getReleaseName(item.id) }}<mat-icon class="release-arrow">arrow_drop_down</mat-icon>
+                    </button>
+                  </ng-container>
+                  <mat-icon class="chip-remove" (click)="removeSelection(item.id)">close</mat-icon>
+                </span>
+              </div>
+              <div class="release-panel" *ngIf="releaseMenuOpenId === item.id">
+                <div class="release-loading" *ngIf="releaseOptions.get(item.id)?.loading">Loading releases&hellip;</div>
+                <ng-container *ngIf="!releaseOptions.get(item.id)?.loading">
+                  <div class="release-option"
+                       [class.release-selected]="!selectedReleases.has(item.id)"
+                       (click)="clearRelease(item.id)">
+                    Latest (always current)
+                  </div>
+                  <div class="release-option"
+                       *ngFor="let rel of releaseOptions.get(item.id)?.releases"
+                       [class.release-selected]="selectedReleases.get(item.id)?.id === rel.id"
+                       (click)="selectRelease(item.id, rel)">
+                    {{ rel.name }}<span class="release-meta" *ngIf="rel.completedDateTime"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
+                    <span class="release-branch" *ngIf="rel.branchOfOriginName"> ({{ rel.branchOfOriginName }})</span>
+                  </div>
+                  <div class="release-empty" *ngIf="releaseOptions.get(item.id)?.releases?.length === 0">
+                    No releases available
+                  </div>
+                </ng-container>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -288,6 +319,83 @@ interface BreadcrumbItem {
     .map-name {
       color: #444;
     }
+    .selected-docs {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .doc-entry {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .doc-chip-row {
+      display: flex;
+      align-items: center;
+    }
+    .chip-doc-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+      color: #555;
+    }
+    .release-btn {
+      display: inline-flex;
+      align-items: center;
+      background: #e8f0fe;
+      border: 1px solid #c5d6f8;
+      border-radius: 10px;
+      padding: 1px 4px 1px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 6px;
+      color: #1a73e8;
+      white-space: nowrap;
+    }
+    .release-btn:hover { background: #d2e3fc; }
+    .release-arrow {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .release-panel {
+      margin-left: 28px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      overflow: hidden;
+      z-index: 10;
+    }
+    .release-loading {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #888;
+      font-style: italic;
+    }
+    .release-option {
+      padding: 7px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .release-option:last-child { border-bottom: none; }
+    .release-option:hover { background: #f5f5f5; }
+    .release-selected { background: #e8f5e9; font-weight: 500; }
+    .release-selected:hover { background: #dcedc8; }
+    .release-meta { color: #888; font-size: 12px; }
+    .release-branch { color: #aaa; font-size: 11px; }
+    .release-empty {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #999;
+      font-style: italic;
+    }
     .chip-remove {
       font-size: 16px;
       width: 16px;
@@ -317,6 +425,9 @@ export class DocumentPickerComponent implements OnInit {
   selectedItems = new Map<string, CcmsResource>();
   selectedFolders = new Map<string, CcmsResource>();
   folderMaps = new Map<string, { loading: boolean; maps: CcmsResource[] }>();
+  selectedReleases = new Map<string, CcmsRelease>();
+  releaseOptions = new Map<string, { loading: boolean; releases: CcmsRelease[] }>();
+  releaseMenuOpenId: string | null = null;
 
   get filteredChildren(): CcmsResource[] {
     const children = this.currentFolder?.children ?? [];
@@ -362,6 +473,11 @@ export class DocumentPickerComponent implements OnInit {
       data.selectedFolderIds.forEach(id => {
         this.selectedFolders.set(id, { id, title: id, type: 'folder' });
         this._fetchFolderMaps(id);
+      });
+    }
+    if (data?.selectedReleases) {
+      Object.entries(data.selectedReleases).forEach(([docId, rel]) => {
+        this.selectedReleases.set(docId, { id: rel.id, name: rel.name });
       });
     }
   }
@@ -505,12 +621,59 @@ export class DocumentPickerComponent implements OnInit {
 
   removeSelection(id: string) {
     this.selectedItems.delete(id);
+    this.selectedReleases.delete(id);
+    this.releaseOptions.delete(id);
+    if (this.releaseMenuOpenId === id) this.releaseMenuOpenId = null;
+  }
+
+  toggleReleaseMenu(docId: string) {
+    if (this.releaseMenuOpenId === docId) {
+      this.releaseMenuOpenId = null;
+      return;
+    }
+    this.releaseMenuOpenId = docId;
+    if (!this.releaseOptions.has(docId)) {
+      this.releaseOptions.set(docId, { loading: true, releases: [] });
+      this.herettoService.getReleasesForDocument(docId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: releases => this.releaseOptions.set(docId, { loading: false, releases }),
+          error: () => this.releaseOptions.set(docId, { loading: false, releases: [] }),
+        });
+    }
+  }
+
+  selectRelease(docId: string, release: CcmsRelease) {
+    this.selectedReleases.set(docId, release);
+    this.releaseMenuOpenId = null;
+  }
+
+  clearRelease(docId: string) {
+    this.selectedReleases.delete(docId);
+    this.releaseMenuOpenId = null;
+  }
+
+  getReleaseName(docId: string): string {
+    return this.selectedReleases.get(docId)?.name ?? 'Latest';
+  }
+
+  formatReleaseDate(dt: string): string {
+    try {
+      return new Date(dt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return dt;
+    }
   }
 
   confirm() {
+    const releases: Record<string, { id: string; name: string }> = {};
+    this.selectedReleases.forEach((rel, docId) => {
+      releases[docId] = { id: rel.id, name: rel.name };
+    });
     this.dialogRef.close({
       docs: Array.from(this.selectedItems.values()),
       folders: Array.from(this.selectedFolders.values()),
+      releases,
     });
   }
 }

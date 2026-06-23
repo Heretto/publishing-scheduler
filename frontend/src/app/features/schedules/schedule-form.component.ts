@@ -228,6 +228,7 @@ export class ScheduleFormComponent implements OnInit {
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
   folderSelections: { id: string; title: string }[] = [];
+  documentReleases: Record<string, { id: string; name: string }> = {};
   localeOptions: CcmsLocale[] = [];
   localeLoading = false;
   localeHint = '';
@@ -302,6 +303,14 @@ export class ScheduleFormComponent implements OnInit {
                     error: () => {},
                   });
               }
+            }
+            // Populate pinned releases (id only from DB; name resolved lazily in picker)
+            if (s.document_releases) {
+              this.documentReleases = Object.fromEntries(
+                Object.entries(s.document_releases).map(([mapId, releaseId]) => [
+                  mapId, { id: releaseId, name: releaseId },
+                ])
+              );
             }
             this.documentDisplayValue = this._buildDocumentDisplayValue(s.document_ids);
             for (const p of (s.publish_parameters || [])) {
@@ -471,6 +480,7 @@ export class ScheduleFormComponent implements OnInit {
       data: {
         selectedIds: currentIds,
         selectedFolderIds: this.folderSelections.map(f => f.id),
+        selectedReleases: this.documentReleases,
         branch,
       } as DocumentPickerData,
     });
@@ -482,6 +492,7 @@ export class ScheduleFormComponent implements OnInit {
         const docs: CcmsResource[] = result.docs ?? [];
         const folders: CcmsResource[] = result.folders ?? [];
         this.folderSelections = folders.map(f => ({ id: f.id, title: f.title || f.id }));
+        this.documentReleases = result.releases ?? {};
         this.form.patchValue({
           document_ids_raw: docs.map(i => i.id).join(', '),
         });
@@ -517,6 +528,9 @@ export class ScheduleFormComponent implements OnInit {
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
       folder_ids: this.folderSelections.map(f => f.id),
+      document_releases: Object.fromEntries(
+        Object.entries(this.documentReleases).map(([k, v]) => [k, v.id])
+      ),
       branch: value.branch,
       locales: value.locales || [],
       publish_parameters: publishParameters,

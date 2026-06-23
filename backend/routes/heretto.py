@@ -77,6 +77,11 @@ async def get_folder_contents(folder_id: str):
     return await HerettoCcmsClient().get_folder_contents(folder_id)
 
 
+@router.get("/ccms/documents/{doc_id}/releases", dependencies=[_auth])
+async def get_document_releases(doc_id: str):
+    return await HerettoCcmsClient().get_releases_for_document(doc_id)
+
+
 @router.get("/ccms/documents/{doc_id}", dependencies=[_auth])
 async def get_document_info(doc_id: str):
     return await HerettoCcmsClient().get_document_info(doc_id)

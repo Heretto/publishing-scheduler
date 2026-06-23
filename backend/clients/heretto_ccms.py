@@ -123,6 +123,50 @@ class HerettoCcmsClient:
             root = etree.fromstring(r.content)
             return self._normalize_folder(root)
 
+    async def get_releases_for_document(self, doc_id: str) -> list[dict]:
+        """Return releases for a specific DITA map, newest first.
+
+        The API returns ``releaseByFiles`` as a flat map where each key is the
+        release UUID and each value is the snapshot file entity.  The snapshot
+        entity's ``id`` field (NOT the map key) is the file UUID that must be
+        passed to the publish endpoint.  There is no explicit human-readable
+        release name, so we use the ``created`` ms-epoch timestamp as the label.
+        """
+        async with self._rest_client() as c:
+            r = await c.get(
+                f"/all-files/{doc_id}/releases",
+                headers={"Accept": "application/json"},
+            )
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
+            try:
+                data = r.json()
+            except Exception as exc:
+                logger.warning("releases JSON parse failed: %s", exc)
+                return []
+            # releaseByFiles: {releaseUUID: snapshotFileEntity} — use for publish IDs
+            release_by_files = data.get("releaseByFiles") or {}
+            snapshot_id_map = {
+                release_uuid: snapshot.get("id", "")
+                for release_uuid, snapshot in release_by_files.items()
+            }
+            # releases[]: release objects with human-readable name, date, branch
+            releases_list = data.get("releases") or []
+            releases: list[dict] = []
+            for rel in releases_list:
+                rel_id = rel.get("id", "")
+                releases.append({
+                    "id": snapshot_id_map.get(rel_id, rel_id),
+                    "name": rel.get("name") or rel.get("completedDateTime", "")[:10],
+                    "completedDateTime": rel.get("completedDateTime"),
+                    "branchOfOriginName": rel.get("branchOfOriginName"),
+                })
+            # Sort newest first
+            releases.sort(key=lambda r: r.get("completedDateTime") or "", reverse=True)
+            return releases
+
     async def get_ditamaps_in_folder(self, folder_id: str) -> list[dict]:
         """Return direct-child DITA maps of a folder (excludes sub-folders)."""
         folder = await self.get_folder_contents(folder_id)

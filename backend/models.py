@@ -58,6 +58,7 @@ class Schedule(Base):
     deployment_id = Column(String(255), default="")
     document_ids = Column(Text, default="[]")       # JSON array
     folder_ids = Column(Text, default="[]")         # JSON array
+    document_releases = Column(Text, default="{}")  # JSON object {mapId: releaseId}
     enabled = Column(Boolean, default=True)
     branch = Column(String(255), default="master")
     locale = Column(String(50), default="")

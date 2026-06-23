@@ -20,6 +20,13 @@ export interface Release {
   [key: string]: unknown;
 }
 
+export interface CcmsRelease {
+  id: string;
+  name: string;
+  completedDateTime?: string;
+  branchOfOriginName?: string;
+}
+
 export interface CcmsResource {
   id: string;
   title: string;
@@ -90,6 +97,10 @@ export class HerettoService {
 
   getDocumentInfo(id: string): Observable<CcmsResource> {
     return this.api.get<CcmsResource>(`/heretto/ccms/documents/${id}`);
+  }
+
+  getReleasesForDocument(docId: string): Observable<CcmsRelease[]> {
+    return this.api.get<CcmsRelease[]>(`/heretto/ccms/documents/${docId}/releases`);
   }
 
   getBranches(): Observable<CcmsBranch[]> {

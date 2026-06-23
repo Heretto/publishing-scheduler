@@ -11,6 +11,7 @@ export interface Schedule {
   deployment_id: string;
   document_ids: string[];
   folder_ids: string[];
+  document_releases: Record<string, string>;
   enabled: boolean;
   branch: string;
   locales: string[];
@@ -29,6 +30,7 @@ export interface CreateScheduleInput {
   deployment_id: string;
   document_ids?: string[];
   folder_ids?: string[];
+  document_releases?: Record<string, string>;
   enabled?: boolean;
   branch?: string;
   locales?: string[];
