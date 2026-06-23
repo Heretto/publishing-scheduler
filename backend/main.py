@@ -113,14 +113,14 @@ def _run_migrations():
             "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
             "ALTER TABLE schedules ADD COLUMN folder_ids TEXT DEFAULT '[]'",
         ]
-        with engine.connect() as conn:
-            for sql in migrations:
-                try:
+        for sql in migrations:
+            try:
+                with engine.connect() as conn:
                     conn.execute(text(sql))
                     conn.commit()
                     logger.info("DB migration applied: %s", sql)
-                except Exception:
-                    pass  # Column already exists
+            except Exception:
+                pass  # Column already exists
     except Exception as exc:
         logger.warning("DB migration skipped: %s", exc)
 
