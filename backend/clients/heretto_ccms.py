@@ -282,37 +282,53 @@ class HerettoCcmsClient:
             return self._normalize_search_response(r.json())
 
     async def get_status_values(self, branch: str | None = None) -> list[str]:
-        """Return sorted unique status values by scanning files across the repo.
+        """Return sorted unique status values by paginating all files in the repo.
 
         Uses searchResultType=FILES_ONLY (required for empty-query searches to
         return results rather than 204) and collects distinct status strings
-        from hit metadata.
+        from hit metadata across all pages.
         """
         root_path = self._build_search_path(branch)
-        body: dict[str, Any] = {
-            "queryString": "",
-            "searchResultType": "FILES_ONLY",
-            "startOffset": 0,
-            "endOffset": 200,
-            "foldersToSearch": {root_path: True},
-        }
-        async with self._search_client() as c:
-            r = await c.post("/search", json=body)
-            if r.status_code == 204 or not r.content:
-                return []
-            try:
-                r.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                raise _heretto_exc(exc) from exc
-            data = r.json()
-        hits = data.get("hits") or data.get("results") or data.get("items") or []
         values: set[str] = set()
-        for hit in hits:
-            entity = hit.get("fileEntity") or hit
-            meta_data = (entity.get("metadata") or {}).get("data") or {}
-            status = str(meta_data.get("status") or "").strip()
-            if status:
-                values.add(status)
+        batch = 200
+        offset = 0
+
+        while True:
+            body: dict[str, Any] = {
+                "queryString": "",
+                "searchResultType": "FILES_ONLY",
+                "startOffset": offset,
+                "endOffset": offset + batch,
+                "foldersToSearch": {root_path: True},
+            }
+            async with self._search_client() as c:
+                r = await c.post("/search", json=body)
+                if r.status_code == 204 or not r.content:
+                    break
+                try:
+                    r.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    raise _heretto_exc(exc) from exc
+                data = r.json()
+
+            hits = data.get("hits") or data.get("results") or data.get("items") or []
+            if not hits:
+                break
+
+            for hit in hits:
+                entity = hit.get("fileEntity") or hit
+                meta_data = (entity.get("metadata") or {}).get("data") or {}
+                status = str(meta_data.get("status") or "").strip()
+                if status:
+                    values.add(status)
+
+            total = data.get("totalResults")
+            if not isinstance(total, int):
+                total = data.get("total", 0)
+            offset += len(hits)
+            if offset >= total or len(hits) < batch:
+                break
+
         return sorted(values)
 
     async def get_document_status(self, doc_id: str) -> str:
