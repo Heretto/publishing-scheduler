@@ -12,7 +12,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
-import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale } from '../../core/services/heretto.service';
+import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale, CcmsResource } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
@@ -227,6 +227,7 @@ export class ScheduleFormComponent implements OnInit {
   parameterOverrides: Record<string, unknown> = {};
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
+  folderSelections: { id: string; title: string }[] = [];
   localeOptions: CcmsLocale[] = [];
   localeLoading = false;
   localeHint = '';
@@ -284,9 +285,25 @@ export class ScheduleFormComponent implements OnInit {
               locales: s.locales || [],
             });
             if (s.document_ids.length > 0) {
-              this.documentDisplayValue = s.document_ids.join(', ');
               this.fetchLocalesForCurrentDocs(s.locales || []);
             }
+            // Populate folder selections and resolve their titles
+            if (s.folder_ids?.length > 0) {
+              this.folderSelections = s.folder_ids.map(id => ({ id, title: id }));
+              for (const folderId of s.folder_ids) {
+                this.herettoService.getFolderContents(folderId)
+                  .pipe(takeUntilDestroyed(this.destroyRef))
+                  .subscribe({
+                    next: folder => {
+                      const sel = this.folderSelections.find(f => f.id === folderId);
+                      if (sel) sel.title = folder.title || folderId;
+                      this.documentDisplayValue = this._buildDocumentDisplayValue(this.parseDocumentIds());
+                    },
+                    error: () => {},
+                  });
+              }
+            }
+            this.documentDisplayValue = this._buildDocumentDisplayValue(s.document_ids);
             for (const p of (s.publish_parameters || [])) {
               if (p['name'] && p['value'] !== undefined) {
                 this.parameterOverrides[p['name'] as string] = p['value'];
@@ -429,8 +446,9 @@ export class ScheduleFormComponent implements OnInit {
 
     dialogRef.afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(items => {
-        if (items && Array.isArray(items) && items.length > 0) {
+      .subscribe(result => {
+        const items: CcmsResource[] = result?.docs ?? (Array.isArray(result) ? result : []);
+        if (items.length > 0) {
           const item = items[0];
           this.parameterOverrides[paramName] = item.id;
           this.parameterDisplayValues[paramName] = `${item.title || item.id} (${item.id})`;
@@ -450,23 +468,29 @@ export class ScheduleFormComponent implements OnInit {
     const dialogRef = this.dialog.open(DocumentPickerComponent, {
       width: '700px',
       maxHeight: '85vh',
-      data: { selectedIds: currentIds, branch } as DocumentPickerData,
+      data: {
+        selectedIds: currentIds,
+        selectedFolderIds: this.folderSelections.map(f => f.id),
+        branch,
+      } as DocumentPickerData,
     });
 
     dialogRef.afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(items => {
-        if (items && Array.isArray(items)) {
-          this.form.patchValue({
-            document_ids_raw: items.map((i: { id: string }) => i.id).join(', '),
-          });
-          this.documentDisplayValue = items
-            .map((i: { id: string; title?: string }) => `${i.title || i.id} (${i.id})`)
-            .join(', ');
-          // Reset locale selection and reload options for the new documents
-          this.form.get('locales')?.setValue([]);
-          this.fetchLocalesForCurrentDocs();
-        }
+      .subscribe(result => {
+        if (!result) return;
+        const docs: CcmsResource[] = result.docs ?? [];
+        const folders: CcmsResource[] = result.folders ?? [];
+        this.folderSelections = folders.map(f => ({ id: f.id, title: f.title || f.id }));
+        this.form.patchValue({
+          document_ids_raw: docs.map(i => i.id).join(', '),
+        });
+        this.documentDisplayValue = this._buildDocumentDisplayValue(
+          docs.map(i => i.title || i.id)
+        );
+        // Reset locale selection and reload options for the new documents
+        this.form.get('locales')?.setValue([]);
+        this.fetchLocalesForCurrentDocs();
       });
   }
 
@@ -492,6 +516,7 @@ export class ScheduleFormComponent implements OnInit {
       scenario_ids: value.scenario_ids || [],
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
+      folder_ids: this.folderSelections.map(f => f.id),
       branch: value.branch,
       locales: value.locales || [],
       publish_parameters: publishParameters,
@@ -514,5 +539,16 @@ export class ScheduleFormComponent implements OnInit {
   private parseDocumentIds(): string[] {
     const raw = this.form.value.document_ids_raw || '';
     return raw.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+
+  private _buildDocumentDisplayValue(docLabels: string[] = []): string {
+    const parts: string[] = [];
+    if (this.folderSelections.length > 0) {
+      parts.push(this.folderSelections.map(f => `[folder] ${f.title}`).join(', '));
+    }
+    if (docLabels.length > 0) {
+      parts.push(docLabels.join(', '));
+    }
+    return parts.join(', ');
   }
 }

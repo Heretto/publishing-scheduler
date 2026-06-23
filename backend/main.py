@@ -111,6 +111,7 @@ def _run_migrations():
         engine = get_engine()
         migrations = [
             "ALTER TABLE schedules ADD COLUMN locale TEXT DEFAULT ''",
+            "ALTER TABLE schedules ADD COLUMN folder_ids TEXT DEFAULT '[]'",
         ]
         with engine.connect() as conn:
             for sql in migrations:

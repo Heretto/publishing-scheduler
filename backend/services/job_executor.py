@@ -71,6 +71,7 @@ class JobExecutorService:
         s = get_settings()
 
         source_doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
+        folder_ids: list[str] = json.loads(getattr(schedule, "folder_ids", None) or "[]")
         params: list[dict] = json.loads(schedule.publish_parameters or "[]")
         scenario_ids = _parse_ids(schedule.scenario_id)
         locales_list = _parse_ids(getattr(schedule, "locale", "") or "")
@@ -78,6 +79,19 @@ class JobExecutorService:
         # Treat empty locales as source-only
         if not locales_list:
             locales_list = [""]
+
+        # Resolve folder IDs to their current direct-child DITA maps
+        if folder_ids:
+            try:
+                _folder_ccms = HerettoCcmsClient()
+                for folder_id in folder_ids:
+                    maps = await _folder_ccms.get_ditamaps_in_folder(folder_id)
+                    source_doc_ids.extend(m["id"] for m in maps)
+            except Exception:
+                logger.warning("Could not resolve folder IDs to DITA maps")
+
+        # Deduplicate while preserving order
+        source_doc_ids = list(dict.fromkeys(source_doc_ids))
 
         # Best-effort: fetch names for request-payload enrichment (used at view time)
         scenario_name_map: dict[str, str] = {}
