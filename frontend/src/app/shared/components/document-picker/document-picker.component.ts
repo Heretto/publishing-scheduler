@@ -11,6 +11,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatListModule } from '@angular/material/list';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { HerettoService, CcmsResource, CcmsFolder, CcmsRelease } from '../../../core/services/heretto.service';
 
@@ -36,7 +37,7 @@ interface BreadcrumbItem {
   imports: [
     CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatTabsModule, MatListModule,
-    MatCheckboxModule, MatProgressSpinnerModule, MatSlideToggleModule,
+    MatCheckboxModule, MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule,
   ],
   template: `
     <h2 mat-dialog-title>Select Documents</h2>
@@ -48,17 +49,16 @@ interface BreadcrumbItem {
           color="primary">
           DITA maps only
         </mat-slide-toggle>
-        <span class="status-filter-wrap">
-          <label class="status-filter-label">Status</label>
-          <select class="status-filter-select"
-                  [(ngModel)]="selectedStatusFilter"
-                  (focus)="onStatusSelectFocus()"
-                  (change)="onStatusFilterChange()">
-            <option value="">Any status</option>
-            <option *ngIf="statusValuesLoading" disabled value="">Loading…</option>
-            <option *ngFor="let s of statusValues" [value]="s">{{ s }}</option>
-          </select>
-        </span>
+        <mat-form-field appearance="outline" class="status-filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="selectedStatusFilter"
+                      (openedChange)="$event && onStatusSelectFocus()"
+                      (selectionChange)="onStatusFilterChange()">
+            <mat-option value="">Any status</mat-option>
+            <mat-option *ngIf="statusValuesLoading" disabled value="">Loading…</mat-option>
+            <mat-option *ngFor="let s of statusValues" [value]="s">{{ s }}</mat-option>
+          </mat-select>
+        </mat-form-field>
       </div>
       <mat-tab-group>
         <mat-tab label="Browse">
@@ -454,32 +454,20 @@ interface BreadcrumbItem {
       margin-left: 4px;
       color: #666;
     }
-    .status-filter-wrap {
-      display: inline-flex;
-      align-items: center;
+    .status-filter-field {
       margin-left: 16px;
-      gap: 6px;
+      width: 150px;
     }
-    .status-filter-label {
-      font-size: 13px;
-      color: #555;
-      white-space: nowrap;
+    .status-filter-field ::ng-deep .mat-mdc-text-field-wrapper {
+      padding: 0 10px;
     }
-    .status-filter-select {
-      height: 28px;
-      font-size: 13px;
-      border: 1px solid rgba(0,0,0,0.28);
-      border-radius: 4px;
-      padding: 0 6px;
-      background: white;
-      color: #333;
-      cursor: pointer;
-      min-width: 110px;
-      max-width: 160px;
+    .status-filter-field ::ng-deep .mat-mdc-form-field-infix {
+      padding-top: 7px;
+      padding-bottom: 7px;
+      min-height: 0;
     }
-    .status-filter-select:focus {
-      outline: 2px solid #1976d2;
-      border-color: transparent;
+    .status-filter-field ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+      display: none;
     }
     .status-mismatch {
       opacity: 0.4;
