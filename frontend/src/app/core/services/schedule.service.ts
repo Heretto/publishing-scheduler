@@ -18,6 +18,8 @@ export interface Schedule {
   publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
+  consecutive_failures: number | null;
+  next_run_time: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -18,6 +18,7 @@ import models  # noqa: F401
 from routes import schedules as schedules_router
 from routes import jobs as jobs_router
 from routes import heretto as heretto_router
+from routes import dashboard as dashboard_router
 from services import scheduler as sched
 from services.job_executor import JobExecutorService
 from settings import get_settings
@@ -89,6 +90,7 @@ app: FastAPI = create_hop_app(
         schedules_router.router,
         jobs_router.router,
         heretto_router.router,
+        dashboard_router.router,
     ],
     title="Heretto Publishing Scheduler",
     version="2.0.0",
