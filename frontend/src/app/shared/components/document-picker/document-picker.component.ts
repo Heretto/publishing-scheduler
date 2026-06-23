@@ -18,6 +18,7 @@ const DITAMAP_ONLY_KEY = 'docpicker_ditamap_only';
 
 export interface DocumentPickerData {
   selectedIds: string[];
+  selectedFolderIds?: string[];
   branch?: string;
   /** When true, disables the DITA maps-only filter (e.g. for ditaval/parameter file pickers) */
   allowAllTypes?: boolean;
@@ -62,9 +63,8 @@ interface BreadcrumbItem {
           <mat-list *ngIf="currentFolder && !browseLoading">
             <mat-list-item *ngFor="let item of filteredChildren" class="item-row">
               <mat-checkbox
-                [checked]="isSelected(item.id)"
-                (change)="toggleSelection(item)"
-                [style.visibility]="item.type === 'folder' ? 'hidden' : 'visible'"
+                [checked]="item.type === 'folder' ? isFolderSelected(item.id) : isSelected(item.id)"
+                (change)="item.type === 'folder' ? toggleFolderSelection(item) : toggleSelection(item)"
               ></mat-checkbox>
               <mat-icon class="item-icon">{{ item.type === 'folder' ? 'folder' : 'description' }}</mat-icon>
               <span class="item-title"
@@ -107,20 +107,48 @@ interface BreadcrumbItem {
           </div>
         </mat-tab>
       </mat-tab-group>
-      <div class="selection-summary" *ngIf="selectedItems.size > 0">
-        <strong>{{ selectedItems.size }} document(s) selected</strong>
-        <div class="selected-chips">
-          <span class="chip" *ngFor="let item of selectedItemsList">
-            {{ item.title || item.id }}
-            <mat-icon class="chip-remove" (click)="removeSelection(item.id)">close</mat-icon>
-          </span>
+      <div class="selection-summary" *ngIf="selectedItems.size > 0 || selectedFolders.size > 0">
+        <div *ngIf="selectedFolders.size > 0">
+          <strong>{{ selectedFolders.size }} folder(s) selected</strong>
+          <div class="folder-entries">
+            <div class="folder-entry" *ngFor="let item of selectedFoldersList">
+              <div class="folder-chip-row">
+                <span class="chip folder-chip">
+                  <mat-icon class="chip-folder-icon">folder</mat-icon>
+                  {{ item.title || item.id }}
+                  <mat-icon class="chip-remove" (click)="removeFolderSelection(item.id)">close</mat-icon>
+                </span>
+              </div>
+              <div class="folder-maps-preview">
+                <ng-container *ngIf="folderMaps.get(item.id) as state">
+                  <span class="maps-loading" *ngIf="state.loading">Loading maps&hellip;</span>
+                  <ng-container *ngIf="!state.loading">
+                    <span class="maps-empty" *ngIf="state.maps.length === 0">No DITA maps in this folder</span>
+                    <div class="maps-list" *ngIf="state.maps.length > 0">
+                      <span class="maps-label">{{ state.maps.length }} map{{ state.maps.length === 1 ? '' : 's' }}:</span>
+                      <span class="map-name" *ngFor="let map of state.maps; let last = last">{{ map.title || map.id }}{{ last ? '' : ', ' }}</span>
+                    </div>
+                  </ng-container>
+                </ng-container>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="selectedItems.size > 0" [style.margin-top]="selectedFolders.size > 0 ? '8px' : '0'">
+          <strong>{{ selectedItems.size }} document(s) selected</strong>
+          <div class="selected-chips">
+            <span class="chip" *ngFor="let item of selectedItemsList">
+              {{ item.title || item.id }}
+              <mat-icon class="chip-remove" (click)="removeSelection(item.id)">close</mat-icon>
+            </span>
+          </div>
         </div>
       </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
       <button mat-raised-button color="primary" (click)="confirm()">
-        Select ({{ selectedItems.size }})
+        Select ({{ selectedItems.size + selectedFolders.size }})
       </button>
     </mat-dialog-actions>
   `,
@@ -208,6 +236,58 @@ interface BreadcrumbItem {
       padding: 2px 8px 2px 12px;
       font-size: 13px;
     }
+    .folder-chip {
+      background: #fff3e0;
+      padding-left: 6px;
+    }
+    .chip-folder-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+      color: #e65100;
+    }
+    .folder-entries {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .folder-entry {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .folder-chip-row {
+      display: flex;
+      align-items: center;
+    }
+    .folder-maps-preview {
+      padding-left: 28px;
+      font-size: 12px;
+      color: #666;
+    }
+    .maps-loading {
+      font-style: italic;
+    }
+    .maps-empty {
+      font-style: italic;
+      color: #999;
+    }
+    .maps-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      align-items: baseline;
+    }
+    .maps-label {
+      font-weight: 500;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .map-name {
+      color: #444;
+    }
     .chip-remove {
       font-size: 16px;
       width: 16px;
@@ -235,6 +315,8 @@ export class DocumentPickerComponent implements OnInit {
   ditamapOnly = localStorage.getItem(DITAMAP_ONLY_KEY) === 'true';
 
   selectedItems = new Map<string, CcmsResource>();
+  selectedFolders = new Map<string, CcmsResource>();
+  folderMaps = new Map<string, { loading: boolean; maps: CcmsResource[] }>();
 
   get filteredChildren(): CcmsResource[] {
     const children = this.currentFolder?.children ?? [];
@@ -276,10 +358,54 @@ export class DocumentPickerComponent implements OnInit {
         this.selectedItems.set(id, { id, title: id, type: '' });
       });
     }
+    if (data?.selectedFolderIds) {
+      data.selectedFolderIds.forEach(id => {
+        this.selectedFolders.set(id, { id, title: id, type: 'folder' });
+        this._fetchFolderMaps(id);
+      });
+    }
   }
 
   get selectedItemsList(): CcmsResource[] {
     return Array.from(this.selectedItems.values());
+  }
+
+  get selectedFoldersList(): CcmsResource[] {
+    return Array.from(this.selectedFolders.values());
+  }
+
+  isFolderSelected(id: string): boolean {
+    return this.selectedFolders.has(id);
+  }
+
+  toggleFolderSelection(item: CcmsResource) {
+    if (this.selectedFolders.has(item.id)) {
+      this.selectedFolders.delete(item.id);
+      this.folderMaps.delete(item.id);
+    } else {
+      this.selectedFolders.set(item.id, item);
+      this._fetchFolderMaps(item.id);
+    }
+  }
+
+  removeFolderSelection(id: string) {
+    this.selectedFolders.delete(id);
+    this.folderMaps.delete(id);
+  }
+
+  private _fetchFolderMaps(folderId: string) {
+    this.folderMaps.set(folderId, { loading: true, maps: [] });
+    this.herettoService.getFolderContents(folderId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (folder: CcmsFolder) => {
+          const maps = folder.children.filter(child => this.isDitamap(child));
+          this.folderMaps.set(folderId, { loading: false, maps });
+        },
+        error: () => {
+          this.folderMaps.set(folderId, { loading: false, maps: [] });
+        },
+      });
   }
 
   ngOnInit() {
@@ -382,7 +508,9 @@ export class DocumentPickerComponent implements OnInit {
   }
 
   confirm() {
-    const items = Array.from(this.selectedItems.values());
-    this.dialogRef.close(items);
+    this.dialogRef.close({
+      docs: Array.from(this.selectedItems.values()),
+      folders: Array.from(this.selectedFolders.values()),
+    });
   }
 }

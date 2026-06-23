@@ -123,6 +123,23 @@ class HerettoCcmsClient:
             root = etree.fromstring(r.content)
             return self._normalize_folder(root)
 
+    async def get_ditamaps_in_folder(self, folder_id: str) -> list[dict]:
+        """Return direct-child DITA maps of a folder (excludes sub-folders)."""
+        folder = await self.get_folder_contents(folder_id)
+        results = []
+        for child in folder.get("children", []):
+            resource_type = (child.get("type") or "").lower()
+            name = (child.get("name") or child.get("title") or "").lower()
+            if resource_type == "folder":
+                continue
+            if "ditamap" in resource_type or name.endswith(".ditamap"):
+                results.append({
+                    "id": child["id"],
+                    "title": child.get("title") or child.get("name") or child["id"],
+                    "name": child.get("name") or "",
+                })
+        return results
+
     async def get_document_info(self, doc_id: str) -> dict:
         async with self._rest_client() as c:
             r = await c.get(

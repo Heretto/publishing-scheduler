@@ -54,6 +54,7 @@ class ScheduleCreate(BaseModel):
         return v  # type: ignore[return-value]
     deployment_id: str = ""
     document_ids: list[str] = []
+    folder_ids: list[str] = []
     enabled: bool = True
     branch: str = "master"
     locales: list[str] = []
@@ -74,6 +75,7 @@ class ScheduleUpdate(BaseModel):
         return v  # type: ignore[return-value]
     deployment_id: str | None = None
     document_ids: list[str] | None = None
+    folder_ids: list[str] | None = None
     enabled: bool | None = None
     branch: str | None = None
     locales: list[str] | None = None
@@ -94,6 +96,7 @@ def _fmt(s: Schedule) -> dict:
         "scenario_ids": _parse_ids(s.scenario_id),
         "deployment_id": s.deployment_id,
         "document_ids": json.loads(s.document_ids or "[]"),
+        "folder_ids": json.loads(s.folder_ids or "[]"),
         "enabled": s.enabled,
         "branch": s.branch,
         "locales": _parse_ids(s.locale),
@@ -169,6 +172,7 @@ def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
         scenario_id=json.dumps(body.scenario_ids),
         deployment_id=body.deployment_id,
         document_ids=json.dumps(body.document_ids),
+        folder_ids=json.dumps(body.folder_ids),
         enabled=body.enabled,
         branch=body.branch,
         locale=json.dumps(body.locales),
@@ -200,6 +204,8 @@ def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB)
         s.deployment_id = body.deployment_id
     if body.document_ids is not None:
         s.document_ids = json.dumps(body.document_ids)
+    if body.folder_ids is not None:
+        s.folder_ids = json.dumps(body.folder_ids)
     if body.enabled is not None:
         s.enabled = body.enabled
     if body.branch is not None:

@@ -10,6 +10,7 @@ export interface Schedule {
   scenario_ids: string[];
   deployment_id: string;
   document_ids: string[];
+  folder_ids: string[];
   enabled: boolean;
   branch: string;
   locales: string[];
@@ -27,6 +28,7 @@ export interface CreateScheduleInput {
   scenario_ids: string[];
   deployment_id: string;
   document_ids?: string[];
+  folder_ids?: string[];
   enabled?: boolean;
   branch?: string;
   locales?: string[];
