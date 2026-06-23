@@ -190,3 +190,8 @@ a {
   color: inherit !important;
   &:hover { text-decoration: none !important; }
 }
+
+// Document picker dialog — nudge 2px right so it clears the sidenav edge
+.document-picker-panel {
+  margin-left: 110px;
+}

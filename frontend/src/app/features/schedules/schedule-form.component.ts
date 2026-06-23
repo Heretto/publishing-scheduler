@@ -448,8 +448,9 @@ export class ScheduleFormComponent implements OnInit {
   openParameterFilePicker(paramName: string) {
     const branch = this.form.value.branch || 'master';
     const dialogRef = this.dialog.open(DocumentPickerComponent, {
-      width: '700px',
+      width: '75vw',
       maxHeight: '85vh',
+      panelClass: 'document-picker-panel',
       data: { selectedIds: [], branch, allowAllTypes: true } as DocumentPickerData,
     });
 
@@ -475,8 +476,9 @@ export class ScheduleFormComponent implements OnInit {
     const currentIds = this.parseDocumentIds();
     const branch = this.form.value.branch || 'master';
     const dialogRef = this.dialog.open(DocumentPickerComponent, {
-      width: '700px',
+      width: '75vw',
       maxHeight: '85vh',
+      panelClass: 'document-picker-panel',
       data: {
         selectedIds: currentIds,
         selectedFolderIds: this.folderSelections.map(f => f.id),
