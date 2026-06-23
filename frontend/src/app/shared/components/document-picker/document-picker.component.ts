@@ -83,12 +83,14 @@ interface BreadcrumbItem {
               <mat-icon class="item-icon" [class.loading-icon]="statusLoadingIds.has(item.id)">
                 {{ item.type === 'folder' ? 'folder' : (statusLoadingIds.has(item.id) ? 'hourglass_empty' : 'description') }}
               </mat-icon>
-              <span class="item-title"
-                [class.clickable]="item.type === 'folder'"
-                (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
-                {{ item.title || item.id }}
+              <span class="item-text-group">
+                <span class="item-title"
+                  [class.clickable]="item.type === 'folder'"
+                  (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
+                  {{ item.title || item.id }}
+                </span>
+                <span class="item-type">{{ item['name'] || formatType(item) }}</span>
               </span>
-              <span class="item-type">{{ item['name'] || formatType(item) }}</span>
             </mat-list-item>
             <mat-list-item *ngIf="filteredChildren.length === 0">
               <span class="empty-message">{{ ditamapOnly ? 'No DITA maps in this folder' : 'This folder is empty' }}</span>
@@ -112,8 +114,10 @@ interface BreadcrumbItem {
                   (change)="toggleSelection(item)"
                 ></mat-checkbox>
                 <mat-icon class="item-icon">description</mat-icon>
-                <span class="item-title">{{ item.title || item.id }}</span>
-                <span class="item-type">{{ item['name'] || formatType(item) }}</span>
+                <span class="item-text-group">
+                  <span class="item-title">{{ item.title || item.id }}</span>
+                  <span class="item-type">{{ item['name'] || formatType(item) }}</span>
+                </span>
               </mat-list-item>
             </mat-list>
             <div class="empty-message" *ngIf="searchQuery.length >= 2 && filteredSearchResults.length === 0 && !searchLoading && !searchError">
@@ -240,7 +244,8 @@ interface BreadcrumbItem {
       gap: 8px;
       width: 100%;
     }
-    .item-icon { color: #666; margin-right: 4px; vertical-align: middle; }
+    .item-icon { color: #666; margin-right: 4px; }
+    .item-text-group { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
     .item-title { min-width: 0; }
     .item-title.clickable { cursor: pointer; color: #1976d2; }
     .item-title.clickable:hover { text-decoration: underline; }
