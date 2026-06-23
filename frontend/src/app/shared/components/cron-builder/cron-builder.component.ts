@@ -46,6 +46,9 @@ interface DayOption {
           <mat-label>Cron Expression</mat-label>
           <input matInput [(ngModel)]="rawExpression" (ngModelChange)="onRawChange($event)" placeholder="0 9 * * *">
         </mat-form-field>
+        <div class="preview">
+          <app-cron-display [expression]="currentExpression"></app-cron-display>
+        </div>
       </div>
 
       <div *ngIf="!advancedMode" class="builder-controls">
@@ -83,6 +86,10 @@ interface DayOption {
           </mat-form-field>
         </div>
 
+        <div class="preview">
+          <app-cron-display [expression]="currentExpression"></app-cron-display>
+        </div>
+
         <div class="days-row" *ngIf="frequency === 'weekly'">
           <label class="days-label">Days of the week</label>
           <div class="day-checkboxes">
@@ -102,10 +109,6 @@ interface DayOption {
             </mat-select>
           </mat-form-field>
         </div>
-      </div>
-
-      <div class="preview">
-        <app-cron-display [expression]="currentExpression"></app-cron-display>
       </div>
     </div>
   `,

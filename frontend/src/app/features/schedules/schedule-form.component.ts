@@ -1,7 +1,7 @@
 import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -12,10 +12,14 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
-import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter } from '../../core/services/heretto.service';
+import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
+
+function requireNonEmpty(control: AbstractControl) {
+  return Array.isArray(control.value) && control.value.length > 0 ? null : { required: true };
+}
 
 @Component({
   selector: 'app-schedule-form',
@@ -58,20 +62,16 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
-            <mat-label>Scenario</mat-label>
-            <mat-select formControlName="scenario_id" (selectionChange)="onScenarioChange($event.value)">
+            <mat-label>Publishing Scenario(s)</mat-label>
+            <mat-select formControlName="scenario_ids" multiple (selectionChange)="onScenarioChange($event.value)">
               <mat-option *ngFor="let s of scenarios" [value]="s.id">{{ s.name }}</mat-option>
             </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length === 0">
-            <mat-label>Publishing Scenario ID</mat-label>
-            <input matInput formControlName="scenario_id" placeholder="e.g. a1b2c3d4-5678-90ab-cdef-1234567890ab">
-            <mat-hint>Copy the scenario UUID from Heretto CCMS (Publish dialog > scenario name)</mat-hint>
-            <mat-error *ngIf="form.get('scenario_id')?.hasError('required')">Scenario ID is required</mat-error>
+            <mat-hint *ngIf="selectedScenarioCount > 1">Output formats shown for first selected scenario</mat-hint>
+            <mat-error *ngIf="form.get('scenario_ids')?.hasError('required')">At least one publishing scenario is required</mat-error>
           </mat-form-field>
 
           <div class="parameters-section" *ngIf="scenarioParameters.length > 0">
-            <label class="section-label">Scenario Parameters</label>
+            <label class="section-label">Output Format(s)</label>
             <div *ngFor="let param of scenarioParameters" class="parameter-row">
               <ng-container [ngSwitch]="param.type">
                 <div *ngSwitchCase="'file_picker'" class="file-picker-param">
@@ -96,18 +96,26 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
                 </div>
                 <mat-form-field *ngSwitchCase="'option'" appearance="outline" class="full-width">
                   <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <mat-select [value]="getParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
+                  <mat-select multiple [value]="getOptionParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
                     <mat-option *ngFor="let opt of param.options" [value]="opt.value">{{ opt.displayName || opt.value }}</mat-option>
                   </mat-select>
                 </mat-form-field>
+                <mat-form-field *ngSwitchCase="'ref'" appearance="outline" class="full-width">
+                  <mat-label>{{ param.displayName || param.name }}</mat-label>
+                  <input matInput [value]="getParameterDisplayValue(param.name)" readonly>
+                </mat-form-field>
                 <mat-checkbox *ngSwitchCase="'boolean'"
                   [checked]="getParameterValue(param.name) === true || getParameterValue(param.name) === 'true'"
-                  (change)="setParameterValue(param.name, $event.checked)">
+                  [disabled]="scenarioParametersReadOnly"
+                  (change)="!scenarioParametersReadOnly && setParameterValue(param.name, $event.checked)">
                   {{ param.displayName || param.name }}
                 </mat-checkbox>
                 <mat-form-field *ngSwitchDefault appearance="outline" class="full-width">
                   <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <input matInput [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''" (input)="setParameterValue(param.name, $any($event.target).value)">
+                  <input matInput
+                    [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''"
+                    [readonly]="scenarioParametersReadOnly"
+                    (input)="!scenarioParametersReadOnly && setParameterValue(param.name, $any($event.target).value)">
                 </mat-form-field>
               </ng-container>
             </div>
@@ -139,6 +147,15 @@ import { DocumentPickerComponent, DocumentPickerData } from '../../shared/compon
               Browse
             </button>
           </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Locale(s)</mat-label>
+            <mat-select formControlName="locales" multiple>
+              <mat-option value="">Source (original language)</mat-option>
+              <mat-option *ngFor="let l of localeOptions" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
+            </mat-select>
+            <mat-hint>{{ localeFieldHint }}</mat-hint>
+          </mat-form-field>
 
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
 
@@ -206,9 +223,17 @@ export class ScheduleFormComponent implements OnInit {
   scenarios: Scenario[] = [];
   branches: CcmsBranch[] = [];
   scenarioParameters: ScenarioParameter[] = [];
+  scenarioParametersReadOnly = false;
   parameterOverrides: Record<string, unknown> = {};
   parameterDisplayValues: Record<string, string> = {};
   documentDisplayValue = '';
+  localeOptions: CcmsLocale[] = [];
+  localeLoading = false;
+  localeHint = '';
+
+  get selectedScenarioCount(): number {
+    return (this.form.get('scenario_ids')?.value as string[] | null)?.length ?? 0;
+  }
 
   constructor(
     private fb: FormBuilder,
@@ -223,10 +248,11 @@ export class ScheduleFormComponent implements OnInit {
       name: ['', Validators.required],
       description: [''],
       cron_expression: ['', Validators.required],
-      scenario_id: ['', Validators.required],
+      scenario_ids: [[], requireNonEmpty],
       deployment_id: [''],
       document_ids_raw: [''],
       branch: ['master'],
+      locales: [{ value: [], disabled: true }],
       enabled: [true],
     });
   }
@@ -254,31 +280,87 @@ export class ScheduleFormComponent implements OnInit {
             this.form.patchValue({
               ...s,
               document_ids_raw: s.document_ids.join(', '),
+              scenario_ids: s.scenario_ids || [],
+              locales: s.locales || [],
             });
-            // Show raw IDs as fallback until user re-browses
             if (s.document_ids.length > 0) {
               this.documentDisplayValue = s.document_ids.join(', ');
+              this.fetchLocalesForCurrentDocs(s.locales || []);
             }
-            // Restore parameter overrides from saved schedule
             for (const p of (s.publish_parameters || [])) {
               if (p['name'] && p['value'] !== undefined) {
                 this.parameterOverrides[p['name'] as string] = p['value'];
               }
             }
-            // Load parameters for the saved scenario
-            if (s.scenario_id) {
-              this.loadScenarioParameters(s.scenario_id);
+            if (s.scenario_ids?.length > 0) {
+              this.loadScenarioParameters(s.scenario_ids[0]);
             }
           },
         });
     }
   }
 
-  onScenarioChange(scenarioId: string) {
+  get localeFieldHint(): string {
+    if (this.localeLoading) return 'Loading available locales\u2026';
+    if (this.localeHint) return this.localeHint;
+    return 'Select documents first to see available locales';
+  }
+
+  getLanguageName(code: string): string {
+    try {
+      const dn = new Intl.DisplayNames(['en'], { type: 'language' });
+      return dn.of(code.replace('_', '-')) || code;
+    } catch {
+      return code;
+    }
+  }
+
+  private fetchLocalesForCurrentDocs(preserveSelection: string[] = []) {
+    const docIds = this.parseDocumentIds();
+    if (docIds.length === 0) {
+      this.localeOptions = [];
+      this.localeHint = '';
+      this.form.get('locales')?.disable();
+      return;
+    }
+    this.localeLoading = true;
+    this.localeHint = '';
+    this.form.get('locales')?.disable();
+    this.herettoService.getLocalesForDocuments(docIds)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: locales => {
+          this.localeLoading = false;
+          this.localeOptions = locales;
+          // Always enable — "Source" option is always available
+          this.form.get('locales')?.enable();
+          if (locales.length > 0) {
+            this.localeHint = `${locales.length} localised language${locales.length > 1 ? 's' : ''} available`;
+          } else {
+            this.localeHint = 'No translations found — only "Source" is available';
+          }
+          // Re-apply saved/previous selection where still valid
+          if (preserveSelection.length > 0) {
+            const validCodes = new Set(['', ...locales.map(l => l.code)]);
+            const kept = preserveSelection.filter(c => validCodes.has(c));
+            this.form.get('locales')?.setValue(kept);
+          }
+        },
+        error: () => {
+          this.localeLoading = false;
+          this.localeOptions = [];
+          this.form.get('locales')?.enable();
+          this.localeHint = 'Could not load locales';
+        },
+      });
+  }
+
+  onScenarioChange(scenarioIds: string[]) {
     this.parameterOverrides = {};
     this.scenarioParameters = [];
-    if (scenarioId) {
-      this.loadScenarioParameters(scenarioId);
+    this.scenarioParametersReadOnly = false;
+    if (scenarioIds.length > 0) {
+      this.loadScenarioParameters(scenarioIds[0]);
     }
   }
 
@@ -289,10 +371,16 @@ export class ScheduleFormComponent implements OnInit {
         next: params => {
           console.log('Scenario parameters:', JSON.stringify(params, null, 2));
           this.scenarioParameters = params;
-          // Initialize defaults for parameters that don't have overrides yet
+          // Scenarios with 'ref' type params have system-managed file references
+          // (e.g. PDF Generator); those params should not be user-editable.
+          this.scenarioParametersReadOnly = params.some(p => p['type'] === 'ref');
           for (const p of params) {
-            if (!(p.name in this.parameterOverrides) && p.value !== undefined && p.value !== '') {
-              this.parameterOverrides[p.name] = p.value;
+            if (!(p.name in this.parameterOverrides)) {
+              if (p.type === 'option') {
+                this.parameterOverrides[p.name] = p.value !== undefined && p.value !== '' ? [String(p.value)] : [];
+              } else if (p.value !== undefined && p.value !== '') {
+                this.parameterOverrides[p.name] = p.value;
+              }
             }
           }
           this.resolveRefDisplayValues(params);
@@ -320,6 +408,13 @@ export class ScheduleFormComponent implements OnInit {
     return this.parameterOverrides[name] ?? '';
   }
 
+  getOptionParameterValue(name: string): string[] {
+    const val = this.parameterOverrides[name];
+    if (Array.isArray(val)) return val as string[];
+    if (val && typeof val === 'string') return [val];
+    return [];
+  }
+
   setParameterValue(name: string, value: unknown) {
     this.parameterOverrides[name] = value;
   }
@@ -329,7 +424,7 @@ export class ScheduleFormComponent implements OnInit {
     const dialogRef = this.dialog.open(DocumentPickerComponent, {
       width: '700px',
       maxHeight: '85vh',
-      data: { selectedIds: [], branch } as DocumentPickerData,
+      data: { selectedIds: [], branch, allowAllTypes: true } as DocumentPickerData,
     });
 
     dialogRef.afterClosed()
@@ -368,6 +463,9 @@ export class ScheduleFormComponent implements OnInit {
           this.documentDisplayValue = items
             .map((i: { id: string; title?: string }) => `${i.title || i.id} (${i.id})`)
             .join(', ');
+          // Reset locale selection and reload options for the new documents
+          this.form.get('locales')?.setValue([]);
+          this.fetchLocalesForCurrentDocs();
         }
       });
   }
@@ -376,19 +474,26 @@ export class ScheduleFormComponent implements OnInit {
     if (this.form.invalid || this.submitting) return;
     this.submitting = true;
 
-    const value = this.form.value;
+    const value = this.form.getRawValue();
     const publishParameters = this.scenarioParameters
       .filter(p => p.name in this.parameterOverrides)
-      .map(p => ({ name: p.name, value: this.parameterOverrides[p.name] }));
+      .map(p => {
+        // Preserve all raw fields Heretto returned (including id if present) so the
+        // publish endpoint can match parameters correctly. Strip options[] which is
+        // display-only and would bloat stored data.
+        const { options: _opts, ...rest } = p as Record<string, unknown>;
+        return { ...rest, value: this.parameterOverrides[p.name] };
+      });
 
     const input = {
       name: value.name,
       description: value.description,
       cron_expression: value.cron_expression,
-      scenario_id: value.scenario_id,
+      scenario_ids: value.scenario_ids || [],
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
       branch: value.branch,
+      locales: value.locales || [],
       publish_parameters: publishParameters,
       enabled: value.enabled,
     };
@@ -402,7 +507,7 @@ export class ScheduleFormComponent implements OnInit {
         this.notifications.success(`Schedule ${this.isEdit ? 'updated' : 'created'}`);
         this.router.navigate(['/schedules']);
       },
-      error: () => { this.submitting = false; },
+      error: (err: unknown) => { console.error('Schedule save error:', err); this.submitting = false; },
     });
   }
 

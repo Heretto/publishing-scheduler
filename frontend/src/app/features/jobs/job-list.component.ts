@@ -28,6 +28,14 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           <th mat-header-cell *matHeaderCellDef>Status</th>
           <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
         </ng-container>
+        <ng-container matColumnDef="schedule">
+          <th mat-header-cell *matHeaderCellDef>Schedule</th>
+          <td mat-cell *matCellDef="let j">
+            <a [routerLink]="['/schedules', j.schedule_id, 'edit']" class="schedule-link">
+              {{ j.schedule_name || j.schedule_id }}
+            </a>
+          </td>
+        </ng-container>
         <ng-container matColumnDef="trigger">
           <th mat-header-cell *matHeaderCellDef>Trigger</th>
           <td mat-cell *matCellDef="let j">{{ j.trigger_type }}</td>
@@ -59,7 +67,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       </mat-paginator>
     </mat-card>
   `,
-  styles: [`table { width: 100%; }`],
+  styles: [`
+    table { width: 100%; }
+    .schedule-link { color: inherit; text-decoration: none; font-weight: 500; }
+    .schedule-link:hover { text-decoration: underline; }
+  `],
 })
 export class JobListComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
@@ -69,7 +81,7 @@ export class JobListComponent implements OnInit {
   pageSize = 20;
   currentPage = 1;
   loading = true;
-  displayedColumns = ['status', 'trigger', 'startedAt', 'completedAt', 'actions'];
+  displayedColumns = ['status', 'schedule', 'trigger', 'startedAt', 'completedAt', 'actions'];
 
   constructor(private jobService: JobService) {}
 

@@ -28,11 +28,11 @@ describe('DashboardComponent', () => {
   it('should load schedules and jobs on init', () => {
     fixture.detectChanges();
 
-    httpMock.expectOne('/api/schedules').flush([
+    httpMock.expectOne('/api/v1/schedules/').flush([
       { id: '1', name: 'S1', enabled: true, cron_expression: '0 9 * * *' },
       { id: '2', name: 'S2', enabled: false, cron_expression: '0 10 * * *' },
     ]);
-    httpMock.expectOne('/api/jobs?limit=5').flush({ data: [{ id: 'j1', status: 'completed' }], total: 1 });
+    httpMock.expectOne('/api/v1/jobs/?limit=5').flush({ data: [{ id: 'j1', status: 'completed' }], total: 1 });
 
     expect(component.schedules.length).toBe(2);
     expect(component.activeSchedules).toBe(1);
@@ -44,8 +44,8 @@ describe('DashboardComponent', () => {
   it('should handle schedule load error', () => {
     fixture.detectChanges();
 
-    httpMock.expectOne('/api/schedules').error(new ProgressEvent('error'));
-    httpMock.expectOne('/api/jobs?limit=5').flush({ data: [], total: 0 });
+    httpMock.expectOne('/api/v1/schedules/').error(new ProgressEvent('error'));
+    httpMock.expectOne('/api/v1/jobs/?limit=5').flush({ data: [], total: 0 });
 
     expect(component.loading).toBe(false);
     expect(component.errorMessage).toBeTruthy();

@@ -1,6 +1,7 @@
 import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -62,10 +63,10 @@ export class SettingsComponent implements OnInit {
   herettoError = 'Not tested';
   checking = true;
 
-  constructor(private api: ApiService) {}
+  constructor(private http: HttpClient, private api: ApiService) {}
 
   ngOnInit() {
-    this.api.get('/health')
+    this.http.get('/api/health')
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => { this.backendOk = true; this.checking = false; },

@@ -21,7 +21,7 @@ describe('JobService', () => {
       expect(data.total).toBe(5);
       expect(data.data.length).toBe(5);
     });
-    httpMock.expectOne('/api/jobs?page=1&limit=10').flush({
+    httpMock.expectOne('/api/v1/jobs/?page=1&limit=10').flush({
       data: Array(5).fill({ id: '1', status: 'completed' }),
       total: 5,
       page: 1,
@@ -30,10 +30,23 @@ describe('JobService', () => {
     });
   });
 
+  it('getAll with no params fetches jobs', () => {
+    service.getAll().subscribe(data => {
+      expect(data.data).toBeDefined();
+    });
+    httpMock.expectOne('/api/v1/jobs/').flush({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
+  });
+
   it('getById fetches a single job', () => {
     service.getById('job-1').subscribe(data => {
       expect(data.id).toBe('job-1');
     });
-    httpMock.expectOne('/api/jobs/job-1').flush({ id: 'job-1', status: 'completed' });
+    httpMock.expectOne('/api/v1/jobs/job-1').flush({ id: 'job-1', status: 'completed' });
   });
 });

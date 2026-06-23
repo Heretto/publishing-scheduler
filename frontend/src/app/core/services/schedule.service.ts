@@ -7,11 +7,12 @@ export interface Schedule {
   name: string;
   description: string;
   cron_expression: string;
-  scenario_id: string;
+  scenario_ids: string[];
   deployment_id: string;
   document_ids: string[];
   enabled: boolean;
   branch: string;
+  locales: string[];
   publish_parameters: Record<string, unknown>[];
   last_run_at: string | null;
   last_run_status: string | null;
@@ -23,11 +24,12 @@ export interface CreateScheduleInput {
   name: string;
   description?: string;
   cron_expression: string;
-  scenario_id: string;
+  scenario_ids: string[];
   deployment_id: string;
   document_ids?: string[];
   enabled?: boolean;
   branch?: string;
+  locales?: string[];
   publish_parameters?: Record<string, unknown>[];
 }
 
@@ -36,7 +38,7 @@ export class ScheduleService {
   constructor(private api: ApiService) {}
 
   getAll(): Observable<Schedule[]> {
-    return this.api.get<Schedule[]>('/schedules');
+    return this.api.get<Schedule[]>('/schedules/');
   }
 
   getById(id: string): Observable<Schedule> {
@@ -44,7 +46,7 @@ export class ScheduleService {
   }
 
   create(input: CreateScheduleInput): Observable<Schedule> {
-    return this.api.post<Schedule>('/schedules', input);
+    return this.api.post<Schedule>('/schedules/', input);
   }
 
   update(id: string, input: Partial<CreateScheduleInput>): Observable<Schedule> {
