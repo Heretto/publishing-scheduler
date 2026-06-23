@@ -72,6 +72,33 @@ class TestScheduleCreate:
         s = ScheduleCreate(**self._valid_payload(enabled=False))
         assert s.enabled is False
 
+    def test_folder_ids_defaults_to_empty_list(self):
+        s = ScheduleCreate(**self._valid_payload())
+        assert s.folder_ids == []
+
+    def test_folder_ids_stored_as_list(self):
+        s = ScheduleCreate(**self._valid_payload(folder_ids=["folder-uuid-1"]))
+        assert s.folder_ids == ["folder-uuid-1"]
+
+    def test_folder_ids_multiple(self):
+        s = ScheduleCreate(**self._valid_payload(folder_ids=["f-1", "f-2"]))
+        assert s.folder_ids == ["f-1", "f-2"]
+
+    def test_document_releases_defaults_to_empty_dict(self):
+        s = ScheduleCreate(**self._valid_payload())
+        assert s.document_releases == {}
+
+    def test_document_releases_stored_as_dict(self):
+        releases = {"map-uuid-1": "snapshot-uuid-1"}
+        s = ScheduleCreate(**self._valid_payload(document_releases=releases))
+        assert s.document_releases == releases
+
+    def test_document_releases_multiple_entries(self):
+        releases = {"map-1": "snap-1", "map-2": "snap-2"}
+        s = ScheduleCreate(**self._valid_payload(document_releases=releases))
+        assert len(s.document_releases) == 2
+        assert s.document_releases["map-2"] == "snap-2"
+
 
 class TestScheduleUpdate:
     def test_all_fields_optional(self):
@@ -99,3 +126,28 @@ class TestScheduleUpdate:
     def test_enabled_update(self):
         s = ScheduleUpdate(enabled=False)
         assert s.enabled is False
+
+    def test_folder_ids_defaults_to_none(self):
+        s = ScheduleUpdate()
+        assert s.folder_ids is None
+
+    def test_folder_ids_update(self):
+        s = ScheduleUpdate(folder_ids=["folder-uuid-1"])
+        assert s.folder_ids == ["folder-uuid-1"]
+
+    def test_folder_ids_clear_with_empty_list(self):
+        s = ScheduleUpdate(folder_ids=[])
+        assert s.folder_ids == []
+
+    def test_document_releases_defaults_to_none(self):
+        s = ScheduleUpdate()
+        assert s.document_releases is None
+
+    def test_document_releases_update(self):
+        releases = {"map-1": "snap-1"}
+        s = ScheduleUpdate(document_releases=releases)
+        assert s.document_releases == releases
+
+    def test_document_releases_clear_with_empty_dict(self):
+        s = ScheduleUpdate(document_releases={})
+        assert s.document_releases == {}

@@ -10,6 +10,8 @@ def _make_schedule(
     scenario_id='["500009"]',
     locale="",
     document_ids='["doc-1"]',
+    folder_ids="[]",
+    document_releases="{}",
     deployment_id="dep-1",
     publish_parameters="[]",
     enabled=True,
@@ -20,6 +22,8 @@ def _make_schedule(
     s.scenario_id = scenario_id
     s.locale = locale
     s.document_ids = document_ids
+    s.folder_ids = folder_ids
+    s.document_releases = document_releases
     s.deployment_id = deployment_id
     s.publish_parameters = publish_parameters
     s.enabled = enabled
@@ -316,3 +320,205 @@ class TestExecute:
 
         mock_client.trigger_publishing_job.assert_awaited_once()
         assert mock_client.trigger_publishing_job.call_args.kwargs["scenario_id"] == "500009"
+
+
+@pytest.mark.asyncio
+class TestFolderResolution:
+    """Folder IDs are resolved to their current direct-child DITA maps at run time."""
+
+    async def test_folder_maps_published(self, executor):
+        """Maps resolved from a folder are passed to the publish call."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids="[]",
+            folder_ids='["folder-1"]',
+        )
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_ditamaps_in_folder = AsyncMock(
+            return_value=[{"id": "map-from-folder", "title": "Map", "name": "map.ditamap"}]
+        )
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert "map-from-folder" in called_ids
+
+    async def test_folder_maps_merged_with_explicit_docs(self, executor):
+        """Explicit document_ids and folder-resolved maps are merged."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["explicit-doc"]',
+            folder_ids='["folder-1"]',
+        )
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_ditamaps_in_folder = AsyncMock(
+            return_value=[{"id": "folder-map", "title": "FM", "name": "fm.ditamap"}]
+        )
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert "explicit-doc" in called_ids
+        assert "folder-map" in called_ids
+
+    async def test_duplicate_map_deduped(self, executor):
+        """A map appearing in both document_ids and a folder is published only once."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["shared-map"]',
+            folder_ids='["folder-1"]',
+        )
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_ditamaps_in_folder = AsyncMock(
+            return_value=[{"id": "shared-map", "title": "S", "name": "s.ditamap"}]
+        )
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids.count("shared-map") == 1
+
+    async def test_empty_folder_ids_skips_ccms_call(self, executor):
+        """When folder_ids is empty, no CCMS folder resolution call is made."""
+        svc, mock_client = executor
+        schedule = _make_schedule(document_ids='["doc-1"]', folder_ids="[]")
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_ditamaps_in_folder = AsyncMock(return_value=[])
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        mock_ccms.get_ditamaps_in_folder.assert_not_awaited()
+
+    async def test_folder_resolution_failure_does_not_abort_job(self, executor):
+        """A folder lookup error is logged and swallowed; the job continues."""
+        svc, mock_client = executor
+        schedule = _make_schedule(document_ids='["doc-1"]', folder_ids='["folder-bad"]')
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_ditamaps_in_folder = AsyncMock(side_effect=RuntimeError("CCMS down"))
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        # Job should still publish the explicit doc despite folder error
+        mock_client.trigger_publishing_job.assert_awaited_once()
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids == ["doc-1"]
+
+
+@pytest.mark.asyncio
+class TestReleasePinning:
+    """document_releases swaps map IDs for snapshot file UUIDs before publishing."""
+
+    async def test_pinned_release_replaces_source_doc_id(self, executor):
+        """When a release is pinned, its snapshot UUID is used instead of the map UUID."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["map-1"]',
+            document_releases='{"map-1": "snapshot-uuid-1"}',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids == ["snapshot-uuid-1"]
+
+    async def test_unpinned_map_uses_original_id(self, executor):
+        """A map with no pinned release keeps its original UUID."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["map-1", "map-2"]',
+            document_releases='{"map-1": "snapshot-uuid-1"}',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids == ["snapshot-uuid-1", "map-2"]
+
+    async def test_empty_document_releases_no_swap(self, executor):
+        """When document_releases is empty no substitution occurs."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["map-1"]',
+            document_releases="{}",
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids == ["map-1"]
+
+    async def test_release_applied_to_locale_docs(self, executor):
+        """Release substitution is applied after locale resolution."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["map-1"]',
+            locale='["fr-fr"]',
+            document_releases='{"fr-map-uuid": "snapshot-fr-uuid"}',
+        )
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_document_locales = AsyncMock(
+            return_value=[{"code": "fr-fr", "uuid": "fr-map-uuid"}]
+        )
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        # Locale resolved map-1 → fr-map-uuid, then release swapped → snapshot-fr-uuid
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids == ["snapshot-fr-uuid"]
+
+    async def test_release_included_in_request_payload(self, executor):
+        """document_releases map is captured in the job's request_payload."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            document_ids='["map-1"]',
+            document_releases='{"map-1": "snapshot-uuid-1"}',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        # The request_payload is set via the JobHistory constructor kwargs
+        raw = MockJobHistory.call_args.kwargs["request_payload"]
+        payload = json.loads(raw)
+        assert payload["documentReleases"] == {"map-1": "snapshot-uuid-1"}
