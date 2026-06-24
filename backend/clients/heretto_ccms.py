@@ -12,6 +12,9 @@ from clients.heretto import _heretto_exc
 
 logger = logging.getLogger(__name__)
 
+# XXE-safe parser — entity expansion disabled
+_XML_PARSER = etree.XMLParser(resolve_entities=False)
+
 
 def _text(el: etree._Element | None) -> str:
     if el is None:
@@ -63,7 +66,7 @@ class HerettoCcmsClient:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
-            root = etree.fromstring(r.content)
+            root = etree.fromstring(r.content, _XML_PARSER)
             results = []
             for b in root.iter("branch"):
                 # <branch name="master"><repository name="content"/></branch>
@@ -121,7 +124,7 @@ class HerettoCcmsClient:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
-            root = etree.fromstring(r.content)
+            root = etree.fromstring(r.content, _XML_PARSER)
             return self._normalize_folder(root)
 
     async def get_releases_for_document(self, doc_id: str) -> list[dict]:
@@ -194,7 +197,7 @@ class HerettoCcmsClient:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
-            root = etree.fromstring(r.content)
+            root = etree.fromstring(r.content, _XML_PARSER)
             return self._normalize_resource(root)
 
     async def get_document_locales(self, doc_id: str) -> list[dict]:
@@ -205,7 +208,7 @@ class HerettoCcmsClient:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
-            root = etree.fromstring(r.content)
+            root = etree.fromstring(r.content, _XML_PARSER)
             results = []
             metadata_el = root.find("metadata")
             if metadata_el is not None:
@@ -365,7 +368,7 @@ class HerettoCcmsClient:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
-            root = etree.fromstring(r.content)
+            root = etree.fromstring(r.content, _XML_PARSER)
         metadata_el = root.find("metadata")
         if metadata_el is not None:
             for meta in metadata_el.findall("meta"):

@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 _cache: dict[str, str] = {}
 _ready: bool = False
 
+MAX_CACHE_SIZE = 500_000
+
 
 def is_ready() -> bool:
     """True after the cache has been populated at least once."""
@@ -34,7 +36,15 @@ def get_distinct_values() -> list[str]:
 def populate(status_map: dict[str, str]) -> None:
     """Replace the cache contents with *status_map* and mark the cache ready."""
     global _cache, _ready
-    _cache = dict(status_map)
+    if len(status_map) > MAX_CACHE_SIZE:
+        logger.warning(
+            "Status cache truncated: %d documents exceeds limit of %d; "
+            "oldest entries dropped",
+            len(status_map),
+            MAX_CACHE_SIZE,
+        )
+        status_map = dict(list(status_map.items())[:MAX_CACHE_SIZE])
+    _cache = status_map
     _ready = True
     distinct = len({v for v in _cache.values() if v})
     logger.info(

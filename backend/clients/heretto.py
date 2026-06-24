@@ -16,14 +16,15 @@ def _heretto_exc(exc: httpx.HTTPStatusError) -> HTTPException:
         body = exc.response.text[:500].strip()
     except Exception:
         body = ""
-    detail_suffix = f" — {body}" if body else ""
+    if body:
+        logger.debug("Heretto API %d response body: %s", status, body)
     if status == 401:
-        return HTTPException(status_code=502, detail="Heretto API: authentication failed — check HERETTO_USERNAME and HERETTO_PASSWORD in .env")
+        return HTTPException(status_code=502, detail="Heretto API: authentication failed")
     if status == 403:
         return HTTPException(status_code=502, detail="Heretto API: access forbidden")
     if status == 404:
         return HTTPException(status_code=404, detail="Heretto API: resource not found")
-    return HTTPException(status_code=502, detail=f"Heretto API returned {status}{detail_suffix}")
+    return HTTPException(status_code=502, detail=f"Heretto API error ({status})")
 
 
 class HerettoClient:
@@ -86,7 +87,7 @@ class HerettoClient:
                 raise _heretto_exc(exc) from exc
             data = r.json()
             params = data if isinstance(data, list) else data.get("content", [])
-            logger.info("Scenario %s parameters (raw): %s", scenario_id, params)
+            logger.debug("Scenario %s parameters (raw): %s", scenario_id, params)
             return params
 
     async def trigger_publishing_job(
@@ -121,15 +122,12 @@ class HerettoClient:
                     "description": "",
                     "parameters": [merged_params] if merged_params else [],
                 }
-                logger.info(
-                    "Heretto publish POST /files/%s/publishes body=%s",
-                    file_id, body,
+                logger.debug(
+                    "Heretto publish POST /files/%s/publishes scenario=%s",
+                    file_id, scenario_id,
                 )
                 r = await c.post(f"/files/{file_id}/publishes", json=body)
-                logger.info(
-                    "Heretto publish response: status=%d body=%s",
-                    r.status_code, r.text[:500],
-                )
+                logger.debug("Heretto publish response: status=%d", r.status_code)
                 try:
                     r.raise_for_status()
                 except httpx.HTTPStatusError as exc:
