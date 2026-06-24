@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { ScheduleListComponent } from './schedule-list.component';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('ScheduleListComponent', () => {
   let component: ScheduleListComponent;
@@ -29,8 +30,9 @@ describe('ScheduleListComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ScheduleListComponent, HttpClientTestingModule, NoopAnimationsModule, RouterTestingModule],
-    }).compileComponents();
+    imports: [ScheduleListComponent, NoopAnimationsModule, RouterTestingModule],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}).compileComponents();
 
     fixture = TestBed.createComponent(ScheduleListComponent);
     component = fixture.componentInstance;

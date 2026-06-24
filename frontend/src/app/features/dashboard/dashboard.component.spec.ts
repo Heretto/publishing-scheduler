@@ -1,10 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { DashboardComponent } from './dashboard.component';
 import { Schedule } from '../../core/services/schedule.service';
 import { DashboardSummary } from '../../core/services/dashboard.service';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 // ── shared test data ───────────────────────────────────────────────────────────
 
@@ -72,8 +73,9 @@ describe('DashboardComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DashboardComponent, HttpClientTestingModule, NoopAnimationsModule, RouterTestingModule],
-    }).compileComponents();
+    imports: [DashboardComponent, NoopAnimationsModule, RouterTestingModule],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}).compileComponents();
 
     fixture = TestBed.createComponent(DashboardComponent);
     component = fixture.componentInstance;

@@ -62,14 +62,14 @@ $heretto-accent-palette: (
   ),
 );
 
-$heretto-primary: mat.define-palette($heretto-primary-palette, 500);
-$heretto-accent: mat.define-palette($heretto-accent-palette, 500);
+$heretto-primary: mat.m2-define-palette($heretto-primary-palette, 500);
+$heretto-accent: mat.m2-define-palette($heretto-accent-palette, 500);
 
-$heretto-typography: mat.define-typography-config(
+$heretto-typography: mat.m2-define-typography-config(
   $font-family: "'Satoshi', sans-serif",
 );
 
-$heretto-theme: mat.define-light-theme((
+$heretto-theme: mat.m2-define-light-theme((
   color: (
     primary: $heretto-primary,
     accent: $heretto-accent,
