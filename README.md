@@ -1105,4 +1105,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ---
 
-**Made with ❤️ for the technical documentation community**
+**Made for the technical documentation community**
