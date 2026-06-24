@@ -19,6 +19,7 @@ from routes import schedules as schedules_router
 from routes import jobs as jobs_router
 from routes import heretto as heretto_router
 from routes import dashboard as dashboard_router
+from routes import settings as settings_router
 from services import scheduler as sched
 from services import status_cache
 from services.job_executor import JobExecutorService
@@ -114,6 +115,7 @@ app: FastAPI = create_hop_app(
         jobs_router.router,
         heretto_router.router,
         dashboard_router.router,
+        settings_router.router,
     ],
     title="Heretto Publishing Scheduler",
     version="2.0.0",

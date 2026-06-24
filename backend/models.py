@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Integer, String, Text, func
+    Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
@@ -97,3 +97,20 @@ class JobHistory(Base):
     error = Column(Text, nullable=True)
 
     schedule = relationship("Schedule", back_populates="jobs")
+
+
+# ── StatusValueExclusion ──────────────────────────────────────────────────────
+class StatusValueExclusion(Base):
+    __tablename__ = "status_value_exclusions"
+
+    id = Column(UUIDType, primary_key=True, default=_uuid)
+    org_id = Column(
+        UUIDType,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    value = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("org_id", "value", name="uq_exclusion_org_value"),)

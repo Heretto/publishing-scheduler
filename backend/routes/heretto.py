@@ -4,8 +4,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from hop_core.api.dependencies import get_current_active_user
+from hop_core.api.dependencies import CurrentUserContext, get_current_active_user, get_current_active_user_with_org
+from hop_core.db import get_db
 
 from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
@@ -15,6 +17,9 @@ router = APIRouter(prefix="/heretto", tags=["heretto"])
 
 # Auth guard — any authenticated user can hit these
 _auth = Depends(get_current_active_user)
+
+OrgCtx = Annotated[CurrentUserContext, Depends(get_current_active_user_with_org)]
+DB = Annotated[Session, Depends(get_db)]
 
 
 class SearchBody(BaseModel):
@@ -103,11 +108,23 @@ async def search_documents(body: SearchBody):
     )
 
 
-@router.get("/ccms/metadata/status-values", dependencies=[_auth])
-async def get_status_values(branch: str | None = None):
+@router.get("/ccms/metadata/status-values")
+async def get_status_values(ctx: OrgCtx, db: DB, branch: str | None = None):
+    from models import StatusValueExclusion
+    org_id = str(ctx.organization_id)
+    excluded = {
+        row.value
+        for row in db.query(StatusValueExclusion.value)
+            .filter(StatusValueExclusion.org_id == org_id)
+            .all()
+    }
+
     if status_cache.is_ready():
-        return status_cache.get_distinct_values()
-    return await HerettoCcmsClient().get_status_values(branch)
+        values = status_cache.get_distinct_values()
+    else:
+        values = await HerettoCcmsClient().get_status_values(branch)
+
+    return [v for v in values if v not in excluded]
 
 
 @router.get("/ccms/documents/{doc_id}/status", dependencies=[_auth])

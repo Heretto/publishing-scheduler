@@ -2,15 +2,25 @@ import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [
+    CommonModule,
+    MatCardModule,
+    MatCheckboxModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+  ],
   template: `
     <h1>Settings</h1>
 
@@ -48,11 +58,31 @@ import { ApiService } from '../../core/services/api.service';
         </ul>
       </mat-card-content>
     </mat-card>
+
+    <mat-card style="margin-top: 16px;">
+      <mat-card-header>
+        <mat-card-title>Status Value Exclusions</mat-card-title>
+        <mat-card-subtitle>Choose value(s) to exclude from view</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-spinner *ngIf="valuesLoading" diameter="24"></mat-spinner>
+        <ng-container *ngIf="!valuesLoading">
+          <p *ngIf="allValues.length === 0" class="empty-hint">No status values found.</p>
+          <div *ngFor="let v of allValues" class="value-row">
+            <mat-checkbox [checked]="excludedSet.has(v)" (change)="toggleExclusion(v, $event.checked)">
+              {{ v }}
+            </mat-checkbox>
+          </div>
+        </ng-container>
+      </mat-card-content>
+    </mat-card>
   `,
   styles: [`
     .status-item { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
     .ok { color: #4caf50; }
     .err { color: #f44336; }
+    .value-row { margin: 4px 0; }
+    .empty-hint { color: #999; font-size: 0.85rem; }
   `],
 })
 export class SettingsComponent implements OnInit {
@@ -63,7 +93,11 @@ export class SettingsComponent implements OnInit {
   herettoError = 'Not tested';
   checking = true;
 
-  constructor(private http: HttpClient, private api: ApiService) {}
+  allValues: string[] = [];
+  excludedSet = new Set<string>();
+  valuesLoading = true;
+
+  constructor(private http: HttpClient, private api: ApiService, private snackBar: MatSnackBar) {}
 
   ngOnInit() {
     this.http.get('/api/health')
@@ -84,5 +118,47 @@ export class SettingsComponent implements OnInit {
             `Connection failed (${err.status})`;
         },
       });
+
+    this.loadValues();
+  }
+
+  loadValues() {
+    forkJoin({
+      excluded: this.api.get<{ value: string }[]>('/settings/status-exclusions'),
+      available: this.api.get<string[]>('/heretto/ccms/metadata/status-values'),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ excluded, available }) => {
+          const excludedValues = excluded.map(r => r.value);
+          this.excludedSet = new Set(excludedValues);
+          const merged = new Set([...available, ...excludedValues]);
+          this.allValues = [...merged].sort();
+          this.valuesLoading = false;
+        },
+        error: () => { this.valuesLoading = false; },
+      });
+  }
+
+  toggleExclusion(value: string, checked: boolean) {
+    if (checked) {
+      this.api.post('/settings/status-exclusions', { value })
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => { this.excludedSet = new Set([...this.excludedSet, value]); },
+          error: (err) => this.snackBar.open(err.error?.detail ?? 'Failed to exclude', 'OK', { duration: 3000 }),
+        });
+    } else {
+      this.api.delete(`/settings/status-exclusions/${encodeURIComponent(value)}`)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            const next = new Set(this.excludedSet);
+            next.delete(value);
+            this.excludedSet = next;
+          },
+          error: () => this.snackBar.open('Failed to remove', 'OK', { duration: 3000 }),
+        });
+    }
   }
 }
