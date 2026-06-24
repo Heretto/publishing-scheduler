@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, Inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
 import { JobService, Job } from '../../core/services/job.service';
 import { DashboardService, DailyVolume, DashboardSummary, LocaleStat } from '../../core/services/dashboard.service';
@@ -16,11 +17,32 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
 
 @Component({
+  selector: 'app-maps-dialog',
+  standalone: true,
+  imports: [CommonModule, MatDialogModule, MatButtonModule],
+  template: `
+    <h2 mat-dialog-title>Maps — {{ data.scheduleName }}</h2>
+    <mat-dialog-content>
+      <ul class="maps-list">
+        <li *ngFor="let name of data.maps">{{ name }}</li>
+      </ul>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Close</button>
+    </mat-dialog-actions>
+  `,
+  styles: [`.maps-list { margin: 8px 0 0; padding-left: 20px; } li { padding: 4px 0; font-size: 0.9rem; }`],
+})
+class MapsDialogComponent {
+  constructor(@Inject(MAT_DIALOG_DATA) public data: { scheduleName: string; maps: string[] }) {}
+}
+
+@Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
     CommonModule, RouterModule, MatCardModule, MatButtonModule, MatIconModule,
-    MatTableModule, MatProgressSpinnerModule, MatTooltipModule,
+    MatTableModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
     StatusBadgeComponent, CronDisplayComponent,
   ],
   template: `
@@ -109,9 +131,16 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
           </ng-container>
           <ng-container matColumnDef="mapName">
             <th mat-header-cell *matHeaderCellDef>Map</th>
-            <td mat-cell *matCellDef="let s" class="col-truncate"
-              [matTooltip]="scheduleDocNamesTooltip(s)">
-              {{ scheduleDocNames(s) }}
+            <td mat-cell *matCellDef="let s">
+              <div class="map-cell">
+                <span class="map-cell-name">{{ scheduleDocNames(s) }}</span>
+                <button *ngIf="scheduleAllDocNames(s).length > 1"
+                  class="map-more-btn"
+                  matTooltip="Click to view all maps"
+                  (click)="openMapsDialog(s); $event.stopPropagation()">
+                  +{{ scheduleAllDocNames(s).length - 1 }} more
+                </button>
+              </div>
             </td>
           </ng-container>
           <ng-container matColumnDef="locales">
@@ -203,9 +232,16 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
           </ng-container>
           <ng-container matColumnDef="mapName">
             <th mat-header-cell *matHeaderCellDef>Map</th>
-            <td mat-cell *matCellDef="let j" class="col-truncate"
-              [matTooltip]="jobDocNamesTooltip(j)">
-              {{ jobDocNames(j) }}
+            <td mat-cell *matCellDef="let j">
+              <div class="map-cell">
+                <span class="map-cell-name">{{ jobDocNames(j) }}</span>
+                <button *ngIf="jobDocNamesCount(j) > 1"
+                  class="map-more-btn"
+                  matTooltip="Click to view all maps"
+                  (click)="openJobMapsDialog(j); $event.stopPropagation()">
+                  +{{ jobDocNamesCount(j) - 1 }} more
+                </button>
+              </div>
             </td>
           </ng-container>
           <ng-container matColumnDef="locales">
@@ -425,8 +461,18 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
     .locale-schedules-row { display: flex; align-items: center; gap: 4px; padding-left: 80px; font-size: 0.75rem; color: #999; margin-top: 2px; }
     .locale-sched-icon { font-size: 12px; width: 12px; height: 12px; line-height: 12px; color: #bbb; }
 
-    /* Truncated table cells (Map, Locales) */
+    /* Truncated table cells (Locales, job Map) */
     .col-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Schedule Map cell with overflow chip */
+    .map-cell { display: flex; align-items: center; gap: 6px; max-width: 210px; }
+    .map-cell-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; font-size: 0.875rem; }
+    .map-more-btn {
+      background: #e8eaf6; color: #3949ab; border: none; border-radius: 10px;
+      padding: 2px 8px; font-size: 0.72rem; font-weight: 500; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0; line-height: 1.6; font-family: inherit;
+    }
+    .map-more-btn:hover { background: #c5cae9; }
 
     /* Section subtitle */
     .section-subtitle { color: #888; font-size: 0.8rem; margin: -16px 0 8px; }
@@ -434,6 +480,7 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
 })
 export class DashboardComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
+  private dialog = inject(MatDialog);
 
   schedules: Schedule[] = [];
   recentJobs: Job[] = [];
@@ -444,6 +491,7 @@ export class DashboardComponent implements OnInit {
   errorMessage = '';
   selectedDate: string | null = null;
   documentNameCache: Record<string, string> = {};
+  scheduleLatestJobCache: Record<string, Job> = {};
 
   readonly scheduleColumns = ['name', 'description', 'mapName', 'locales', 'cron', 'lastRun', 'nextRun', 'successRate', 'scheduleActions'];
 
@@ -478,16 +526,28 @@ export class DashboardComponent implements OnInit {
     return Math.round((stat.succeeded / stat.total) * 100);
   }
 
-  scheduleDocNames(s: Schedule): string {
-    if (!s.document_ids?.length) return '—';
-    const names = s.document_ids.map(id => this.documentNameCache[id] ?? id);
-    if (names.length === 1) return names[0];
-    return `${names[0]} +${names.length - 1}`;
+  scheduleAllDocNames(s: Schedule): string[] {
+    if (s.document_ids?.length) {
+      return s.document_ids.map(id => this.documentNameCache[id] ?? id);
+    }
+    if (s.folder_ids?.length) {
+      const latestJob = this.scheduleLatestJobCache[s.id];
+      return Object.values(latestJob?.request_payload?.documentNames ?? {});
+    }
+    return [];
   }
 
-  scheduleDocNamesTooltip(s: Schedule): string {
-    if (!s.document_ids || s.document_ids.length <= 1) return '';
-    return s.document_ids.map(id => this.documentNameCache[id] ?? id).join('\n');
+  scheduleDocNames(s: Schedule): string {
+    const names = this.scheduleAllDocNames(s);
+    if (!names.length) return '—';
+    return names[0];
+  }
+
+  openMapsDialog(s: Schedule): void {
+    this.dialog.open(MapsDialogComponent, {
+      data: { scheduleName: s.name, maps: this.scheduleAllDocNames(s) },
+      width: '420px',
+    });
   }
 
   scheduleLocales(s: Schedule): string {
@@ -497,14 +557,21 @@ export class DashboardComponent implements OnInit {
   jobDocNames(j: Job): string {
     const names = Object.values(j.request_payload?.documentNames ?? {});
     if (!names.length) return '—';
-    if (names.length === 1) return names[0];
-    return `${names[0]} +${names.length - 1}`;
+    return names[0];
   }
 
-  jobDocNamesTooltip(j: Job): string {
-    const names = Object.values(j.request_payload?.documentNames ?? {});
-    if (names.length <= 1) return '';
-    return names.join('\n');
+  jobDocNamesCount(j: Job): number {
+    return Object.keys(j.request_payload?.documentNames ?? {}).length;
+  }
+
+  openJobMapsDialog(j: Job): void {
+    this.dialog.open(MapsDialogComponent, {
+      data: {
+        scheduleName: j.schedule_name ?? j.schedule_id,
+        maps: Object.values(j.request_payload?.documentNames ?? {}),
+      },
+      width: '420px',
+    });
   }
 
   jobLocales(j: Job): string {
@@ -611,6 +678,9 @@ export class DashboardComponent implements OnInit {
           this.summary = summary;
           for (const job of jobs.data) {
             Object.assign(this.documentNameCache, job.request_payload?.documentNames ?? {});
+            if (!this.scheduleLatestJobCache[job.schedule_id]) {
+              this.scheduleLatestJobCache[job.schedule_id] = job;
+            }
           }
           this.loading = false;
         },
@@ -632,8 +702,12 @@ export class DashboardComponent implements OnInit {
           .subscribe(r => {
             this.recentJobs = r.data;
             this.totalJobs = r.total;
+            this.scheduleLatestJobCache = {};
             for (const job of r.data) {
               Object.assign(this.documentNameCache, job.request_payload?.documentNames ?? {});
+              if (!this.scheduleLatestJobCache[job.schedule_id]) {
+                this.scheduleLatestJobCache[job.schedule_id] = job;
+              }
             }
           });
       },
