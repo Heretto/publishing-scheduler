@@ -9,6 +9,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -20,7 +21,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     imports: [
         CommonModule, RouterModule, MatTableModule, MatButtonModule, MatIconModule,
         MatSlideToggleModule, MatDialogModule, MatCardModule, MatProgressSpinnerModule,
-        StatusBadgeComponent, CronDisplayComponent,
+        MatTooltipModule, StatusBadgeComponent, CronDisplayComponent,
     ],
     template: `
     <div class="header">
@@ -64,13 +65,13 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef>Actions</th>
           <td mat-cell *matCellDef="let s">
-            <button mat-icon-button (click)="triggerNow(s)" [attr.aria-label]="'Trigger ' + s.name + ' now'">
+            <button mat-icon-button (click)="triggerNow(s)" [attr.aria-label]="'Trigger ' + s.name + ' now'" matTooltip="Run now">
               <mat-icon>play_arrow</mat-icon>
             </button>
-            <a mat-icon-button [routerLink]="[s.id, 'edit']" [attr.aria-label]="'Edit ' + s.name">
+            <a mat-icon-button [routerLink]="[s.id, 'edit']" [attr.aria-label]="'Edit ' + s.name" matTooltip="Edit">
               <mat-icon>edit</mat-icon>
             </a>
-            <button mat-icon-button color="warn" (click)="deleteSchedule(s)" [attr.aria-label]="'Delete ' + s.name">
+            <button mat-icon-button color="warn" (click)="deleteSchedule(s)" [attr.aria-label]="'Delete ' + s.name" matTooltip="Delete">
               <mat-icon>delete</mat-icon>
             </button>
           </td>
@@ -131,7 +132,7 @@ export class ScheduleListComponent implements OnInit {
 
   deleteSchedule(schedule: Schedule) {
     const ref = this.dialog.open(ConfirmDialogComponent, {
-      data: { title: 'Delete Schedule', message: `Delete "${schedule.name}"?`, confirmText: 'Delete' },
+      data: { title: 'Delete Schedule', message: `Delete "${schedule.name}"? This will also delete all job history for this schedule.`, confirmText: 'Delete' },
     });
     ref.afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))

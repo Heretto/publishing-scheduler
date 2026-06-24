@@ -260,8 +260,8 @@ class MapsDialogComponent {
               <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="['status', 'schedule', 'mapName', 'locales', 'trigger', 'startedAt', 'jobActions']"></tr>
-          <tr mat-row *matRowDef="let row; columns: ['status', 'schedule', 'mapName', 'locales', 'trigger', 'startedAt', 'jobActions']"></tr>
+          <tr mat-header-row *matHeaderRowDef="['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
         </table>
       </mat-card>
       <ng-template #noJobs>
@@ -491,7 +491,7 @@ export class DashboardComponent implements OnInit {
   documentNameCache: Record<string, string> = {};
   scheduleLatestJobCache: Record<string, Job> = {};
 
-  readonly scheduleColumns = ['name', 'description', 'mapName', 'locales', 'cron', 'lastRun', 'nextRun', 'successRate', 'scheduleActions'];
+  readonly scheduleColumns = ['name', 'mapName', 'locales', 'lastRun', 'nextRun', 'cron', 'scheduleActions'];
 
   get activeSchedules() { return this.schedules.filter(s => s.enabled).length; }
   get totalSchedules() { return this.schedules.length; }

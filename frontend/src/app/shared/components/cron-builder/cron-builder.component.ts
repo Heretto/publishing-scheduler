@@ -36,7 +36,7 @@ interface DayOption {
     <div class="cron-builder">
       <div class="mode-toggle">
         <mat-slide-toggle [(ngModel)]="advancedMode" (ngModelChange)="onModeChange()">
-          Advanced (raw cron)
+          I'll write it manually
         </mat-slide-toggle>
       </div>
 

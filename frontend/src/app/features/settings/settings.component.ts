@@ -21,7 +21,10 @@ import { ApiService } from '../../core/services/api.service';
         MatSnackBarModule,
     ],
     template: `
-    <h1>Settings</h1>
+    <div class="page-header">
+      <h1>Settings</h1>
+      <p class="page-subtitle">Manage your API connections, environment configuration, and publishing preferences.</p>
+    </div>
 
     <mat-card>
       <mat-card-header>
@@ -77,6 +80,8 @@ import { ApiService } from '../../core/services/api.service';
     </mat-card>
   `,
     styles: [`
+    .page-header { margin-bottom: 24px; }
+    .page-subtitle { margin: 4px 0 0; color: #666; font-size: 0.95rem; }
     .status-item { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
     .ok { color: #4caf50; }
     .err { color: #f44336; }

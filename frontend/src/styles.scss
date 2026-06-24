@@ -192,6 +192,11 @@ a {
   &:hover { text-decoration: none !important; }
 }
 
+// Table row hover
+.mat-mdc-row:hover .mat-mdc-cell {
+  background-color: rgba(1, 22, 39, 0.04);
+}
+
 // Document picker dialog — nudge 2px right so it clears the sidenav edge
 .document-picker-panel {
   margin-left: 110px;
