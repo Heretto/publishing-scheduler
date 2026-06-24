@@ -74,13 +74,21 @@ async def _prune_old_jobs():
 
 
 async def _load_status_cache():
-    """Populate the in-memory document status cache from the Heretto search API."""
+    """Populate the in-memory document status cache from the Heretto search API.
+
+    Retries up to 3 times with 30 s / 60 s back-off before giving up.
+    """
     from clients.heretto_ccms import HerettoCcmsClient
-    try:
-        status_map = await HerettoCcmsClient().fetch_status_map()
-        status_cache.populate(status_map)
-    except Exception as exc:
-        logger.warning("Failed to populate status cache at startup: %s", exc)
+    for attempt in range(1, 4):
+        try:
+            status_map = await HerettoCcmsClient().fetch_status_map()
+            status_cache.populate(status_map)
+            return
+        except Exception as exc:
+            logger.warning("Status cache load attempt %d/3 failed: %s", attempt, exc)
+            if attempt < 3:
+                await asyncio.sleep(30 * attempt)
+    logger.error("Status cache could not be populated after 3 attempts")
 
 
 async def _refresh_status_cache():
@@ -124,9 +132,18 @@ app: FastAPI = create_hop_app(
 )
 
 
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def _log_validation_error(request: Request, exc: RequestValidationError):
-    logger.error("422 on %s %s: %s", request.method, request.url.path, exc.errors())
+    logger.debug("422 on %s %s: %s", request.method, request.url.path, exc.errors())
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 

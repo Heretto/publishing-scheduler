@@ -35,6 +35,9 @@ class AppSettings(HopCoreSettings):
     retry_max_delay_ms: int = 30000
     retry_backoff_multiplier: float = 2.0
 
+    # Job execution
+    job_timeout_seconds: int = 1800  # 30 minutes
+
 
 @lru_cache
 def get_settings() -> AppSettings:

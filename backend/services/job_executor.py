@@ -169,9 +169,14 @@ class JobExecutorService:
 
         all_results: list[dict] = []
         errors: list[str] = []
+        deadline = asyncio.get_running_loop().time() + s.job_timeout_seconds
 
         try:
             for scenario_id, locale in combos:
+                if asyncio.get_running_loop().time() > deadline:
+                    errors.append(f"Job timed out after {s.job_timeout_seconds}s")
+                    logger.error("Job %s timed out (schedule=%s)", job.id, schedule_id)
+                    break
                 doc_ids = locale_doc_map.get(locale, source_doc_ids)
                 label = f"scenario={scenario_id}, locale={locale or 'source'}"
                 try:

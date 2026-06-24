@@ -5,7 +5,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from hop_core.api.dependencies import CurrentUserContext, get_current_active_user_with_org
@@ -27,10 +27,10 @@ DB = Annotated[Session, Depends(get_db)]
 # ── Pydantic schemas ───────────────────────────────────────────────────────────
 
 class ScheduleCreate(BaseModel):
-    name: str
-    description: str = ""
-    cron_expression: str
-    scenario_ids: list[str]
+    name: str = Field(..., max_length=255)
+    description: str = Field("", max_length=2000)
+    cron_expression: str = Field(..., max_length=100)
+    scenario_ids: list[str] = Field(..., max_length=20)
 
     @field_validator("scenario_ids", mode="before")
     @classmethod
@@ -38,21 +38,21 @@ class ScheduleCreate(BaseModel):
         if isinstance(v, list):
             return [str(x) for x in v]
         return v  # type: ignore[return-value]
-    deployment_id: str = ""
-    document_ids: list[str] = []
-    folder_ids: list[str] = []
+    deployment_id: str = Field("", max_length=255)
+    document_ids: list[str] = Field([], max_length=500)
+    folder_ids: list[str] = Field([], max_length=100)
     document_releases: dict[str, str] = {}
     enabled: bool = True
-    branch: str = "master"
-    locales: list[str] = []
-    publish_parameters: list[dict] = []
+    branch: str = Field("master", max_length=255)
+    locales: list[str] = Field([], max_length=50)
+    publish_parameters: list[dict] = Field([], max_length=50)
 
 
 class ScheduleUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    cron_expression: str | None = None
-    scenario_ids: list[str] | None = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    cron_expression: str | None = Field(None, max_length=100)
+    scenario_ids: list[str] | None = Field(None, max_length=20)
 
     @field_validator("scenario_ids", mode="before")
     @classmethod
@@ -60,14 +60,14 @@ class ScheduleUpdate(BaseModel):
         if isinstance(v, list):
             return [str(x) for x in v]
         return v  # type: ignore[return-value]
-    deployment_id: str | None = None
-    document_ids: list[str] | None = None
-    folder_ids: list[str] | None = None
+    deployment_id: str | None = Field(None, max_length=255)
+    document_ids: list[str] | None = Field(None, max_length=500)
+    folder_ids: list[str] | None = Field(None, max_length=100)
     document_releases: dict[str, str] | None = None
     enabled: bool | None = None
-    branch: str | None = None
-    locales: list[str] | None = None
-    publish_parameters: list[dict] | None = None
+    branch: str | None = Field(None, max_length=255)
+    locales: list[str] | None = Field(None, max_length=50)
+    publish_parameters: list[dict] | None = Field(None, max_length=50)
 
 
 class ToggleBody(BaseModel):

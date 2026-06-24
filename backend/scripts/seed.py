@@ -10,6 +10,7 @@ Environment variables (non-interactive / CI):
 """
 
 import os
+import re
 import sys
 import uuid
 import getpass
@@ -109,10 +110,19 @@ def seed() -> None:
             return
 
         if not password:
-            password = getpass.getpass("  Admin password (min 8 chars): ")
+            password = getpass.getpass("  Admin password: ")
 
-        if len(password) < 8:
-            print("Password must be at least 8 characters.")
+        errors = []
+        if len(password) < 12:
+            errors.append("at least 12 characters")
+        if not re.search(r"[A-Z]", password):
+            errors.append("at least one uppercase letter")
+        if not re.search(r"\d", password):
+            errors.append("at least one digit")
+        if not re.search(r"[^A-Za-z0-9]", password):
+            errors.append("at least one special character")
+        if errors:
+            print("Password must contain: " + ", ".join(errors) + ".")
             sys.exit(1)
 
         admin = User(
