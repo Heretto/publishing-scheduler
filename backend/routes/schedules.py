@@ -4,13 +4,14 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from hop_core.api.dependencies import CurrentUserContext, get_current_active_user_with_org
 from hop_core.db import get_db
 
+from limiter import limiter
 from models import Schedule
 from services import scheduler as sched
 from utils import parse_ids
@@ -22,6 +23,8 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 # Shared dependency aliases
 OrgCtx = Annotated[CurrentUserContext, Depends(get_current_active_user_with_org)]
 DB = Annotated[Session, Depends(get_db)]
+
+_ID_MAX_LEN = 255
 
 
 # ── Pydantic schemas ───────────────────────────────────────────────────────────
@@ -47,6 +50,14 @@ class ScheduleCreate(BaseModel):
     locales: list[str] = Field([], max_length=50)
     publish_parameters: list[dict] = Field([], max_length=50)
 
+    @field_validator("document_ids", "folder_ids", "locales", mode="after")
+    @classmethod
+    def check_item_lengths(cls, v: list[str]) -> list[str]:
+        for item in v:
+            if len(item) > _ID_MAX_LEN:
+                raise ValueError(f"Each item must be at most {_ID_MAX_LEN} characters")
+        return v
+
 
 class ScheduleUpdate(BaseModel):
     name: str | None = Field(None, max_length=255)
@@ -68,6 +79,16 @@ class ScheduleUpdate(BaseModel):
     branch: str | None = Field(None, max_length=255)
     locales: list[str] | None = Field(None, max_length=50)
     publish_parameters: list[dict] | None = Field(None, max_length=50)
+
+    @field_validator("document_ids", "folder_ids", "locales", mode="after")
+    @classmethod
+    def check_item_lengths(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        for item in v:
+            if len(item) > _ID_MAX_LEN:
+                raise ValueError(f"Each item must be at most {_ID_MAX_LEN} characters")
+        return v
 
 
 class ToggleBody(BaseModel):
@@ -154,8 +175,9 @@ def get_schedule(schedule_id: str, ctx: OrgCtx, db: DB):
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
+    org_id = str(ctx.organization_id)
     s = Schedule(
-        org_id=str(ctx.organization_id),
+        org_id=org_id,
         name=body.name,
         description=body.description,
         cron_expression=body.cron_expression,
@@ -176,12 +198,14 @@ def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
     if s.enabled:
         sched.add_schedule(s.id, s.cron_expression, _run_scheduled_job)
 
+    logger.info("AUDIT schedule_created id=%s name=%r org=%s", s.id, s.name, org_id)
     return _fmt(s)
 
 
 @router.put("/{schedule_id}")
 def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB):
-    s = _get_or_404(schedule_id, str(ctx.organization_id), db)
+    org_id = str(ctx.organization_id)
+    s = _get_or_404(schedule_id, org_id, db)
 
     if body.name is not None:
         s.name = body.name
@@ -216,20 +240,24 @@ def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB)
     else:
         sched.remove_schedule(s.id)
 
+    logger.info("AUDIT schedule_updated id=%s name=%r org=%s", s.id, s.name, org_id)
     return _fmt(s)
 
 
 @router.delete("/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_schedule(schedule_id: str, ctx: OrgCtx, db: DB):
-    s = _get_or_404(schedule_id, str(ctx.organization_id), db)
+    org_id = str(ctx.organization_id)
+    s = _get_or_404(schedule_id, org_id, db)
     sched.remove_schedule(s.id)
     db.delete(s)
     db.commit()
+    logger.info("AUDIT schedule_deleted id=%s name=%r org=%s", schedule_id, s.name, org_id)
 
 
 @router.patch("/{schedule_id}/toggle")
 def toggle_schedule(schedule_id: str, body: ToggleBody, ctx: OrgCtx, db: DB):
-    s = _get_or_404(schedule_id, str(ctx.organization_id), db)
+    org_id = str(ctx.organization_id)
+    s = _get_or_404(schedule_id, org_id, db)
     s.enabled = body.enabled
     db.commit()
     db.refresh(s)
@@ -239,14 +267,18 @@ def toggle_schedule(schedule_id: str, body: ToggleBody, ctx: OrgCtx, db: DB):
     else:
         sched.remove_schedule(s.id)
 
+    logger.info("AUDIT schedule_toggled id=%s enabled=%s org=%s", s.id, s.enabled, org_id)
     return _fmt(s)
 
 
 @router.post("/{schedule_id}/trigger", status_code=status.HTTP_201_CREATED)
-async def trigger_schedule(schedule_id: str, ctx: OrgCtx, db: DB):
-    _get_or_404(schedule_id, str(ctx.organization_id), db)  # 404 guard
+@limiter.limit("10/minute")
+async def trigger_schedule(request: Request, schedule_id: str, ctx: OrgCtx, db: DB):
+    org_id = str(ctx.organization_id)
+    _get_or_404(schedule_id, org_id, db)  # 404 guard
     executor = _get_executor()
     if executor.is_running(schedule_id):
         raise HTTPException(status_code=409, detail="A job for this schedule is already running")
+    logger.info("AUDIT schedule_triggered id=%s org=%s", schedule_id, org_id)
     result = await executor.execute(schedule_id, db, trigger_type="manual")
     return result

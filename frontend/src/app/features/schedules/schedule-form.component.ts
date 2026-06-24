@@ -394,7 +394,6 @@ export class ScheduleFormComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: params => {
-          console.log('Scenario parameters:', JSON.stringify(params, null, 2));
           this.scenarioParameters = params;
           // Scenarios with 'ref' type params have system-managed file references
           // (e.g. PDF Generator); those params should not be user-editable.

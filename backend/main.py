@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse
 from hop_core.app_factory import create_hop_app
 from hop_core.db import get_session_factory
 from sqlalchemy.orm import Session
+
+from limiter import setup_limiter
 
 # Import models so they register on hop-core's Base before init_db() runs
 import models  # noqa: F401
@@ -131,6 +134,18 @@ app: FastAPI = create_hop_app(
     include_credentials_router=True,
 )
 
+setup_limiter(app)
+
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; "
+    "font-src 'self' https://fonts.gstatic.com https://api.fontshare.com; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'"
+)
+
 
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
@@ -138,6 +153,21 @@ async def _security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = _CSP
+    is_https = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+    if is_https:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+@app.middleware("http")
+async def _request_id(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
     return response
 
 

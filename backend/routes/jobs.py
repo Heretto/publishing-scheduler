@@ -44,7 +44,7 @@ def _schedule_name_map(org_id: str, db: Session) -> dict[str, str]:
 def list_jobs(
     ctx: OrgCtx,
     db: DB,
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10_000),
     limit: int = Query(default=20, ge=1, le=MAX_LIMIT),
     schedule_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
