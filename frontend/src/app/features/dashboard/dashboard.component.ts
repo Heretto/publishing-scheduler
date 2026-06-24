@@ -116,10 +116,10 @@ class MapsDialogComponent {
       <!-- Active Schedules -->
       <h2>Active Schedules</h2>
       <mat-card *ngIf="schedules.length > 0; else noSchedules">
-        <table mat-table [dataSource]="schedules.slice(0, 5)" aria-label="Active schedules">
+        <table mat-table [dataSource]="schedules.slice(0, 5)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
           <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>Name</th>
-            <td mat-cell *matCellDef="let s">
+            <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
+            <td mat-cell *matCellDef="let s" class="col-truncate">
               <a [routerLink]="['/schedules']" class="table-link">{{ s.name }}</a>
             </td>
           </ng-container>
@@ -128,7 +128,7 @@ class MapsDialogComponent {
             <td mat-cell *matCellDef="let s">{{ s.description }}</td>
           </ng-container>
           <ng-container matColumnDef="mapName">
-            <th mat-header-cell *matHeaderCellDef>Map</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 22%">Map</th>
             <td mat-cell *matCellDef="let s">
               <div class="map-cell">
                 <span class="map-cell-name">{{ scheduleDocNames(s) }}</span>
@@ -142,24 +142,24 @@ class MapsDialogComponent {
             </td>
           </ng-container>
           <ng-container matColumnDef="locales">
-            <th mat-header-cell *matHeaderCellDef>Locales</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 7%">Locales</th>
             <td mat-cell *matCellDef="let s" class="col-truncate">{{ scheduleLocales(s) }}</td>
           </ng-container>
           <ng-container matColumnDef="cron">
-            <th mat-header-cell *matHeaderCellDef>Schedule</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 17%">Schedule</th>
             <td mat-cell *matCellDef="let s">
               <app-cron-display [expression]="s.cron_expression"></app-cron-display>
             </td>
           </ng-container>
           <ng-container matColumnDef="lastRun">
-            <th mat-header-cell *matHeaderCellDef>Last Run</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 15%">Last Run</th>
             <td mat-cell *matCellDef="let s">
               <app-status-badge *ngIf="s.last_run_status" [status]="s.last_run_status"></app-status-badge>
               <span *ngIf="!s.last_run_status">Never</span>
             </td>
           </ng-container>
           <ng-container matColumnDef="nextRun">
-            <th mat-header-cell *matHeaderCellDef>Next Run</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 15%">Next Run</th>
             <td mat-cell *matCellDef="let s">
               <span *ngIf="s.next_run_time">{{ s.next_run_time | date:'short' }}</span>
               <span *ngIf="!s.next_run_time">—</span>
@@ -180,7 +180,7 @@ class MapsDialogComponent {
             </td>
           </ng-container>
           <ng-container matColumnDef="scheduleActions">
-            <th mat-header-cell *matHeaderCellDef></th>
+            <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
             <td mat-cell *matCellDef="let s">
               <button mat-icon-button
                 [disabled]="!!triggeringId"
@@ -215,21 +215,17 @@ class MapsDialogComponent {
         </span>
       </h2>
       <mat-card *ngIf="filteredJobs.length > 0; else noJobs">
-        <table mat-table [dataSource]="filteredJobs" aria-label="Recent jobs">
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>Status</th>
-            <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
-          </ng-container>
+        <table mat-table [dataSource]="filteredJobs" aria-label="Recent jobs" style="table-layout: fixed; width: 100%">
           <ng-container matColumnDef="schedule">
-            <th mat-header-cell *matHeaderCellDef>Schedule</th>
-            <td mat-cell *matCellDef="let j">
+            <th mat-header-cell *matHeaderCellDef style="width: 18%">Schedule</th>
+            <td mat-cell *matCellDef="let j" class="col-truncate">
               <a [routerLink]="['/schedules', j.schedule_id, 'edit']" class="table-link">
                 {{ j.schedule_name || j.schedule_id }}
               </a>
             </td>
           </ng-container>
           <ng-container matColumnDef="mapName">
-            <th mat-header-cell *matHeaderCellDef>Map</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 22%">Map</th>
             <td mat-cell *matCellDef="let j">
               <div class="map-cell">
                 <span class="map-cell-name">{{ jobDocNames(j) }}</span>
@@ -243,19 +239,23 @@ class MapsDialogComponent {
             </td>
           </ng-container>
           <ng-container matColumnDef="locales">
-            <th mat-header-cell *matHeaderCellDef>Locales</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 7%">Locales</th>
             <td mat-cell *matCellDef="let j" class="col-truncate">{{ jobLocales(j) }}</td>
           </ng-container>
-          <ng-container matColumnDef="trigger">
-            <th mat-header-cell *matHeaderCellDef>Trigger</th>
-            <td mat-cell *matCellDef="let j">{{ j.trigger_type }}</td>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef style="width: 15%">Status</th>
+            <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
           </ng-container>
           <ng-container matColumnDef="startedAt">
-            <th mat-header-cell *matHeaderCellDef>Started</th>
+            <th mat-header-cell *matHeaderCellDef style="width: 15%">Started</th>
             <td mat-cell *matCellDef="let j">{{ j.started_at | date:'short' }}</td>
           </ng-container>
+          <ng-container matColumnDef="trigger">
+            <th mat-header-cell *matHeaderCellDef style="width: 17%">Trigger</th>
+            <td mat-cell *matCellDef="let j">{{ j.trigger_type }}</td>
+          </ng-container>
           <ng-container matColumnDef="jobActions">
-            <th mat-header-cell *matHeaderCellDef></th>
+            <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
             <td mat-cell *matCellDef="let j">
               <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
             </td>
@@ -459,8 +459,8 @@ class MapsDialogComponent {
     .locale-schedules-row { display: flex; align-items: center; gap: 4px; padding-left: 80px; font-size: 0.75rem; color: #999; margin-top: 2px; }
     .locale-sched-icon { font-size: 12px; width: 12px; height: 12px; line-height: 12px; color: #bbb; }
 
-    /* Truncated table cells (Locales, job Map) */
-    .col-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Truncated table cells */
+    .col-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Schedule Map cell with overflow chip */
     .map-cell { display: flex; align-items: center; gap: 6px; max-width: 210px; }
