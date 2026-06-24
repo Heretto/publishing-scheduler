@@ -12,14 +12,13 @@ import { JobService, Job, PublishResult } from '../../core/services/job.service'
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
-  selector: 'app-job-detail',
-  standalone: true,
-  imports: [
-    CommonModule, RouterModule, MatCardModule, MatButtonModule,
-    MatProgressSpinnerModule, MatIconModule, MatTableModule,
-    MatDividerModule, StatusBadgeComponent,
-  ],
-  template: `
+    selector: 'app-job-detail',
+    imports: [
+        CommonModule, RouterModule, MatCardModule, MatButtonModule,
+        MatProgressSpinnerModule, MatIconModule, MatTableModule,
+        MatDividerModule, StatusBadgeComponent,
+    ],
+    template: `
     <div class="loading-wrap" *ngIf="loading">
       <mat-spinner diameter="40"></mat-spinner>
     </div>
@@ -193,7 +192,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       </mat-card>
     </ng-container>
   `,
-  styles: [`
+    styles: [`
     .loading-wrap { display: flex; justify-content: center; padding: 48px; }
 
     .nav-row { display: flex; gap: 4px; margin-bottom: 12px; }
@@ -300,7 +299,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     .param-row { font-size: 13px; }
     .param-name { font-weight: 500; margin-right: 4px; }
     .param-value { color: #555; }
-  `],
+  `]
 })
 export class JobDetailComponent implements OnInit {
   private destroyRef = inject(DestroyRef);

@@ -11,13 +11,12 @@ import { JobService, Job } from '../../core/services/job.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
-  selector: 'app-job-list',
-  standalone: true,
-  imports: [
-    CommonModule, RouterModule, MatTableModule, MatPaginatorModule,
-    MatCardModule, MatButtonModule, MatProgressSpinnerModule, StatusBadgeComponent,
-  ],
-  template: `
+    selector: 'app-job-list',
+    imports: [
+        CommonModule, RouterModule, MatTableModule, MatPaginatorModule,
+        MatCardModule, MatButtonModule, MatProgressSpinnerModule, StatusBadgeComponent,
+    ],
+    template: `
     <h1>Job History</h1>
 
     <mat-spinner *ngIf="loading" diameter="40"></mat-spinner>
@@ -67,11 +66,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       </mat-paginator>
     </mat-card>
   `,
-  styles: [`
+    styles: [`
     table { width: 100%; }
     .schedule-link { color: inherit; text-decoration: none; font-weight: 500; }
     .schedule-link:hover { text-decoration: underline; }
-  `],
+  `]
 })
 export class JobListComponent implements OnInit {
   private destroyRef = inject(DestroyRef);

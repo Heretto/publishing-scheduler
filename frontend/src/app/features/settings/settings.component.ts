@@ -11,17 +11,16 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
-  selector: 'app-settings',
-  standalone: true,
-  imports: [
-    CommonModule,
-    MatCardModule,
-    MatCheckboxModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatSnackBarModule,
-  ],
-  template: `
+    selector: 'app-settings',
+    imports: [
+        CommonModule,
+        MatCardModule,
+        MatCheckboxModule,
+        MatIconModule,
+        MatProgressSpinnerModule,
+        MatSnackBarModule,
+    ],
+    template: `
     <h1>Settings</h1>
 
     <mat-card>
@@ -77,13 +76,13 @@ import { ApiService } from '../../core/services/api.service';
       </mat-card-content>
     </mat-card>
   `,
-  styles: [`
+    styles: [`
     .status-item { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
     .ok { color: #4caf50; }
     .err { color: #f44336; }
     .value-row { margin: 4px 0; }
     .empty-hint { color: #999; font-size: 0.85rem; }
-  `],
+  `]
 })
 export class SettingsComponent implements OnInit {
   private destroyRef = inject(DestroyRef);

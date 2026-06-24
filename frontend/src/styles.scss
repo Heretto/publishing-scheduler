@@ -77,7 +77,8 @@ $heretto-theme: mat.m2-define-light-theme((
   typography: $heretto-typography,
 ));
 
-@include mat.core();
+@include mat.elevation-classes();
+@include mat.app-background();
 @include mat.all-component-themes($heretto-theme);
 
 html, body { height: 100%; }

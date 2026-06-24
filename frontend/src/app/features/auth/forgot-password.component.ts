@@ -9,18 +9,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-  selector: 'app-forgot-password',
-  standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    RouterModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatProgressSpinnerModule,
-  ],
-  template: `
+    selector: 'app-forgot-password',
+    imports: [
+        CommonModule,
+        ReactiveFormsModule,
+        RouterModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatButtonModule,
+        MatProgressSpinnerModule,
+    ],
+    template: `
     <div class="auth-page">
       <div class="auth-card">
         <img src="assets/heretto-logo.svg" alt="Heretto" class="auth-logo">
@@ -52,7 +51,7 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
     </div>
   `,
-  styles: [`
+    styles: [`
     .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #f5f7fa; }
     .auth-card { width: 100%; max-width: 400px; background: #ffffff; border-radius: 12px; padding: 40px 36px; box-shadow: 0px 12px 32px -4px rgba(0, 65, 117, 0.16); display: flex; flex-direction: column; align-items: center; }
     .auth-logo { height: 36px; margin-bottom: 20px; }
@@ -63,7 +62,7 @@ import { AuthService } from '../../core/services/auth.service';
     .auth-submit { width: 100%; height: 44px; background-color: #011627; color: #ffffff; font-family: 'Satoshi', sans-serif; font-weight: 600; font-size: 15px; border-radius: 6px; margin-top: 8px; display: flex; align-items: center; justify-content: center; }
     .auth-submit:hover:not(:disabled) { background-color: #1a3a52; }
     .auth-link { margin-top: 20px; font-size: 13px; color: #AD4780; }
-  `],
+  `]
 })
 export class ForgotPasswordComponent {
   form: FormGroup;

@@ -32,14 +32,13 @@ interface BreadcrumbItem {
 }
 
 @Component({
-  selector: 'app-document-picker',
-  standalone: true,
-  imports: [
-    CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatInputModule, MatFormFieldModule, MatTabsModule, MatListModule,
-    MatCheckboxModule, MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule,
-  ],
-  template: `
+    selector: 'app-document-picker',
+    imports: [
+        CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
+        MatInputModule, MatFormFieldModule, MatTabsModule, MatListModule,
+        MatCheckboxModule, MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule,
+    ],
+    template: `
     <h2 mat-dialog-title>Select Documents</h2>
     <mat-dialog-content class="picker-content">
       <div class="filter-bar" *ngIf="!data?.allowAllTypes">
@@ -239,7 +238,7 @@ interface BreadcrumbItem {
       </button>
     </mat-dialog-actions>
   `,
-  styles: [`
+    styles: [`
     .picker-content {
       min-width: 500px;
       min-height: 400px;
@@ -517,7 +516,7 @@ interface BreadcrumbItem {
     .loading-icon {
       color: #aaa;
     }
-  `],
+  `]
 })
 export class DocumentPickerComponent implements OnInit {
   private destroyRef = inject(DestroyRef);

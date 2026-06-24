@@ -22,15 +22,14 @@ function requireNonEmpty(control: AbstractControl) {
 }
 
 @Component({
-  selector: 'app-schedule-form',
-  standalone: true,
-  imports: [
-    CommonModule, ReactiveFormsModule, RouterModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatCardModule, MatCheckboxModule, MatIconModule, MatDialogModule,
-    CronBuilderComponent,
-  ],
-  template: `
+    selector: 'app-schedule-form',
+    imports: [
+        CommonModule, ReactiveFormsModule, RouterModule,
+        MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
+        MatCardModule, MatCheckboxModule, MatIconModule, MatDialogModule,
+        CronBuilderComponent,
+    ],
+    template: `
     <h1>{{ isEdit ? 'Edit' : 'New' }} Schedule</h1>
     <mat-card>
       <mat-card-content>
@@ -169,7 +168,7 @@ function requireNonEmpty(control: AbstractControl) {
       </mat-card-content>
     </mat-card>
   `,
-  styles: [`
+    styles: [`
     .full-width { width: 100%; margin-bottom: 8px; }
     .cron-section {
       margin-bottom: 16px;
@@ -210,7 +209,7 @@ function requireNonEmpty(control: AbstractControl) {
       margin-bottom: 8px;
     }
     .parameter-row { margin-bottom: 8px; }
-  `],
+  `]
 })
 export class ScheduleFormComponent implements OnInit {
   private destroyRef = inject(DestroyRef);

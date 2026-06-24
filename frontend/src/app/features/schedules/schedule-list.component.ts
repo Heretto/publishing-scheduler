@@ -16,14 +16,13 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 @Component({
-  selector: 'app-schedule-list',
-  standalone: true,
-  imports: [
-    CommonModule, RouterModule, MatTableModule, MatButtonModule, MatIconModule,
-    MatSlideToggleModule, MatDialogModule, MatCardModule, MatProgressSpinnerModule,
-    StatusBadgeComponent, CronDisplayComponent,
-  ],
-  template: `
+    selector: 'app-schedule-list',
+    imports: [
+        CommonModule, RouterModule, MatTableModule, MatButtonModule, MatIconModule,
+        MatSlideToggleModule, MatDialogModule, MatCardModule, MatProgressSpinnerModule,
+        StatusBadgeComponent, CronDisplayComponent,
+    ],
+    template: `
     <div class="header">
       <h1>Schedules</h1>
       <a mat-raised-button color="primary" routerLink="new" aria-label="Create new schedule">
@@ -84,10 +83,10 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       </p>
     </mat-card>
   `,
-  styles: [`
+    styles: [`
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     table { width: 100%; }
-  `],
+  `]
 })
 export class ScheduleListComponent implements OnInit {
   private destroyRef = inject(DestroyRef);

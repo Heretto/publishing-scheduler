@@ -9,18 +9,17 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-  selector: 'app-main-layout',
-  standalone: true,
-  imports: [
-    CommonModule,
-    RouterModule,
-    MatToolbarModule,
-    MatListModule,
-    MatIconModule,
-    MatButtonModule,
-    MatMenuModule,
-  ],
-  template: `
+    selector: 'app-main-layout',
+    imports: [
+        CommonModule,
+        RouterModule,
+        MatToolbarModule,
+        MatListModule,
+        MatIconModule,
+        MatButtonModule,
+        MatMenuModule,
+    ],
+    template: `
     <div class="app-layout">
       <nav class="sidenav" role="navigation" aria-label="Main navigation">
         <mat-toolbar color="primary">
@@ -73,7 +72,7 @@ import { AuthService } from '../../core/services/auth.service';
       </main>
     </div>
   `,
-  styles: [`
+    styles: [`
     .app-layout {
       display: flex;
       min-height: 100vh;
@@ -147,7 +146,7 @@ import { AuthService } from '../../core/services/auth.service';
       color: #79ECDD;
       z-index: 1000;
     }
-  `],
+  `]
 })
 export class MainLayoutComponent {
   constructor(public auth: AuthService, private router: Router) {}

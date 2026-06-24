@@ -9,18 +9,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-  selector: 'app-login',
-  standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    RouterModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatProgressSpinnerModule,
-  ],
-  template: `
+    selector: 'app-login',
+    imports: [
+        CommonModule,
+        ReactiveFormsModule,
+        RouterModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatButtonModule,
+        MatProgressSpinnerModule,
+    ],
+    template: `
     <div class="auth-page">
       <div class="auth-card">
         <img src="assets/heretto-logo.svg" alt="Heretto" class="auth-logo">
@@ -68,7 +67,7 @@ import { AuthService } from '../../core/services/auth.service';
       </div>
     </div>
   `,
-  styles: [`
+    styles: [`
     .auth-page {
       min-height: 100vh;
       display: flex;
@@ -140,7 +139,7 @@ import { AuthService } from '../../core/services/auth.service';
       font-size: 13px;
       color: #AD4780;
     }
-  `],
+  `]
 })
 export class LoginComponent {
   form: FormGroup;

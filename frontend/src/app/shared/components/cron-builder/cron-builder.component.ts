@@ -18,22 +18,21 @@ interface DayOption {
 }
 
 @Component({
-  selector: 'app-cron-builder',
-  standalone: true,
-  imports: [
-    CommonModule, FormsModule,
-    MatFormFieldModule, MatSelectModule, MatCheckboxModule,
-    MatInputModule, MatButtonToggleModule, MatSlideToggleModule,
-    CronDisplayComponent,
-  ],
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => CronBuilderComponent),
-      multi: true,
-    },
-  ],
-  template: `
+    selector: 'app-cron-builder',
+    imports: [
+        CommonModule, FormsModule,
+        MatFormFieldModule, MatSelectModule, MatCheckboxModule,
+        MatInputModule, MatButtonToggleModule, MatSlideToggleModule,
+        CronDisplayComponent,
+    ],
+    providers: [
+        {
+            provide: NG_VALUE_ACCESSOR,
+            useExisting: forwardRef(() => CronBuilderComponent),
+            multi: true,
+        },
+    ],
+    template: `
     <div class="cron-builder">
       <div class="mode-toggle">
         <mat-slide-toggle [(ngModel)]="advancedMode" (ngModelChange)="onModeChange()">
@@ -112,7 +111,7 @@ interface DayOption {
       </div>
     </div>
   `,
-  styles: [`
+    styles: [`
     .cron-builder {
       display: flex;
       flex-direction: column;
@@ -151,7 +150,7 @@ interface DayOption {
       color: #666;
       padding: 4px 0;
     }
-  `],
+  `]
 })
 export class CronBuilderComponent implements OnInit, OnDestroy, ControlValueAccessor {
   advancedMode = false;

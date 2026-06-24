@@ -17,10 +17,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
 
 @Component({
-  selector: 'app-maps-dialog',
-  standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule],
-  template: `
+    selector: 'app-maps-dialog',
+    imports: [CommonModule, MatDialogModule, MatButtonModule],
+    template: `
     <h2 mat-dialog-title>Maps — {{ data.scheduleName }}</h2>
     <mat-dialog-content>
       <ul class="maps-list">
@@ -31,21 +30,20 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
       <button mat-button mat-dialog-close>Close</button>
     </mat-dialog-actions>
   `,
-  styles: [`.maps-list { margin: 8px 0 0; padding-left: 20px; } li { padding: 4px 0; font-size: 0.9rem; }`],
+    styles: [`.maps-list { margin: 8px 0 0; padding-left: 20px; } li { padding: 4px 0; font-size: 0.9rem; }`]
 })
 class MapsDialogComponent {
   constructor(@Inject(MAT_DIALOG_DATA) public data: { scheduleName: string; maps: string[] }) {}
 }
 
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [
-    CommonModule, RouterModule, MatCardModule, MatButtonModule, MatIconModule,
-    MatTableModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
-    StatusBadgeComponent, CronDisplayComponent,
-  ],
-  template: `
+    selector: 'app-dashboard',
+    imports: [
+        CommonModule, RouterModule, MatCardModule, MatButtonModule, MatIconModule,
+        MatTableModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
+        StatusBadgeComponent, CronDisplayComponent,
+    ],
+    template: `
     <h1>Dashboard</h1>
 
     <div class="stats-row" role="region" aria-label="Statistics">
@@ -393,7 +391,7 @@ class MapsDialogComponent {
       </mat-card-content>
     </mat-card>
   `,
-  styles: [`
+    styles: [`
     .stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     .stats-row mat-card { flex: 1; text-align: center; min-width: 120px; }
     .stat-value { font-size: 2rem; font-weight: bold; }
@@ -476,7 +474,7 @@ class MapsDialogComponent {
 
     /* Section subtitle */
     .section-subtitle { color: #888; font-size: 0.8rem; margin: -16px 0 8px; }
-  `],
+  `]
 })
 export class DashboardComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
