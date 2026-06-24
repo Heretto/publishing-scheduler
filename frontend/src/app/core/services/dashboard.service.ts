@@ -15,10 +15,17 @@ export interface DailyVolume {
   failed: number;
 }
 
+export interface LocaleStat {
+  total: number;
+  succeeded: number;
+  failed: number;
+  top_schedules: { name: string; count: number }[];
+}
+
 export interface DashboardSummary {
   per_schedule_stats: Record<string, ScheduleStat>;
   daily_volumes: DailyVolume[];
-  top_locales: Record<string, number>;
+  top_locales: Record<string, LocaleStat>;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
 import { JobService, Job } from '../../core/services/job.service';
-import { DashboardService, DailyVolume, DashboardSummary } from '../../core/services/dashboard.service';
+import { DashboardService, DailyVolume, DashboardSummary, LocaleStat } from '../../core/services/dashboard.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
 
@@ -107,6 +107,17 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
             <th mat-header-cell *matHeaderCellDef>Description</th>
             <td mat-cell *matCellDef="let s">{{ s.description }}</td>
           </ng-container>
+          <ng-container matColumnDef="mapName">
+            <th mat-header-cell *matHeaderCellDef>Map</th>
+            <td mat-cell *matCellDef="let s" class="col-truncate"
+              [matTooltip]="scheduleDocNamesTooltip(s)">
+              {{ scheduleDocNames(s) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="locales">
+            <th mat-header-cell *matHeaderCellDef>Locales</th>
+            <td mat-cell *matCellDef="let s" class="col-truncate">{{ scheduleLocales(s) }}</td>
+          </ng-container>
           <ng-container matColumnDef="cron">
             <th mat-header-cell *matHeaderCellDef>Schedule</th>
             <td mat-cell *matCellDef="let s">
@@ -167,9 +178,17 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
       </ng-template>
 
       <!-- Recent Jobs -->
-      <h2>Recent Jobs</h2>
-      <mat-card *ngIf="recentJobs.length > 0; else noJobs">
-        <table mat-table [dataSource]="recentJobs" aria-label="Recent jobs">
+      <h2>
+        Recent Jobs
+        <span *ngIf="selectedDate" class="date-filter-chip">
+          {{ selectedDate | date:'mediumDate' }}
+          <button mat-icon-button class="chip-clear" (click)="selectedDate = null" aria-label="Clear date filter">
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
+      </h2>
+      <mat-card *ngIf="filteredJobs.length > 0; else noJobs">
+        <table mat-table [dataSource]="filteredJobs" aria-label="Recent jobs">
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
@@ -181,6 +200,17 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
                 {{ j.schedule_name || j.schedule_id }}
               </a>
             </td>
+          </ng-container>
+          <ng-container matColumnDef="mapName">
+            <th mat-header-cell *matHeaderCellDef>Map</th>
+            <td mat-cell *matCellDef="let j" class="col-truncate"
+              [matTooltip]="jobDocNamesTooltip(j)">
+              {{ jobDocNames(j) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="locales">
+            <th mat-header-cell *matHeaderCellDef>Locales</th>
+            <td mat-cell *matCellDef="let j" class="col-truncate">{{ jobLocales(j) }}</td>
           </ng-container>
           <ng-container matColumnDef="trigger">
             <th mat-header-cell *matHeaderCellDef>Trigger</th>
@@ -196,14 +226,18 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
               <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="['status', 'schedule', 'trigger', 'startedAt', 'jobActions']"></tr>
-          <tr mat-row *matRowDef="let row; columns: ['status', 'schedule', 'trigger', 'startedAt', 'jobActions']"></tr>
+          <tr mat-header-row *matHeaderRowDef="['status', 'schedule', 'mapName', 'locales', 'trigger', 'startedAt', 'jobActions']"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['status', 'schedule', 'mapName', 'locales', 'trigger', 'startedAt', 'jobActions']"></tr>
         </table>
       </mat-card>
       <ng-template #noJobs>
         <mat-card>
           <mat-card-content>
-            <p>No jobs have run yet.</p>
+            <p *ngIf="selectedDate">
+              No recent jobs found for {{ selectedDate | date:'mediumDate' }}.
+              <a style="cursor:pointer;color:inherit" (click)="selectedDate = null">Clear filter</a>
+            </p>
+            <p *ngIf="!selectedDate">No jobs have run yet.</p>
           </mat-card-content>
         </mat-card>
       </ng-template>
@@ -211,44 +245,109 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
       <!-- Daily Activity Sparkline -->
       <ng-container *ngIf="summary?.daily_volumes?.length">
         <h2>Daily Activity</h2>
+        <p class="section-subtitle">Last 14 days · click a bar to filter Recent Jobs</p>
         <mat-card>
           <mat-card-content>
+            <!-- Summary row -->
+            <div class="sparkline-summary">
+              <span class="sparkline-summary-total">{{ periodTotalJobs }} jobs</span>
+              <span class="sparkline-summary-sep">·</span>
+              <span [class.rate-good]="(periodSuccessRate ?? 0) >= 80"
+                    [class.rate-warn]="(periodSuccessRate ?? 0) >= 50 && (periodSuccessRate ?? 0) < 80"
+                    [class.rate-bad]="(periodSuccessRate ?? 0) < 50">
+                {{ periodSuccessRate !== null ? periodSuccessRate + '% success' : '—' }}
+              </span>
+              <span class="sparkline-summary-sep">·</span>
+              <span class="sparkline-summary-failed">{{ periodFailedJobs }} failed</span>
+            </div>
+            <!-- Chart -->
             <svg width="100%" height="60" viewBox="0 0 420 60" preserveAspectRatio="none">
+              <!-- 50% reference line -->
+              <line x1="0" y1="35" x2="420" y2="35" stroke="#e8e8e8" stroke-width="0.75"></line>
               <ng-container *ngFor="let d of summary!.daily_volumes; let i = index">
+                <!-- Weekend tint -->
+                <rect *ngIf="isWeekend(d.date)"
+                  [attr.x]="i * 30" y="0" width="30" height="60" fill="#f5f5f5"></rect>
+                <!-- Succeeded bar (green, bottom portion) -->
                 <rect
                   [attr.x]="i * 30 + 2"
-                  [attr.y]="58 - barHeight(d)"
+                  [attr.y]="58 - barHeightSucceeded(d)"
                   width="26"
-                  [attr.height]="barHeight(d)"
-                  [attr.fill]="d.failed === 0 ? '#43a047' : '#fb8c00'"
-                  [matTooltip]="d.date + ': ' + d.total + ' total, ' + d.succeeded + ' ok, ' + d.failed + ' failed'"
-                ></rect>
+                  [attr.height]="barHeightSucceeded(d)"
+                  fill="#43a047">
+                </rect>
+                <!-- Failed bar (red, stacked above succeeded) -->
+                <rect *ngIf="d.failed > 0"
+                  [attr.x]="i * 30 + 2"
+                  [attr.y]="58 - barHeightTotal(d)"
+                  width="26"
+                  [attr.height]="barHeightTotal(d) - barHeightSucceeded(d)"
+                  fill="#e53935">
+                </rect>
+                <!-- Selected-day outline -->
+                <rect *ngIf="selectedDate === d.date"
+                  [attr.x]="i * 30 + 1" y="1" width="28" height="57"
+                  fill="none" stroke="#1976d2" stroke-width="1.5" rx="2">
+                </rect>
+                <!-- Invisible clickable overlay with tooltip -->
+                <rect
+                  [attr.x]="i * 30" y="0" width="30" height="60"
+                  fill="transparent"
+                  class="sparkline-col-hit"
+                  (click)="selectDay(d.date)"
+                  [matTooltip]="d.date + ': ' + d.total + ' jobs · ' + d.succeeded + ' succeeded · ' + d.failed + ' failed'">
+                </rect>
               </ng-container>
             </svg>
+            <!-- Date labels -->
             <div class="sparkline-labels">
               <span>{{ summary!.daily_volumes[0]?.date | date:'M/d' }}</span>
               <span>{{ summary!.daily_volumes[6]?.date | date:'M/d' }}</span>
               <span>{{ summary!.daily_volumes[13]?.date | date:'M/d' }}</span>
             </div>
-          </mat-card-content>
-        </mat-card>
-      </ng-container>
-
-      <!-- Locale Breakdown -->
-      <ng-container *ngIf="topLocales.length">
-        <h2>Locale Breakdown</h2>
-        <mat-card>
-          <mat-card-content>
-            <div *ngFor="let locale of topLocales" class="locale-row">
-              <span class="locale-code">{{ locale.code }}</span>
-              <span class="locale-bar-wrap">
-                <span class="locale-bar" [style.width.%]="(locale.count / topLocales[0].count) * 100"></span>
-              </span>
-              <span class="locale-count">{{ locale.count }}</span>
+            <!-- Legend -->
+            <div class="chart-legend">
+              <span class="legend-swatch" style="background:#43a047"></span><span>Succeeded</span>
+              <span class="legend-swatch" style="background:#e53935; margin-left:12px"></span><span>Failed</span>
+              <span class="legend-weekend">&#9618; Weekend</span>
             </div>
           </mat-card-content>
         </mat-card>
       </ng-container>
+
+      <!-- Locale Breakdown (commented out — may restore later)
+      <ng-container *ngIf="topLocales.length">
+        <h2>Locale Breakdown</h2>
+        <p class="section-subtitle">Last 30 days · bar width = relative volume</p>
+        <mat-card>
+          <mat-card-content>
+            <div class="chart-legend" style="margin-bottom:10px">
+              <span class="legend-swatch" style="background:#43a047"></span><span>Succeeded</span>
+              <span class="legend-swatch" style="background:#e53935; margin-left:12px"></span><span>Failed</span>
+            </div>
+            <div *ngFor="let locale of topLocales" class="locale-block">
+              <div class="locale-row">
+                <span class="locale-code">{{ locale.code }}</span>
+                <span class="locale-bar-wrap">
+                  <span class="locale-bar-succeeded" [style.width.%]="localeBarSucceededPct(locale)"></span>
+                  <span class="locale-bar-failed" [style.width.%]="localeBarFailedPct(locale)"></span>
+                </span>
+                <span class="locale-count">{{ locale.total }}</span>
+                <span class="locale-stat-ok">✓ {{ locale.succeeded }}</span>
+                <span class="locale-stat-fail">✗ {{ locale.failed }}</span>
+              </div>
+              <div class="locale-schedules-row" *ngIf="locale.top_schedules.length">
+                <mat-icon class="locale-sched-icon">schedule</mat-icon>
+                <span>{{ locale.top_schedules[0].name }}</span>
+                <span *ngIf="locale.top_schedules.length > 1" class="muted-text">
+                  +{{ locale.top_schedules.length - 1 }} more
+                </span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </ng-container>
+      -->
 
     </ng-container>
 
@@ -291,14 +390,46 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
     .rate-badge.rate-bad { background: #ffebee; color: #c62828; }
 
     /* Sparkline */
+    .sparkline-summary { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-bottom: 8px; }
+    .sparkline-summary-total { font-weight: 600; }
+    .sparkline-summary-sep { color: #ccc; }
+    .sparkline-summary-failed { color: #c62828; }
     .sparkline-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 4px; }
+    .sparkline-col-hit { cursor: pointer; }
+
+    /* Shared chart legend */
+    .chart-legend { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: #555; margin-top: 6px; flex-wrap: wrap; }
+    .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .legend-weekend { margin-left: 12px; color: #bbb; }
+
+    /* Recent jobs date-filter chip */
+    .date-filter-chip {
+      display: inline-flex; align-items: center; vertical-align: middle;
+      font-size: 0.8rem; font-weight: normal;
+      background: #e3f2fd; color: #1565c0;
+      border-radius: 12px; padding: 2px 4px 2px 10px; margin-left: 10px;
+    }
+    .chip-clear { width: 20px !important; height: 20px !important; line-height: 20px !important; padding: 0 !important; }
+    .chip-clear mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
 
     /* Locale Breakdown */
-    .locale-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
-    .locale-code { font-family: monospace; font-size: 0.875rem; width: 80px; flex-shrink: 0; }
-    .locale-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; height: 10px; overflow: hidden; }
-    .locale-bar { display: block; height: 100%; background: #1976d2; border-radius: 4px; transition: width 0.3s; }
-    .locale-count { width: 40px; text-align: right; font-size: 0.875rem; color: #555; flex-shrink: 0; }
+    .locale-block { margin-bottom: 8px; }
+    .locale-row { display: flex; align-items: center; gap: 8px; }
+    .locale-code { font-family: monospace; font-size: 0.875rem; width: 72px; flex-shrink: 0; }
+    .locale-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; height: 10px; overflow: hidden; display: flex; }
+    .locale-bar-succeeded { height: 100%; background: #43a047; }
+    .locale-bar-failed { height: 100%; background: #e53935; }
+    .locale-count { width: 36px; text-align: right; font-size: 0.8rem; color: #555; flex-shrink: 0; }
+    .locale-stat-ok { width: 52px; font-size: 0.8rem; color: #2e7d32; flex-shrink: 0; }
+    .locale-stat-fail { width: 44px; font-size: 0.8rem; color: #c62828; flex-shrink: 0; }
+    .locale-schedules-row { display: flex; align-items: center; gap: 4px; padding-left: 80px; font-size: 0.75rem; color: #999; margin-top: 2px; }
+    .locale-sched-icon { font-size: 12px; width: 12px; height: 12px; line-height: 12px; color: #bbb; }
+
+    /* Truncated table cells (Map, Locales) */
+    .col-truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Section subtitle */
+    .section-subtitle { color: #888; font-size: 0.8rem; margin: -16px 0 8px; }
   `],
 })
 export class DashboardComponent implements OnInit {
@@ -311,8 +442,10 @@ export class DashboardComponent implements OnInit {
   triggeringId: string | null = null;
   loading = true;
   errorMessage = '';
+  selectedDate: string | null = null;
+  documentNameCache: Record<string, string> = {};
 
-  readonly scheduleColumns = ['name', 'description', 'cron', 'lastRun', 'nextRun', 'successRate', 'scheduleActions'];
+  readonly scheduleColumns = ['name', 'description', 'mapName', 'locales', 'cron', 'lastRun', 'nextRun', 'successRate', 'scheduleActions'];
 
   get activeSchedules() { return this.schedules.filter(s => s.enabled).length; }
   get totalSchedules() { return this.schedules.length; }
@@ -345,19 +478,117 @@ export class DashboardComponent implements OnInit {
     return Math.round((stat.succeeded / stat.total) * 100);
   }
 
-  get topLocales(): { code: string; count: number }[] {
+  scheduleDocNames(s: Schedule): string {
+    if (!s.document_ids?.length) return '—';
+    const names = s.document_ids.map(id => this.documentNameCache[id] ?? id);
+    if (names.length === 1) return names[0];
+    return `${names[0]} +${names.length - 1}`;
+  }
+
+  scheduleDocNamesTooltip(s: Schedule): string {
+    if (!s.document_ids || s.document_ids.length <= 1) return '';
+    return s.document_ids.map(id => this.documentNameCache[id] ?? id).join('\n');
+  }
+
+  scheduleLocales(s: Schedule): string {
+    return s.locales?.length ? s.locales.join(', ') : '—';
+  }
+
+  jobDocNames(j: Job): string {
+    const names = Object.values(j.request_payload?.documentNames ?? {});
+    if (!names.length) return '—';
+    if (names.length === 1) return names[0];
+    return `${names[0]} +${names.length - 1}`;
+  }
+
+  jobDocNamesTooltip(j: Job): string {
+    const names = Object.values(j.request_payload?.documentNames ?? {});
+    if (names.length <= 1) return '';
+    return names.join('\n');
+  }
+
+  jobLocales(j: Job): string {
+    return j.request_payload?.locales?.join(', ') || '—';
+  }
+
+  get topLocales(): (LocaleStat & { code: string })[] {
     if (!this.summary) return [];
     return Object.entries(this.summary.top_locales)
-      .map(([code, count]) => ({ code, count }))
-      .sort((a, b) => b.count - a.count);
+      .map(([code, stat]) => ({ code, ...stat }))
+      .sort((a, b) => b.total - a.total);
   }
 
   get sparkMaxJobs(): number {
     return Math.max(...(this.summary?.daily_volumes.map(d => d.total) ?? [1]), 1);
   }
 
-  barHeight(d: DailyVolume): number {
+  barHeightTotal(d: DailyVolume): number {
     return Math.max(2, Math.round((d.total / this.sparkMaxJobs) * 46));
+  }
+
+  barHeightSucceeded(d: DailyVolume): number {
+    if (d.total === 0) return 0;
+    return Math.max(0, Math.round((d.succeeded / this.sparkMaxJobs) * 46));
+  }
+
+  isWeekend(dateStr: string): boolean {
+    const day = new Date(dateStr + 'T12:00:00').getDay();
+    return day === 0 || day === 6;
+  }
+
+  selectDay(date: string): void {
+    this.selectedDate = this.selectedDate === date ? null : date;
+  }
+
+  get filteredJobs(): Job[] {
+    if (!this.selectedDate) return this.recentJobs;
+    return this.recentJobs.filter(j => {
+      if (!j.started_at) return false;
+      return new Date(j.started_at).toISOString().slice(0, 10) === this.selectedDate;
+    });
+  }
+
+  get totalLocaleJobs(): number {
+    return this.topLocales.reduce((sum, l) => sum + l.total, 0);
+  }
+
+  localePercent(locale: { total: number }): number {
+    if (!this.totalLocaleJobs) return 0;
+    return Math.round((locale.total / this.totalLocaleJobs) * 100);
+  }
+
+  localeTooltip(locale: LocaleStat & { code: string }): string {
+    const scheduleList = locale.top_schedules.map(s => `${s.name} (${s.count})`).join(', ');
+    const parts = [`${locale.succeeded} succeeded`, `${locale.failed} failed`];
+    if (scheduleList) parts.push(`Schedules: ${scheduleList}`);
+    return parts.join(' · ');
+  }
+
+  localeBarSucceededPct(locale: LocaleStat): number {
+    const max = this.topLocales[0]?.total || 1;
+    return (locale.succeeded / max) * 100;
+  }
+
+  localeBarFailedPct(locale: LocaleStat): number {
+    const max = this.topLocales[0]?.total || 1;
+    return (locale.failed / max) * 100;
+  }
+
+  get periodTotalJobs(): number {
+    return this.summary?.daily_volumes.reduce((s, d) => s + d.total, 0) ?? 0;
+  }
+
+  get periodSucceededJobs(): number {
+    return this.summary?.daily_volumes.reduce((s, d) => s + d.succeeded, 0) ?? 0;
+  }
+
+  get periodFailedJobs(): number {
+    return this.summary?.daily_volumes.reduce((s, d) => s + d.failed, 0) ?? 0;
+  }
+
+  get periodSuccessRate(): number | null {
+    if (!this.periodTotalJobs) return null;
+    return Math.round((this.periodSucceededJobs / this.periodTotalJobs) * 100);
   }
 
   constructor(
@@ -378,6 +609,9 @@ export class DashboardComponent implements OnInit {
           this.recentJobs = jobs.data;
           this.totalJobs = jobs.total;
           this.summary = summary;
+          for (const job of jobs.data) {
+            Object.assign(this.documentNameCache, job.request_payload?.documentNames ?? {});
+          }
           this.loading = false;
         },
         error: () => {
@@ -395,7 +629,13 @@ export class DashboardComponent implements OnInit {
         this.triggeringId = null;
         this.jobService.getAll({ limit: '30' })
           .pipe(take(1))
-          .subscribe(r => { this.recentJobs = r.data; this.totalJobs = r.total; });
+          .subscribe(r => {
+            this.recentJobs = r.data;
+            this.totalJobs = r.total;
+            for (const job of r.data) {
+              Object.assign(this.documentNameCache, job.request_payload?.documentNames ?? {});
+            }
+          });
       },
       error: () => { this.triggeringId = null; },
     });

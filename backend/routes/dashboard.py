@@ -27,8 +27,9 @@ def get_summary(ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
 
     # Get all schedule IDs for this org
-    schedules = db.query(Schedule.id).filter(Schedule.org_id == org_id).all()
+    schedules = db.query(Schedule.id, Schedule.name).filter(Schedule.org_id == org_id).all()
     org_ids = [s.id for s in schedules]
+    schedule_names = {s.id: s.name for s in schedules}
 
     # ── per_schedule_stats (last 30 days) ──────────────────────────────────────
     cutoff_30 = datetime.now(timezone.utc) - timedelta(days=30)
@@ -77,27 +78,45 @@ def get_summary(ctx: OrgCtx, db: DB):
         entry = vol_map.get(d, {"total": 0, "succeeded": 0, "failed": 0})
         daily_volumes.append({"date": d, **entry})
 
-    # ── top_locales (last 500 jobs) ────────────────────────────────────────────
-    recent_jobs = (
-        db.query(JobHistory.request_payload)
-        .filter(JobHistory.schedule_id.in_(org_ids))
+    # ── top_locales (last 30 days, with success/failure breakdown) ────────────────
+    recent_for_locales = (
+        db.query(JobHistory.request_payload, JobHistory.status, JobHistory.schedule_id)
+        .filter(JobHistory.schedule_id.in_(org_ids), JobHistory.started_at >= cutoff_30)
         .order_by(JobHistory.started_at.desc())
-        .limit(500)
         .all()
     )
 
-    locale_counts: dict = {}
-    for (payload_str,) in recent_jobs:
+    locale_data: dict = {}
+    for payload_str, status, schedule_id in recent_for_locales:
         try:
             payload = json.loads(payload_str or "{}")
             for locale in payload.get("locales", []):
-                locale_counts[locale] = locale_counts.get(locale, 0) + 1
+                if locale not in locale_data:
+                    locale_data[locale] = {"total": 0, "succeeded": 0, "failed": 0, "schedules": {}}
+                locale_data[locale]["total"] += 1
+                if status == "completed":
+                    locale_data[locale]["succeeded"] += 1
+                elif status == "failed":
+                    locale_data[locale]["failed"] += 1
+                if schedule_id:
+                    locale_data[locale]["schedules"][schedule_id] = (
+                        locale_data[locale]["schedules"].get(schedule_id, 0) + 1
+                    )
         except (json.JSONDecodeError, TypeError):
             pass
 
-    top_locales = dict(
-        sorted(locale_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-    )
+    top_locales = {}
+    for locale, data in sorted(locale_data.items(), key=lambda x: x[1]["total"], reverse=True)[:10]:
+        top_schedules = sorted(data["schedules"].items(), key=lambda x: x[1], reverse=True)[:3]
+        top_locales[locale] = {
+            "total": data["total"],
+            "succeeded": data["succeeded"],
+            "failed": data["failed"],
+            "top_schedules": [
+                {"name": schedule_names.get(sid, sid), "count": cnt}
+                for sid, cnt in top_schedules
+            ],
+        }
 
     return {
         "per_schedule_stats": per_schedule_stats,
