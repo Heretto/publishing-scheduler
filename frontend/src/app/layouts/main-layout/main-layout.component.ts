@@ -1,11 +1,10 @@
 import { Component } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -13,122 +12,280 @@ import { AuthService } from '../../core/services/auth.service';
     imports: [
         CommonModule,
         RouterModule,
-        MatToolbarModule,
-        MatListModule,
         MatIconModule,
         MatButtonModule,
         MatMenuModule,
+        MatTooltipModule,
     ],
     template: `
-    <div class="app-layout">
-      <nav class="sidenav" role="navigation" aria-label="Main navigation">
-        <mat-toolbar color="primary">
-          <span>Publishing Scheduler</span>
-        </mat-toolbar>
-        <mat-nav-list>
-          <a mat-list-item routerLink="/dashboard" routerLinkActive="active" aria-label="Dashboard">
-            <mat-icon matListItemIcon>dashboard</mat-icon>
-            <span matListItemTitle>Dashboard</span>
-          </a>
-          <a mat-list-item routerLink="/schedules" routerLinkActive="active" aria-label="Schedules">
-            <mat-icon matListItemIcon>schedule</mat-icon>
-            <span matListItemTitle>Schedules</span>
-          </a>
-          <a mat-list-item routerLink="/jobs" routerLinkActive="active" aria-label="Job History">
-            <mat-icon matListItemIcon>work_history</mat-icon>
-            <span matListItemTitle>Job History</span>
-          </a>
-          <a mat-list-item routerLink="/settings" routerLinkActive="active" aria-label="Settings">
-            <mat-icon matListItemIcon>settings</mat-icon>
-            <span matListItemTitle>Settings</span>
-          </a>
-        </mat-nav-list>
-      </nav>
-      <main class="content" role="main">
-        <a class="skip-link" href="#main-content">Skip to content</a>
-        <div class="top-bar">
-          <div class="top-bar-brand">
-            <img src="assets/heretto-logo.svg" alt="Heretto" class="heretto-logo">
-            <span class="top-bar-label">Open Projects</span>
-          </div>
-          <div class="top-bar-user">
-            <button mat-icon-button [matMenuTriggerFor]="userMenu" aria-label="User menu" class="user-btn">
-              <mat-icon>account_circle</mat-icon>
+    <div class="app-shell">
+
+      <!-- Global top bar -->
+      <header class="global-header">
+        <div class="header-brand">
+          <img src="assets/heretto-logo.svg" alt="Heretto" class="header-logo">
+          <span class="header-open-projects">Open Projects</span>
+          <div class="header-brand-divider"></div>
+          <span class="header-app-name">Publishing Scheduler</span>
+        </div>
+        <div class="header-actions">
+          <button mat-icon-button class="header-icon-btn" aria-label="Notifications" matTooltip="Notifications">
+            <mat-icon>notifications_none</mat-icon>
+          </button>
+          <button mat-icon-button class="header-icon-btn" aria-label="Help" matTooltip="Help">
+            <mat-icon>help_outline</mat-icon>
+          </button>
+          <button class="user-avatar-btn" [matMenuTriggerFor]="userMenu" aria-label="User menu" matTooltip="Account">
+            <span class="user-avatar">{{ userInitial }}</span>
+          </button>
+          <mat-menu #userMenu="matMenu" class="user-menu-panel">
+            @if (auth.currentUser) {
+              <div class="menu-user-header">
+                <div class="menu-avatar">{{ userInitial }}</div>
+                <div class="menu-user-info">
+                  <div class="menu-email">{{ auth.currentUser.email }}</div>
+                  <div class="menu-role">Administrator</div>
+                </div>
+              </div>
+            }
+            <div class="menu-divider"></div>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              Sign out
             </button>
-            <mat-menu #userMenu="matMenu">
-              @if (auth.currentUser) {
-                <div class="menu-email">{{ auth.currentUser.email }}</div>
-              }
-              <button mat-menu-item (click)="logout()">
-                <mat-icon>logout</mat-icon>
-                Sign out
-              </button>
-            </mat-menu>
+          </mat-menu>
+        </div>
+      </header>
+
+      <div class="shell-body">
+
+        <!-- Sidebar navigation -->
+        <nav class="app-nav" role="navigation" aria-label="Main navigation">
+          <div class="nav-section">
+            <div class="nav-section-label">MAIN</div>
+            <a class="nav-item" routerLink="/dashboard" routerLinkActive="nav-active"
+               aria-label="Dashboard">
+              <mat-icon class="nav-icon">dashboard</mat-icon>
+              <span class="nav-label">Dashboard</span>
+            </a>
+            <a class="nav-item" routerLink="/schedules" routerLinkActive="nav-active"
+               [routerLinkActiveOptions]="{ exact: false }" aria-label="Schedules">
+              <mat-icon class="nav-icon">event_repeat</mat-icon>
+              <span class="nav-label">Schedules</span>
+            </a>
+            <a class="nav-item" routerLink="/jobs" routerLinkActive="nav-active"
+               aria-label="Job History">
+              <mat-icon class="nav-icon">work_history</mat-icon>
+              <span class="nav-label">Job History</span>
+            </a>
           </div>
-        </div>
-        <div id="main-content">
+
+          <div class="nav-spacer"></div>
+
+          <div class="nav-section">
+            <div class="nav-section-label">SYSTEM</div>
+            <a class="nav-item" routerLink="/settings" routerLinkActive="nav-active"
+               aria-label="Settings">
+              <mat-icon class="nav-icon">settings</mat-icon>
+              <span class="nav-label">Settings</span>
+            </a>
+          </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="app-content" id="main-content" role="main">
+          <a class="skip-link" href="#main-content">Skip to content</a>
           <router-outlet></router-outlet>
-        </div>
-      </main>
+        </main>
+
+      </div>
     </div>
   `,
     styles: [`
-    .app-layout {
-      display: flex;
-      min-height: 100vh;
-      align-items: flex-start;
-    }
-    .sidenav {
-      width: 220px;
-      flex-shrink: 0;
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto;
-    }
-    .content {
-      flex: 1;
-      padding: 24px;
-      min-width: 0;
-    }
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 0 16px 0;
-    }
-    .top-bar-brand {
+    /* ── Shell ──────────────────────────────────────────────── */
+    .app-shell {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
+      height: 100vh;
+      overflow: hidden;
+      background: #0b1e30;
     }
-    .heretto-logo {
-      height: 36px;
-    }
-    .top-bar-label {
-      font-size: 16px;
-      color: #666;
-      margin-top: 3px;
-      letter-spacing: 0.3px;
-    }
-    .top-bar-user {
+
+    /* ── Global header ──────────────────────────────────────── */
+    .global-header {
+      height: 48px;
+      flex-shrink: 0;
+      background: #011627;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      padding: 0 20px 0 16px;
+      z-index: 100;
     }
-    .user-btn {
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-logo { height: 26px; filter: brightness(0) invert(1); }
+    .header-open-projects {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.2px;
+      margin-left: 2px;
+    }
+    .header-brand-divider {
+      width: 1px;
+      height: 20px;
+      background: rgba(255,255,255,0.18);
+    }
+    .header-app-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.3px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .header-icon-btn {
+      color: rgba(255,255,255,0.6) !important;
+    }
+    .header-icon-btn:hover {
+      color: rgba(255,255,255,0.95) !important;
+    }
+    .user-avatar-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .user-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #79ECDD;
       color: #011627;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
     }
+
+    /* User menu styling */
+    .menu-user-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px 8px;
+    }
+    .menu-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #79ECDD;
+      color: #011627;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .menu-user-info { display: flex; flex-direction: column; }
     .menu-email {
-      padding: 8px 16px 4px;
-      font-size: 12px;
-      color: #64748b;
-      border-bottom: 1px solid #e2e8f0;
-      margin-bottom: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1d1f2b;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 220px;
+      max-width: 200px;
     }
+    .menu-role { font-size: 11px; color: #97a0af; margin-top: 1px; }
+    .menu-divider { height: 1px; background: #e0e4ec; margin: 4px 0; }
+
+    /* ── Shell body ─────────────────────────────────────────── */
+    .shell-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────── */
+    .app-nav {
+      width: 220px;
+      flex-shrink: 0;
+      background: #011627;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      padding: 8px 0 16px;
+    }
+    .nav-section { display: flex; flex-direction: column; }
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.3);
+      padding: 12px 16px 4px;
+      text-transform: uppercase;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 16px;
+      color: rgba(255,255,255,0.62);
+      text-decoration: none !important;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s, color 0.12s;
+      position: relative;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.92);
+    }
+    .nav-item.nav-active {
+      background: rgba(121,236,221,0.1);
+      color: #79ECDD;
+      border-left-color: #79ECDD;
+      font-weight: 600;
+    }
+    .nav-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .nav-label { line-height: 1; }
+    .nav-spacer { flex: 1; min-height: 20px; }
+
+    /* ── Main content ───────────────────────────────────────── */
+    .app-content {
+      flex: 1;
+      overflow-y: auto;
+      background: #f2f4f7;
+      position: relative;
+      padding: 20px 24px;
+    }
+
+    /* Skip link */
     .skip-link {
       position: absolute;
       left: -9999px;
@@ -149,6 +306,11 @@ import { AuthService } from '../../core/services/auth.service';
   `]
 })
 export class MainLayoutComponent {
+  get userInitial(): string {
+    const email = this.auth.currentUser?.email ?? '';
+    return email.charAt(0).toUpperCase() || '?';
+  }
+
   constructor(public auth: AuthService, private router: Router) {}
 
   logout(): void {

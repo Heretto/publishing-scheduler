@@ -48,6 +48,11 @@ export const routes: Routes = [
           import('./features/schedules/schedule-form.component').then(m => m.ScheduleFormComponent),
       },
       {
+        path: 'schedules/:id',
+        loadComponent: () =>
+          import('./features/schedules/schedule-detail.component').then(m => m.ScheduleDetailComponent),
+      },
+      {
         path: 'schedules',
         loadComponent: () =>
           import('./features/schedules/schedule-list.component').then(m => m.ScheduleListComponent),
