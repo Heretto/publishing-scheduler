@@ -254,7 +254,7 @@ function requireNonEmpty(control: AbstractControl) {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      color: #97a0af;
+      color: #42526e;
     }
     .form-section-body { padding: 20px 20px 4px; }
 
@@ -274,7 +274,7 @@ function requireNonEmpty(control: AbstractControl) {
       display: block;
       font-size: 12px;
       font-weight: 600;
-      color: #97a0af;
+      color: #42526e;
       text-transform: uppercase;
       letter-spacing: 0.4px;
       margin-bottom: 8px;
@@ -294,7 +294,7 @@ function requireNonEmpty(control: AbstractControl) {
     .param-section-label {
       font-size: 12px;
       font-weight: 600;
-      color: #97a0af;
+      color: #42526e;
       text-transform: uppercase;
       letter-spacing: 0.4px;
       margin-bottom: 10px;

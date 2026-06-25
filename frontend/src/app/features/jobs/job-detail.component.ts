@@ -288,7 +288,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     .section-title {
       font-size: 11px;
       font-weight: 700;
-      color: #97a0af;
+      color: #42526e;
       text-transform: uppercase;
       letter-spacing: 0.6px;
     }
