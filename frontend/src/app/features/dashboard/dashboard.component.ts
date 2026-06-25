@@ -126,10 +126,15 @@ class MapsDialogComponent {
       <div class="sn-section">
         <div class="sn-section-header">
           <span class="section-title">Active Schedules</span>
-          <a routerLink="/schedules" class="see-all-link">See All</a>
+          <div class="header-right">
+            <span class="row-count" *ngIf="schedules.length > 0">
+              1–{{ schedules.slice(0,10).length }} of {{ schedules.length }}
+            </span>
+            <a routerLink="/schedules" class="see-all-link">See All</a>
+          </div>
         </div>
         <ng-container *ngIf="schedules.length > 0; else noSchedules">
-          <table mat-table [dataSource]="schedules.slice(0, 5)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
+          <table mat-table [dataSource]="schedules.slice(0, 10)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
               <td mat-cell *matCellDef="let s" class="col-truncate">
@@ -228,10 +233,15 @@ class MapsDialogComponent {
               </button>
             </span>
           </div>
-          <a routerLink="/jobs" class="see-all-link">See All</a>
+          <div class="header-right">
+            <span class="row-count" *ngIf="filteredJobs.length > 0">
+              1–{{ filteredJobs.slice(0,10).length }} of {{ filteredJobs.length }}
+            </span>
+            <a routerLink="/jobs" class="see-all-link">See All</a>
+          </div>
         </div>
         <ng-container *ngIf="filteredJobs.length > 0; else noJobs">
-          <table mat-table [dataSource]="filteredJobs" aria-label="Recent jobs" style="table-layout: fixed; width: 100%">
+          <table mat-table [dataSource]="filteredJobs.slice(0, 10)" aria-label="Recent jobs" style="table-layout: fixed; width: 100%">
             <ng-container matColumnDef="schedule">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Schedule</th>
               <td mat-cell *matCellDef="let j" class="col-truncate">
@@ -419,7 +429,7 @@ class MapsDialogComponent {
       display: flex;
       align-items: baseline;
       gap: 8px;
-      padding: 10px 20px;
+      padding: 16px 24px;
       border-right: 1px solid #dee2ec;
     }
     .metric-tile:last-child { border-right: none; }
@@ -485,6 +495,8 @@ class MapsDialogComponent {
     }
     .section-sub { font-size: 11px; color: #97a0af; }
     .section-title-row { display: flex; align-items: center; gap: 8px; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .row-count { font-size: 11px; color: #97a0af; }
     .see-all-link { font-size: 12px; color: #AD4780; text-decoration: none; font-weight: 500; }
     .see-all-link:hover { text-decoration: underline; }
 
