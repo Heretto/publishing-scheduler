@@ -94,7 +94,16 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         <div class="record-field-divider"></div>
         <div class="record-field">
           <div class="field-label">Locales</div>
-          <div class="field-value">{{ schedule.locales?.length ? schedule.locales.length + ' configured' : '—' }}</div>
+          <div class="field-value">
+            <ng-container *ngIf="schedule.locales?.length; else noLocales">
+              <div class="locale-code-list">
+                <span class="locale-code-chip" *ngFor="let l of schedule.locales">
+                  <mat-icon class="locale-code-icon">translate</mat-icon>{{ l }}
+                </span>
+              </div>
+            </ng-container>
+            <ng-template #noLocales>—</ng-template>
+          </div>
         </div>
         <div class="record-field-divider"></div>
         <div class="record-field">
@@ -597,6 +606,24 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       padding: 1px 7px;
       border-radius: 10px;
     }
+
+    .locale-code-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .locale-code-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #eef1f8;
+      color: #3d4460;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 2px 7px 2px 5px;
+      border-radius: 3px;
+    }
+    .locale-code-icon { font-size: 12px; width: 12px; height: 12px; color: #5e6e82; }
 
     .locale-grid {
       display: flex;
