@@ -44,26 +44,42 @@ function requireNonEmpty(control: AbstractControl) {
     <!-- Form card -->
     <div class="sn-card" style="margin-top: 20px;">
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
-        <div class="form-body">
+
+        <!-- GENERAL section -->
+        <div class="form-section-header">
+          <span class="form-section-title">General</span>
+        </div>
+        <div class="form-section-body">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Name</mat-label>
             <input matInput formControlName="name">
             <mat-error *ngIf="form.get('name')?.hasError('required')">Name is required</mat-error>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Description</mat-label>
-            <textarea matInput formControlName="description" rows="3"></textarea>
+            <textarea matInput formControlName="description" rows="2"></textarea>
           </mat-form-field>
+        </div>
 
+        <!-- SCHEDULE section -->
+        <div class="form-section-header">
+          <span class="form-section-title">Schedule</span>
+        </div>
+        <div class="form-section-body">
           <div class="full-width cron-section">
-            <label class="cron-label">Schedule</label>
+            <label class="cron-label">Recurrence</label>
             <app-cron-builder formControlName="cron_expression"></app-cron-builder>
             <div class="mat-error cron-error" *ngIf="form.get('cron_expression')?.touched && form.get('cron_expression')?.hasError('required')">
               Schedule is required
             </div>
           </div>
+        </div>
 
+        <!-- CONTENT section -->
+        <div class="form-section-header">
+          <span class="form-section-title">Content</span>
+        </div>
+        <div class="form-section-body">
           <mat-form-field appearance="outline" class="full-width" *ngIf="branches.length > 0">
             <mat-label>Branch</mat-label>
             <mat-select formControlName="branch">
@@ -71,6 +87,33 @@ function requireNonEmpty(control: AbstractControl) {
             </mat-select>
           </mat-form-field>
 
+          <div class="document-ids-section">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Documents</mat-label>
+              <input matInput [value]="documentDisplayValue" readonly placeholder="No documents selected">
+            </mat-form-field>
+            <input type="hidden" formControlName="document_ids_raw">
+            <button mat-stroked-button type="button" class="browse-btn" (click)="openDocumentPicker()">
+              <mat-icon>folder_open</mat-icon>
+              Browse
+            </button>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Locale(s)</mat-label>
+            <mat-select formControlName="locales" multiple>
+              <mat-option value="">Source (original language)</mat-option>
+              <mat-option *ngFor="let l of localeOptions" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
+            </mat-select>
+            <mat-hint>{{ localeFieldHint }}</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- PUBLISHING section -->
+        <div class="form-section-header">
+          <span class="form-section-title">Publishing</span>
+        </div>
+        <div class="form-section-body">
           <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
             <mat-label>Publishing Scenario(s)</mat-label>
             <mat-select formControlName="scenario_ids" multiple (selectionChange)="onScenarioChange($event.value)">
@@ -80,8 +123,8 @@ function requireNonEmpty(control: AbstractControl) {
             <mat-error *ngIf="form.get('scenario_ids')?.hasError('required')">At least one publishing scenario is required</mat-error>
           </mat-form-field>
 
-          <div class="parameters-section" *ngIf="scenarioParameters.length > 0">
-            <label class="section-label">Output Format(s)</label>
+          <ng-container *ngIf="scenarioParameters.length > 0">
+            <div class="param-section-label">Output Format(s)</div>
             <div *ngFor="let param of scenarioParameters" class="parameter-row">
               <ng-container [ngSwitch]="param.type">
                 <div *ngSwitchCase="'file_picker'" class="file-picker-param">
@@ -129,7 +172,7 @@ function requireNonEmpty(control: AbstractControl) {
                 </mat-form-field>
               </ng-container>
             </div>
-          </div>
+          </ng-container>
 
           <!-- Deployment UI hidden — no API endpoint to trigger deployment publish yet
           <mat-form-field appearance="outline" class="full-width" *ngIf="deployments.length > 0">
@@ -145,28 +188,13 @@ function requireNonEmpty(control: AbstractControl) {
             <mat-error *ngIf="form.get('deployment_id')?.hasError('required')">Deployment is required</mat-error>
           </mat-form-field>
           -->
+        </div>
 
-          <div class="document-ids-section">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Documents</mat-label>
-              <input matInput [value]="documentDisplayValue" readonly placeholder="No documents selected">
-            </mat-form-field>
-            <input type="hidden" formControlName="document_ids_raw">
-            <button mat-stroked-button type="button" class="browse-btn" (click)="openDocumentPicker()">
-              <mat-icon>folder_open</mat-icon>
-              Browse
-            </button>
-          </div>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Locale(s)</mat-label>
-            <mat-select formControlName="locales" multiple>
-              <mat-option value="">Source (original language)</mat-option>
-              <mat-option *ngFor="let l of localeOptions" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
-            </mat-select>
-            <mat-hint>{{ localeFieldHint }}</mat-hint>
-          </mat-form-field>
-
+        <!-- OPTIONS section -->
+        <div class="form-section-header">
+          <span class="form-section-title">Options</span>
+        </div>
+        <div class="form-section-body">
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
         </div>
 
@@ -212,12 +240,29 @@ function requireNonEmpty(control: AbstractControl) {
       border-radius: 4px;
       overflow: hidden;
     }
-    .form-body { padding: 24px 24px 8px; }
+
+    /* ── Form sections ───────────────────────────────────────── */
+    .form-section-header {
+      padding: 8px 20px;
+      background: #f8f9fb;
+      border-top: 1px solid #dee2ec;
+      border-bottom: 1px solid #dee2ec;
+    }
+    .form-section-header:first-of-type { border-top: none; }
+    .form-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #97a0af;
+    }
+    .form-section-body { padding: 20px 20px 4px; }
+
     .form-footer {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
-      padding: 12px 24px 16px;
+      padding: 12px 20px 14px;
       border-top: 1px solid #dee2ec;
       background: #f8f9fb;
     }
@@ -227,8 +272,11 @@ function requireNonEmpty(control: AbstractControl) {
     .cron-section { margin-bottom: 16px; padding: 0; }
     .cron-label {
       display: block;
-      font-size: 13px;
-      color: #666;
+      font-size: 12px;
+      font-weight: 600;
+      color: #97a0af;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
       margin-bottom: 8px;
     }
     .cron-error { font-size: 12px; margin-top: 4px; }
@@ -243,17 +291,14 @@ function requireNonEmpty(control: AbstractControl) {
       display: none;
     }
     .browse-btn { height: 56px; }
-    .parameters-section {
-      margin-bottom: 16px;
-      padding: 12px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-    }
-    .section-label {
-      display: block;
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 8px;
+    .param-section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #97a0af;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 10px;
+      margin-top: 4px;
     }
     .parameter-row { margin-bottom: 8px; }
   `]
