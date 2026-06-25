@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { forkJoin, take } from 'rxjs';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
@@ -39,52 +38,64 @@ class MapsDialogComponent {
 @Component({
     selector: 'app-dashboard',
     imports: [
-        CommonModule, RouterModule, MatCardModule, MatButtonModule, MatIconModule,
+        CommonModule, RouterModule, MatButtonModule, MatIconModule,
         MatTableModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
         StatusBadgeComponent, CronDisplayComponent,
     ],
     template: `
-    <h1>Dashboard</h1>
-
-    <div class="stats-row" role="region" aria-label="Statistics">
-      <mat-card>
-        <mat-card-content>
-          <div class="stat-value">{{ activeSchedules }}</div>
-          <div class="stat-label">Active Schedules</div>
-        </mat-card-content>
-      </mat-card>
-      <mat-card>
-        <mat-card-content>
-          <div class="stat-value">{{ totalSchedules }}</div>
-          <div class="stat-label">Total Schedules</div>
-        </mat-card-content>
-      </mat-card>
-      <mat-card>
-        <mat-card-content>
-          <div class="stat-value">{{ totalJobs }}</div>
-          <div class="stat-label">Total Jobs</div>
-        </mat-card-content>
-      </mat-card>
-      <mat-card>
-        <mat-card-content>
-          <div class="stat-value"
-            [class.rate-good]="successRate >= 80"
-            [class.rate-warn]="successRate >= 50 && successRate < 80"
-            [class.rate-bad]="successRate < 50">
-            {{ recentJobs.length ? successRate + '%' : '—' }}
-          </div>
-          <div class="stat-label">Success Rate (recent)</div>
-        </mat-card-content>
-      </mat-card>
+    <!-- Page banner -->
+    <div class="page-banner">
+      <div class="banner-breadcrumb">
+        <span>Home</span>
+        <mat-icon class="bc-sep">chevron_right</mat-icon>
+        <span>Dashboard</span>
+      </div>
+      <div class="banner-row">
+        <h1 class="banner-title">Dashboard</h1>
+        <div class="banner-actions">
+          <a mat-flat-button routerLink="/schedules/new" class="banner-btn">
+            <mat-icon>add</mat-icon> New Schedule
+          </a>
+        </div>
+      </div>
     </div>
 
-    <mat-spinner *ngIf="loading" diameter="40"></mat-spinner>
+    <!-- KPI metrics strip -->
+    <div class="metrics-bar" role="region" aria-label="Statistics">
+      <div class="metric-tile">
+        <div class="metric-value">{{ activeSchedules }}</div>
+        <div class="metric-label">Active Schedules</div>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric-tile">
+        <div class="metric-value">{{ totalSchedules }}</div>
+        <div class="metric-label">Total Schedules</div>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric-tile">
+        <div class="metric-value">{{ totalJobs }}</div>
+        <div class="metric-label">Total Jobs</div>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric-tile">
+        <div class="metric-value"
+          [class.rate-good]="successRate >= 80"
+          [class.rate-warn]="successRate >= 50 && successRate < 80"
+          [class.rate-bad]="successRate < 50">
+          {{ recentJobs.length ? successRate + '%' : '—' }}
+        </div>
+        <div class="metric-label">Success Rate (recent)</div>
+      </div>
+    </div>
+
+    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;"></mat-spinner>
 
     <ng-container *ngIf="!loading">
 
       <!-- Needs Attention -->
-      <mat-card class="attention-card" *ngIf="needsAttentionSchedules.length">
-        <mat-card-content>
+      <div class="alert-card attention-card" *ngIf="needsAttentionSchedules.length">
+        <div class="alert-left"></div>
+        <div class="alert-body">
           <div class="alert-header">
             <mat-icon class="attention-icon">warning</mat-icon>
             <span class="alert-title">Needs Attention</span>
@@ -94,12 +105,13 @@ class MapsDialogComponent {
             <span class="failure-count">{{ s.consecutive_failures ?? 0 }} consecutive failure{{ (s.consecutive_failures ?? 0) !== 1 ? 's' : '' }}</span>
             <span *ngIf="!s.enabled" class="badge-disabled">Auto-disabled</span>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
 
       <!-- Stale Schedules -->
-      <mat-card class="stale-card" *ngIf="staleSchedules.length">
-        <mat-card-content>
+      <div class="alert-card stale-card" *ngIf="staleSchedules.length">
+        <div class="alert-left"></div>
+        <div class="alert-body">
           <div class="alert-header">
             <mat-icon class="stale-icon">schedule</mat-icon>
             <span class="alert-title">Stale Schedules</span>
@@ -110,178 +122,186 @@ class MapsDialogComponent {
             <span *ngIf="s.last_run_at" class="muted-text">Last run: {{ s.last_run_at | date:'short' }}</span>
             <span *ngIf="!s.last_run_at" class="muted-text">Never run</span>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
 
       <!-- Active Schedules -->
-      <h2>Active Schedules</h2>
-      <mat-card *ngIf="schedules.length > 0; else noSchedules">
-        <table mat-table [dataSource]="schedules.slice(0, 5)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
-            <td mat-cell *matCellDef="let s" class="col-truncate">
-              <a [routerLink]="['/schedules']" class="table-link">{{ s.name }}</a>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="description">
-            <th mat-header-cell *matHeaderCellDef>Description</th>
-            <td mat-cell *matCellDef="let s">{{ s.description }}</td>
-          </ng-container>
-          <ng-container matColumnDef="mapName">
-            <th mat-header-cell *matHeaderCellDef style="width: 22%">Map</th>
-            <td mat-cell *matCellDef="let s">
-              <div class="map-cell">
-                <span class="map-cell-name">{{ scheduleDocNames(s) }}</span>
-                <button *ngIf="scheduleAllDocNames(s).length > 1"
-                  class="map-more-btn"
-                  matTooltip="Click to view all maps"
-                  (click)="openMapsDialog(s); $event.stopPropagation()">
-                  +{{ scheduleAllDocNames(s).length - 1 }} more
+      <div class="sn-section">
+        <div class="sn-section-header">
+          <span class="section-title">Active Schedules</span>
+          <a routerLink="/schedules" class="see-all-link">See All</a>
+        </div>
+        <ng-container *ngIf="schedules.length > 0; else noSchedules">
+          <table mat-table [dataSource]="schedules.slice(0, 5)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
+              <td mat-cell *matCellDef="let s" class="col-truncate">
+                <a [routerLink]="['/schedules']" class="table-link">{{ s.name }}</a>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="description">
+              <th mat-header-cell *matHeaderCellDef>Description</th>
+              <td mat-cell *matCellDef="let s">{{ s.description }}</td>
+            </ng-container>
+            <ng-container matColumnDef="mapName">
+              <th mat-header-cell *matHeaderCellDef style="width: 22%">Map</th>
+              <td mat-cell *matCellDef="let s">
+                <div class="map-cell">
+                  <span class="map-cell-name">{{ scheduleDocNames(s) }}</span>
+                  <button *ngIf="scheduleAllDocNames(s).length > 1"
+                    class="map-more-btn"
+                    matTooltip="Click to view all maps"
+                    (click)="openMapsDialog(s); $event.stopPropagation()">
+                    +{{ scheduleAllDocNames(s).length - 1 }} more
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="locales">
+              <th mat-header-cell *matHeaderCellDef style="width: 7%">Locales</th>
+              <td mat-cell *matCellDef="let s" class="col-truncate">{{ scheduleLocales(s) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="cron">
+              <th mat-header-cell *matHeaderCellDef style="width: 17%">Schedule</th>
+              <td mat-cell *matCellDef="let s">
+                <app-cron-display [expression]="s.cron_expression"></app-cron-display>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="lastRun">
+              <th mat-header-cell *matHeaderCellDef style="width: 15%">Last Run</th>
+              <td mat-cell *matCellDef="let s">
+                <app-status-badge *ngIf="s.last_run_status" [status]="s.last_run_status"></app-status-badge>
+                <span *ngIf="!s.last_run_status">Never</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="nextRun">
+              <th mat-header-cell *matHeaderCellDef style="width: 15%">Next Run</th>
+              <td mat-cell *matCellDef="let s">
+                <span *ngIf="s.next_run_time">{{ s.next_run_time | date:'short' }}</span>
+                <span *ngIf="!s.next_run_time">—</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="successRate">
+              <th mat-header-cell *matHeaderCellDef>Success %</th>
+              <td mat-cell *matCellDef="let s">
+                <ng-container *ngIf="scheduleSuccessRate(s.id) !== null; else noRate">
+                  <span class="rate-badge"
+                    [class.rate-good]="scheduleSuccessRate(s.id)! >= 80"
+                    [class.rate-warn]="scheduleSuccessRate(s.id)! >= 50 && scheduleSuccessRate(s.id)! < 80"
+                    [class.rate-bad]="scheduleSuccessRate(s.id)! < 50">
+                    {{ scheduleSuccessRate(s.id) }}%
+                  </span>
+                </ng-container>
+                <ng-template #noRate><span class="muted-text">—</span></ng-template>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="scheduleActions">
+              <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
+              <td mat-cell *matCellDef="let s">
+                <button mat-icon-button
+                  [disabled]="!!triggeringId"
+                  (click)="triggerNow(s)"
+                  matTooltip="Run Now"
+                  aria-label="Run now">
+                  <mat-spinner *ngIf="triggeringId === s.id" diameter="20"></mat-spinner>
+                  <mat-icon *ngIf="triggeringId !== s.id">play_arrow</mat-icon>
                 </button>
-              </div>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="locales">
-            <th mat-header-cell *matHeaderCellDef style="width: 7%">Locales</th>
-            <td mat-cell *matCellDef="let s" class="col-truncate">{{ scheduleLocales(s) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="cron">
-            <th mat-header-cell *matHeaderCellDef style="width: 17%">Schedule</th>
-            <td mat-cell *matCellDef="let s">
-              <app-cron-display [expression]="s.cron_expression"></app-cron-display>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="lastRun">
-            <th mat-header-cell *matHeaderCellDef style="width: 15%">Last Run</th>
-            <td mat-cell *matCellDef="let s">
-              <app-status-badge *ngIf="s.last_run_status" [status]="s.last_run_status"></app-status-badge>
-              <span *ngIf="!s.last_run_status">Never</span>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="nextRun">
-            <th mat-header-cell *matHeaderCellDef style="width: 15%">Next Run</th>
-            <td mat-cell *matCellDef="let s">
-              <span *ngIf="s.next_run_time">{{ s.next_run_time | date:'short' }}</span>
-              <span *ngIf="!s.next_run_time">—</span>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="successRate">
-            <th mat-header-cell *matHeaderCellDef>Success %</th>
-            <td mat-cell *matCellDef="let s">
-              <ng-container *ngIf="scheduleSuccessRate(s.id) !== null; else noRate">
-                <span class="rate-badge"
-                  [class.rate-good]="scheduleSuccessRate(s.id)! >= 80"
-                  [class.rate-warn]="scheduleSuccessRate(s.id)! >= 50 && scheduleSuccessRate(s.id)! < 80"
-                  [class.rate-bad]="scheduleSuccessRate(s.id)! < 50">
-                  {{ scheduleSuccessRate(s.id) }}%
-                </span>
-              </ng-container>
-              <ng-template #noRate><span class="muted-text">—</span></ng-template>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="scheduleActions">
-            <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
-            <td mat-cell *matCellDef="let s">
-              <button mat-icon-button
-                [disabled]="!!triggeringId"
-                (click)="triggerNow(s)"
-                matTooltip="Run Now"
-                aria-label="Run now">
-                <mat-spinner *ngIf="triggeringId === s.id" diameter="20"></mat-spinner>
-                <mat-icon *ngIf="triggeringId !== s.id">play_arrow</mat-icon>
-              </button>
-            </td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="scheduleColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: scheduleColumns"></tr>
-        </table>
-      </mat-card>
-      <ng-template #noSchedules>
-        <mat-card>
-          <mat-card-content>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="scheduleColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: scheduleColumns"></tr>
+          </table>
+        </ng-container>
+        <ng-template #noSchedules>
+          <div class="empty-state">
             <p>No schedules yet. <a routerLink="/schedules/new">Create one</a></p>
-          </mat-card-content>
-        </mat-card>
-      </ng-template>
+          </div>
+        </ng-template>
+      </div>
 
       <!-- Recent Jobs -->
-      <h2>
-        Recent Jobs
-        <span *ngIf="selectedDate" class="date-filter-chip">
-          {{ selectedDate | date:'mediumDate' }}
-          <button mat-icon-button class="chip-clear" (click)="selectedDate = null" aria-label="Clear date filter">
-            <mat-icon>close</mat-icon>
-          </button>
-        </span>
-      </h2>
-      <mat-card *ngIf="filteredJobs.length > 0; else noJobs">
-        <table mat-table [dataSource]="filteredJobs" aria-label="Recent jobs" style="table-layout: fixed; width: 100%">
-          <ng-container matColumnDef="schedule">
-            <th mat-header-cell *matHeaderCellDef style="width: 18%">Schedule</th>
-            <td mat-cell *matCellDef="let j" class="col-truncate">
-              <a [routerLink]="['/schedules', j.schedule_id, 'edit']" class="table-link">
-                {{ j.schedule_name || j.schedule_id }}
-              </a>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="mapName">
-            <th mat-header-cell *matHeaderCellDef style="width: 22%">Map</th>
-            <td mat-cell *matCellDef="let j">
-              <div class="map-cell">
-                <span class="map-cell-name">{{ jobDocNames(j) }}</span>
-                <button *ngIf="jobDocNamesCount(j) > 1"
-                  class="map-more-btn"
-                  matTooltip="Click to view all maps"
-                  (click)="openJobMapsDialog(j); $event.stopPropagation()">
-                  +{{ jobDocNamesCount(j) - 1 }} more
-                </button>
-              </div>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="locales">
-            <th mat-header-cell *matHeaderCellDef style="width: 7%">Locales</th>
-            <td mat-cell *matCellDef="let j" class="col-truncate">{{ jobLocales(j) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef style="width: 15%">Status</th>
-            <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
-          </ng-container>
-          <ng-container matColumnDef="startedAt">
-            <th mat-header-cell *matHeaderCellDef style="width: 15%">Started</th>
-            <td mat-cell *matCellDef="let j">{{ j.started_at | date:'short' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="trigger">
-            <th mat-header-cell *matHeaderCellDef style="width: 17%">Trigger</th>
-            <td mat-cell *matCellDef="let j">{{ j.trigger_type }}</td>
-          </ng-container>
-          <ng-container matColumnDef="jobActions">
-            <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
-            <td mat-cell *matCellDef="let j">
-              <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
-            </td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
-          <tr mat-row *matRowDef="let row; columns: ['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
-        </table>
-      </mat-card>
-      <ng-template #noJobs>
-        <mat-card>
-          <mat-card-content>
+      <div class="sn-section">
+        <div class="sn-section-header">
+          <div class="section-title-row">
+            <span class="section-title">Recent Jobs</span>
+            <span *ngIf="selectedDate" class="date-filter-chip">
+              {{ selectedDate | date:'mediumDate' }}
+              <button mat-icon-button class="chip-clear" (click)="selectedDate = null" aria-label="Clear date filter">
+                <mat-icon>close</mat-icon>
+              </button>
+            </span>
+          </div>
+          <a routerLink="/jobs" class="see-all-link">See All</a>
+        </div>
+        <ng-container *ngIf="filteredJobs.length > 0; else noJobs">
+          <table mat-table [dataSource]="filteredJobs" aria-label="Recent jobs" style="table-layout: fixed; width: 100%">
+            <ng-container matColumnDef="schedule">
+              <th mat-header-cell *matHeaderCellDef style="width: 18%">Schedule</th>
+              <td mat-cell *matCellDef="let j" class="col-truncate">
+                <a [routerLink]="['/schedules', j.schedule_id, 'edit']" class="table-link">
+                  {{ j.schedule_name || j.schedule_id }}
+                </a>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="mapName">
+              <th mat-header-cell *matHeaderCellDef style="width: 22%">Map</th>
+              <td mat-cell *matCellDef="let j">
+                <div class="map-cell">
+                  <span class="map-cell-name">{{ jobDocNames(j) }}</span>
+                  <button *ngIf="jobDocNamesCount(j) > 1"
+                    class="map-more-btn"
+                    matTooltip="Click to view all maps"
+                    (click)="openJobMapsDialog(j); $event.stopPropagation()">
+                    +{{ jobDocNamesCount(j) - 1 }} more
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="locales">
+              <th mat-header-cell *matHeaderCellDef style="width: 7%">Locales</th>
+              <td mat-cell *matCellDef="let j" class="col-truncate">{{ jobLocales(j) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef style="width: 15%">Status</th>
+              <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
+            </ng-container>
+            <ng-container matColumnDef="startedAt">
+              <th mat-header-cell *matHeaderCellDef style="width: 15%">Started</th>
+              <td mat-cell *matCellDef="let j">{{ j.started_at | date:'short' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="trigger">
+              <th mat-header-cell *matHeaderCellDef style="width: 17%">Trigger</th>
+              <td mat-cell *matCellDef="let j">{{ j.trigger_type }}</td>
+            </ng-container>
+            <ng-container matColumnDef="jobActions">
+              <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
+              <td mat-cell *matCellDef="let j">
+                <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
+          </table>
+        </ng-container>
+        <ng-template #noJobs>
+          <div class="empty-state">
             <p *ngIf="selectedDate">
               No recent jobs found for {{ selectedDate | date:'mediumDate' }}.
               <a style="cursor:pointer;color:inherit" (click)="selectedDate = null">Clear filter</a>
             </p>
             <p *ngIf="!selectedDate">No jobs have run yet.</p>
-          </mat-card-content>
-        </mat-card>
-      </ng-template>
+          </div>
+        </ng-template>
+      </div>
 
       <!-- Daily Activity Sparkline -->
       <ng-container *ngIf="summary?.daily_volumes?.length">
-        <h2>Daily Activity</h2>
-        <p class="section-subtitle">Last 14 days · click a bar to filter Recent Jobs</p>
-        <mat-card>
-          <mat-card-content>
+        <div class="sn-section">
+          <div class="sn-section-header">
+            <span class="section-title">Daily Activity</span>
+            <span class="section-sub">Last 14 days · click a bar to filter Recent Jobs</span>
+          </div>
+          <div class="sparkline-body">
             <!-- Summary row -->
             <div class="sparkline-summary">
               <span class="sparkline-summary-total">{{ periodTotalJobs }} jobs</span>
@@ -345,124 +365,141 @@ class MapsDialogComponent {
               <span class="legend-swatch" style="background:#e53935; margin-left:12px"></span><span>Failed</span>
               <span class="legend-weekend">&#9618; Weekend</span>
             </div>
-          </mat-card-content>
-        </mat-card>
+          </div>
+        </div>
       </ng-container>
-
-      <!-- Locale Breakdown (commented out — may restore later)
-      <ng-container *ngIf="topLocales.length">
-        <h2>Locale Breakdown</h2>
-        <p class="section-subtitle">Last 30 days · bar width = relative volume</p>
-        <mat-card>
-          <mat-card-content>
-            <div class="chart-legend" style="margin-bottom:10px">
-              <span class="legend-swatch" style="background:#43a047"></span><span>Succeeded</span>
-              <span class="legend-swatch" style="background:#e53935; margin-left:12px"></span><span>Failed</span>
-            </div>
-            <div *ngFor="let locale of topLocales" class="locale-block">
-              <div class="locale-row">
-                <span class="locale-code">{{ locale.code }}</span>
-                <span class="locale-bar-wrap">
-                  <span class="locale-bar-succeeded" [style.width.%]="localeBarSucceededPct(locale)"></span>
-                  <span class="locale-bar-failed" [style.width.%]="localeBarFailedPct(locale)"></span>
-                </span>
-                <span class="locale-count">{{ locale.total }}</span>
-                <span class="locale-stat-ok">✓ {{ locale.succeeded }}</span>
-                <span class="locale-stat-fail">✗ {{ locale.failed }}</span>
-              </div>
-              <div class="locale-schedules-row" *ngIf="locale.top_schedules.length">
-                <mat-icon class="locale-sched-icon">schedule</mat-icon>
-                <span>{{ locale.top_schedules[0].name }}</span>
-                <span *ngIf="locale.top_schedules.length > 1" class="muted-text">
-                  +{{ locale.top_schedules.length - 1 }} more
-                </span>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </ng-container>
-      -->
 
     </ng-container>
 
-    <mat-card *ngIf="errorMessage" class="error-card">
-      <mat-card-content>
+    <!-- Error state -->
+    <div class="sn-card error-card" *ngIf="errorMessage" style="margin-top: 20px;">
+      <div class="sn-card-body">
         <mat-icon>warning</mat-icon> {{ errorMessage }}
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
   `,
     styles: [`
-    .stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-    .stats-row mat-card { flex: 1; text-align: center; min-width: 120px; }
-    .stat-value { font-size: 2rem; font-weight: bold; }
-    .stat-label { color: #666; }
-    .rate-good { color: #2e7d32; }
-    .rate-warn { color: #e65100; }
-    .rate-bad { color: #c62828; }
-    h2 { margin-top: 24px; }
-    .error-card { margin-top: 16px; color: #f44336; }
-    .table-link { color: inherit; text-decoration: none; font-weight: 500; }
-    .table-link:hover { text-decoration: underline; }
-    .muted-text { color: #888; font-size: 0.875rem; }
+    /* ── Banner ─────────────────────────────────────────────── */
+    .page-banner {
+      background: linear-gradient(135deg, #011627 0%, #0d2137 100%);
+      padding: 0 28px;
+      margin: -20px -24px 0;
+      color: #fff;
+    }
+    .banner-breadcrumb {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      padding-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .bc-sep { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
+    .banner-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0 16px;
+    }
+    .banner-title { font-size: 22px; font-weight: 700; margin: 0; color: #fff; }
+    .banner-actions { display: flex; gap: 8px; }
+    .banner-btn {
+      background: #79ECDD !important;
+      color: #011627 !important;
+      font-weight: 600;
+      font-size: 13px;
+    }
 
-    /* Needs Attention */
-    .attention-card { margin-bottom: 16px; border-left: 4px solid #fb8c00; }
-    .stale-card { margin-bottom: 16px; border-left: 4px solid #90a4ae; }
+    /* ── KPI metrics strip ───────────────────────────────────── */
+    .metrics-bar {
+      margin: 0 -24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: #fff;
+      border-bottom: 1px solid #dee2ec;
+    }
+    .metric-tile {
+      padding: 14px 20px;
+      text-align: center;
+    }
+    .metric-divider {
+      width: 1px;
+      background: #dee2ec;
+      margin: 10px 0;
+    }
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1d1f2b;
+      line-height: 1.1;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: #97a0af;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .rate-good { color: #006644 !important; }
+    .rate-warn { color: #e65100 !important; }
+    .rate-bad { color: #c62828 !important; }
+
+    /* ── Alert cards ─────────────────────────────────────────── */
+    .alert-card {
+      display: flex;
+      background: #fff;
+      border: 1px solid #dee2ec;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 20px 0 0;
+    }
+    .alert-left { width: 4px; flex-shrink: 0; }
+    .attention-card .alert-left { background: #fb8c00; }
+    .stale-card .alert-left { background: #90a4ae; }
+    .alert-body { padding: 14px 16px; flex: 1; }
     .alert-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .alert-title { font-weight: 600; font-size: 1rem; }
-    .attention-icon { color: #fb8c00; }
-    .stale-icon { color: #90a4ae; }
+    .alert-title { font-weight: 600; font-size: 13px; color: #1d1f2b; }
+    .attention-icon { color: #fb8c00; font-size: 18px; width: 18px; height: 18px; }
+    .stale-icon { color: #90a4ae; font-size: 18px; width: 18px; height: 18px; }
     .alert-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
     .failure-count { color: #e65100; font-size: 0.875rem; }
     .badge-disabled { background: #e0e0e0; color: #555; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
     .stale-note { margin: 0 0 8px; color: #666; font-size: 0.875rem; }
 
-    /* Rate badge */
-    .rate-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.875rem; font-weight: 600; }
-    .rate-badge.rate-good { background: #e8f5e9; color: #2e7d32; }
-    .rate-badge.rate-warn { background: #fff3e0; color: #e65100; }
-    .rate-badge.rate-bad { background: #ffebee; color: #c62828; }
-
-    /* Sparkline */
-    .sparkline-summary { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-bottom: 8px; }
-    .sparkline-summary-total { font-weight: 600; }
-    .sparkline-summary-sep { color: #ccc; }
-    .sparkline-summary-failed { color: #c62828; }
-    .sparkline-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 4px; }
-    .sparkline-col-hit { cursor: pointer; }
-
-    /* Shared chart legend */
-    .chart-legend { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: #555; margin-top: 6px; flex-wrap: wrap; }
-    .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-    .legend-weekend { margin-left: 12px; color: #bbb; }
-
-    /* Recent jobs date-filter chip */
-    .date-filter-chip {
-      display: inline-flex; align-items: center; vertical-align: middle;
-      font-size: 0.8rem; font-weight: normal;
-      background: #e3f2fd; color: #1565c0;
-      border-radius: 12px; padding: 2px 4px 2px 10px; margin-left: 10px;
+    /* ── Section cards ───────────────────────────────────────── */
+    .sn-section {
+      background: #fff;
+      border: 1px solid #dee2ec;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 20px;
     }
-    .chip-clear { width: 20px !important; height: 20px !important; line-height: 20px !important; padding: 0 !important; }
-    .chip-clear mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
+    .sn-section-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid #dee2ec;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8f9fb;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #97a0af;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .section-sub { font-size: 11px; color: #97a0af; }
+    .section-title-row { display: flex; align-items: center; gap: 8px; }
+    .see-all-link { font-size: 12px; color: #AD4780; text-decoration: none; font-weight: 500; }
+    .see-all-link:hover { text-decoration: underline; }
 
-    /* Locale Breakdown */
-    .locale-block { margin-bottom: 8px; }
-    .locale-row { display: flex; align-items: center; gap: 8px; }
-    .locale-code { font-family: monospace; font-size: 0.875rem; width: 72px; flex-shrink: 0; }
-    .locale-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; height: 10px; overflow: hidden; display: flex; }
-    .locale-bar-succeeded { height: 100%; background: #43a047; }
-    .locale-bar-failed { height: 100%; background: #e53935; }
-    .locale-count { width: 36px; text-align: right; font-size: 0.8rem; color: #555; flex-shrink: 0; }
-    .locale-stat-ok { width: 52px; font-size: 0.8rem; color: #2e7d32; flex-shrink: 0; }
-    .locale-stat-fail { width: 44px; font-size: 0.8rem; color: #c62828; flex-shrink: 0; }
-    .locale-schedules-row { display: flex; align-items: center; gap: 4px; padding-left: 80px; font-size: 0.75rem; color: #999; margin-top: 2px; }
-    .locale-sched-icon { font-size: 12px; width: 12px; height: 12px; line-height: 12px; color: #bbb; }
-
-    /* Truncated table cells */
+    /* ── Table ──────────────────────────────────────────────── */
+    .table-link { color: #1d1f2b; text-decoration: none; font-weight: 500; }
+    .table-link:hover { text-decoration: underline; color: #AD4780; }
+    .muted-text { color: #888; font-size: 0.875rem; }
     .col-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* Schedule Map cell with overflow chip */
     .map-cell { display: flex; align-items: center; gap: 6px; max-width: 210px; }
     .map-cell-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; font-size: 0.875rem; }
     .map-more-btn {
@@ -472,8 +509,41 @@ class MapsDialogComponent {
     }
     .map-more-btn:hover { background: #c5cae9; }
 
-    /* Section subtitle */
-    .section-subtitle { color: #888; font-size: 0.8rem; margin: -16px 0 8px; }
+    .rate-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.875rem; font-weight: 600; }
+    .rate-badge.rate-good { background: #e8f5e9; color: #2e7d32; }
+    .rate-badge.rate-warn { background: #fff3e0; color: #e65100; }
+    .rate-badge.rate-bad { background: #ffebee; color: #c62828; }
+
+    .empty-state { padding: 20px 16px; color: #97a0af; }
+    .empty-state p { margin: 0; }
+    .empty-state a { color: #AD4780; }
+
+    /* ── Date filter chip ────────────────────────────────────── */
+    .date-filter-chip {
+      display: inline-flex; align-items: center; vertical-align: middle;
+      font-size: 0.8rem; font-weight: normal;
+      background: #e3f2fd; color: #1565c0;
+      border-radius: 12px; padding: 2px 4px 2px 10px;
+    }
+    .chip-clear { width: 20px !important; height: 20px !important; line-height: 20px !important; padding: 0 !important; }
+    .chip-clear mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
+
+    /* ── Sparkline ───────────────────────────────────────────── */
+    .sparkline-body { padding: 16px; }
+    .sparkline-summary { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-bottom: 8px; }
+    .sparkline-summary-total { font-weight: 600; }
+    .sparkline-summary-sep { color: #ccc; }
+    .sparkline-summary-failed { color: #c62828; }
+    .sparkline-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 4px; }
+    .sparkline-col-hit { cursor: pointer; }
+    .chart-legend { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: #555; margin-top: 6px; flex-wrap: wrap; }
+    .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .legend-weekend { margin-left: 12px; color: #bbb; }
+
+    /* ── Error ───────────────────────────────────────────────── */
+    .sn-card { background: #fff; border: 1px solid #dee2ec; border-radius: 4px; overflow: hidden; }
+    .sn-card-body { padding: 16px; }
+    .error-card { color: #f44336; }
   `]
 })
 export class DashboardComponent implements OnInit {

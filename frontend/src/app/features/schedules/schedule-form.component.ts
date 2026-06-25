@@ -7,7 +7,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -26,14 +25,26 @@ function requireNonEmpty(control: AbstractControl) {
     imports: [
         CommonModule, ReactiveFormsModule, RouterModule,
         MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-        MatCardModule, MatCheckboxModule, MatIconModule, MatDialogModule,
+        MatCheckboxModule, MatIconModule, MatDialogModule,
         CronBuilderComponent,
     ],
     template: `
-    <h1>{{ isEdit ? 'Edit' : 'New' }} Schedule</h1>
-    <mat-card>
-      <mat-card-content>
-        <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <!-- Page banner -->
+    <div class="page-banner">
+      <div class="banner-breadcrumb">
+        <a routerLink="/schedules" class="bc-link">Schedules</a>
+        <mat-icon class="bc-sep">chevron_right</mat-icon>
+        <span>{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</span>
+      </div>
+      <div class="banner-row">
+        <h1 class="banner-title">{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</h1>
+      </div>
+    </div>
+
+    <!-- Form card -->
+    <div class="sn-card" style="margin-top: 20px;">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="form-body">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Name</mat-label>
             <input matInput formControlName="name">
@@ -157,34 +168,70 @@ function requireNonEmpty(control: AbstractControl) {
           </mat-form-field>
 
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
+        </div>
 
-          <div class="actions">
-            <button mat-button type="button" routerLink="/schedules">Cancel</button>
-            <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || submitting">
-              {{ submitting ? 'Saving...' : (isEdit ? 'Update' : 'Create') }}
-            </button>
-          </div>
-        </form>
-      </mat-card-content>
-    </mat-card>
+        <div class="form-footer">
+          <button mat-button type="button" routerLink="/schedules">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+            {{ submitting ? 'Saving...' : (isEdit ? 'Update' : 'Create') }}
+          </button>
+        </div>
+      </form>
+    </div>
   `,
     styles: [`
-    .full-width { width: 100%; margin-bottom: 8px; }
-    .cron-section {
-      margin-bottom: 16px;
-      padding: 0;
+    /* ── Banner ─────────────────────────────────────────────── */
+    .page-banner {
+      background: linear-gradient(135deg, #011627 0%, #0d2137 100%);
+      padding: 0 28px;
+      margin: -20px -24px 0;
+      color: #fff;
     }
+    .banner-breadcrumb {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      padding-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .bc-link { color: rgba(255,255,255,0.6); text-decoration: none; }
+    .bc-link:hover { color: #fff; text-decoration: none; }
+    .bc-sep { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
+    .banner-row {
+      display: flex;
+      align-items: center;
+      padding: 10px 0 16px;
+    }
+    .banner-title { font-size: 22px; font-weight: 700; margin: 0; color: #fff; }
+
+    /* ── Card ───────────────────────────────────────────────── */
+    .sn-card {
+      background: #fff;
+      border: 1px solid #dee2ec;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .form-body { padding: 24px 24px 8px; }
+    .form-footer {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      padding: 12px 24px 16px;
+      border-top: 1px solid #dee2ec;
+      background: #f8f9fb;
+    }
+
+    /* ── Form fields ─────────────────────────────────────────── */
+    .full-width { width: 100%; margin-bottom: 8px; }
+    .cron-section { margin-bottom: 16px; padding: 0; }
     .cron-label {
       display: block;
       font-size: 13px;
       color: #666;
       margin-bottom: 8px;
     }
-    .cron-error {
-      font-size: 12px;
-      margin-top: 4px;
-    }
-    .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .cron-error { font-size: 12px; margin-top: 4px; }
     .document-ids-section, .file-picker-param {
       display: flex;
       gap: 8px;
