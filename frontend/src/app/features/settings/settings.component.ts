@@ -4,10 +4,12 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
@@ -15,10 +17,12 @@ import { ApiService } from '../../core/services/api.service';
     imports: [
         CommonModule,
         RouterModule,
+        MatButtonModule,
         MatCheckboxModule,
         MatIconModule,
         MatProgressSpinnerModule,
         MatSnackBarModule,
+        MatTooltipModule,
     ],
     template: `
     <!-- Page banner -->
@@ -38,27 +42,35 @@ import { ApiService } from '../../core/services/api.service';
     <div class="sn-card" style="margin-top: 20px;">
       <div class="sn-card-header">
         <span class="section-title">API Connection Status</span>
+        <div class="header-right">
+          <span *ngIf="lastChecked" class="last-checked">Checked {{ lastChecked | date:'h:mm:ss a' }}</span>
+          <button mat-icon-button class="refresh-btn" (click)="checkConnections()"
+            [disabled]="checking" matTooltip="Refresh" aria-label="Refresh connection status">
+            <mat-icon [class.spinning]="checking">refresh</mat-icon>
+          </button>
+        </div>
       </div>
-      <div class="sn-card-body">
-        <mat-spinner *ngIf="checking" diameter="24"></mat-spinner>
-        <ng-container *ngIf="!checking">
-          <div class="status-item">
-            <div class="status-dot" [class.dot-ok]="backendOk" [class.dot-err]="!backendOk"></div>
-            <div class="status-info">
-              <span class="status-name">Backend API</span>
-              <span class="status-value" [class.ok]="backendOk" [class.err]="!backendOk">
-                {{ backendOk ? 'Connected' : 'Unreachable' }}
-              </span>
-            </div>
+      <div class="sn-card-body status-body">
+        <ng-container *ngIf="checking && !lastChecked">
+          <div class="status-checking">
+            <mat-spinner diameter="20"></mat-spinner>
+            <span>Checking connections…</span>
           </div>
-          <div class="status-item">
-            <div class="status-dot" [class.dot-ok]="herettoOk" [class.dot-err]="!herettoOk"></div>
-            <div class="status-info">
-              <span class="status-name">Heretto API</span>
-              <span class="status-value" [class.ok]="herettoOk" [class.err]="!herettoOk">
-                {{ herettoOk ? 'Connected' : herettoError }}
-              </span>
-            </div>
+        </ng-container>
+        <ng-container *ngIf="!checking || lastChecked">
+          <div class="status-row">
+            <span class="status-name">Backend API</span>
+            <span class="status-badge" [class.badge-ok]="backendOk" [class.badge-err]="!backendOk">
+              <span class="badge-dot"></span>
+              {{ backendOk ? 'Connected' : 'Unreachable' }}
+            </span>
+          </div>
+          <div class="status-row">
+            <span class="status-name">Heretto API</span>
+            <span class="status-badge" [class.badge-ok]="herettoOk" [class.badge-err]="!herettoOk">
+              <span class="badge-dot"></span>
+              {{ herettoOk ? 'Connected' : herettoError }}
+            </span>
           </div>
         </ng-container>
       </div>
@@ -162,24 +174,41 @@ import { ApiService } from '../../core/services/api.service';
     .section-sub { font-size: 11px; color: #97a0af; }
 
     /* ── Connection status ───────────────────────────────────── */
-    .status-item {
+    .header-right { display: flex; align-items: center; gap: 4px; }
+    .last-checked { font-size: 11px; color: #97a0af; }
+    .refresh-btn { color: #42526e !important; width: 28px !important; height: 28px !important; }
+    .refresh-btn mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
+    .spinning { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-body { padding: 0 16px; }
+    .status-checking {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 0; color: #97a0af; font-size: 13px;
+    }
+    .status-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 8px 0;
+      justify-content: space-between;
+      padding: 12px 0;
       border-bottom: 1px solid #f0f2f5;
     }
-    .status-item:last-child { border-bottom: none; }
-    .status-dot {
-      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-    }
-    .dot-ok { background: #00a650; box-shadow: 0 0 0 3px rgba(0,166,80,0.15); }
-    .dot-err { background: #de350b; box-shadow: 0 0 0 3px rgba(222,53,11,0.15); }
-    .status-info { display: flex; flex-direction: column; gap: 1px; }
+    .status-row:last-child { border-bottom: none; }
     .status-name { font-size: 13px; font-weight: 500; color: #1d1f2b; }
-    .status-value { font-size: 12px; }
-    .ok { color: #006644; }
-    .err { color: #de350b; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-ok { background: #e3fcef; color: #006644; }
+    .badge-err { background: #ffebe6; color: #de350b; }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .badge-ok .badge-dot { background: #00a650; }
+    .badge-err .badge-dot { background: #de350b; }
 
     /* ── Config ─────────────────────────────────────────────── */
     .config-note { margin: 0 0 12px; color: #555; font-size: 13px; }
@@ -209,6 +238,7 @@ export class SettingsComponent implements OnInit {
   herettoOk = false;
   herettoError = 'Not tested';
   checking = true;
+  lastChecked: Date | null = null;
 
   allValues: string[] = [];
   excludedSet = new Set<string>();
@@ -217,26 +247,34 @@ export class SettingsComponent implements OnInit {
   constructor(private http: HttpClient, private api: ApiService, private snackBar: MatSnackBar) {}
 
   ngOnInit() {
+    this.checkConnections();
+    this.loadValues();
+  }
+
+  checkConnections() {
+    this.checking = true;
+    let pending = 2;
+    const done = () => { if (--pending === 0) { this.checking = false; this.lastChecked = new Date(); } };
+
     this.http.get('/api/health')
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => { this.backendOk = true; this.checking = false; },
-        error: () => { this.backendOk = false; this.checking = false; },
+        next: () => { this.backendOk = true; done(); },
+        error: () => { this.backendOk = false; done(); },
       });
 
     this.api.get('/heretto/deployments')
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.herettoOk = true,
+        next: () => { this.herettoOk = true; done(); },
         error: (err) => {
           this.herettoOk = false;
           this.herettoError = err.status === 0 ? 'Server unreachable' :
             err.status === 502 ? 'Heretto API unreachable' :
             `Connection failed (${err.status})`;
+          done();
         },
       });
-
-    this.loadValues();
   }
 
   loadValues() {
