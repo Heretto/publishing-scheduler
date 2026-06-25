@@ -63,28 +63,25 @@ class MapsDialogComponent {
     <!-- KPI metrics strip -->
     <div class="metrics-bar" role="region" aria-label="Statistics">
       <div class="metric-tile">
-        <div class="metric-value">{{ activeSchedules }}</div>
-        <div class="metric-label">Active Schedules</div>
+        <span class="metric-value">{{ activeSchedules }}</span>
+        <span class="metric-label">Active Schedules</span>
       </div>
-      <div class="metric-divider"></div>
       <div class="metric-tile">
-        <div class="metric-value">{{ totalSchedules }}</div>
-        <div class="metric-label">Total Schedules</div>
+        <span class="metric-value">{{ totalSchedules }}</span>
+        <span class="metric-label">Total Schedules</span>
       </div>
-      <div class="metric-divider"></div>
       <div class="metric-tile">
-        <div class="metric-value">{{ totalJobs }}</div>
-        <div class="metric-label">Total Jobs</div>
+        <span class="metric-value">{{ totalJobs }}</span>
+        <span class="metric-label">Total Jobs</span>
       </div>
-      <div class="metric-divider"></div>
       <div class="metric-tile">
-        <div class="metric-value"
+        <span class="metric-value"
           [class.rate-good]="successRate >= 80"
           [class.rate-warn]="successRate >= 50 && successRate < 80"
           [class.rate-bad]="successRate < 50">
           {{ recentJobs.length ? successRate + '%' : '—' }}
-        </div>
-        <div class="metric-label">Success Rate (recent)</div>
+        </span>
+        <span class="metric-label">Success Rate</span>
       </div>
     </div>
 
@@ -413,32 +410,29 @@ class MapsDialogComponent {
     /* ── KPI metrics strip ───────────────────────────────────── */
     .metrics-bar {
       margin: 0 -24px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      display: flex;
       background: #fff;
       border-bottom: 1px solid #dee2ec;
     }
     .metric-tile {
-      padding: 14px 20px;
-      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 10px 20px;
+      border-right: 1px solid #dee2ec;
     }
-    .metric-divider {
-      width: 1px;
-      background: #dee2ec;
-      margin: 10px 0;
-    }
+    .metric-tile:last-child { border-right: none; }
     .metric-value {
-      font-size: 28px;
+      font-size: 22px;
       font-weight: 700;
       color: #1d1f2b;
-      line-height: 1.1;
+      line-height: 1;
+      flex-shrink: 0;
     }
     .metric-label {
-      font-size: 11px;
-      color: #97a0af;
-      margin-top: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      font-size: 12px;
+      color: #42526e;
     }
     .rate-good { color: #006644 !important; }
     .rate-warn { color: #e65100 !important; }
