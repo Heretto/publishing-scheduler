@@ -125,7 +125,7 @@ import { AuthService } from '../../core/services/auth.service';
     }
     .header-brand {
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       gap: 12px;
     }
     .header-logo { height: 26px; filter: brightness(0) invert(1); }
