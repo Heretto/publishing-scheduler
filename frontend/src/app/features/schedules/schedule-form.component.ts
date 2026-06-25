@@ -33,16 +33,23 @@ function requireNonEmpty(control: AbstractControl) {
     <div class="page-banner">
       <div class="banner-breadcrumb">
         <a routerLink="/schedules" class="bc-link">Schedules</a>
+        <ng-container *ngIf="isEdit && scheduleName">
+          <mat-icon class="bc-sep">chevron_right</mat-icon>
+          <a [routerLink]="['/schedules', scheduleId]" class="bc-link">{{ scheduleName }}</a>
+        </ng-container>
         <mat-icon class="bc-sep">chevron_right</mat-icon>
-        <span>{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</span>
+        <span class="bc-current">{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</span>
       </div>
       <div class="banner-row">
-        <h1 class="banner-title">{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</h1>
+        <div class="banner-left">
+          <h1 class="banner-title">{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</h1>
+          <span class="banner-subtitle">{{ isEdit ? 'Update the configuration for this publishing schedule.' : 'Define the documents, cadence, and publishing settings for a new schedule.' }}</span>
+        </div>
       </div>
     </div>
 
     <!-- Form card -->
-    <div class="sn-card" style="margin-top: 20px;">
+    <div class="sn-card sn-form-card" style="margin-top: 20px;">
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
 
         <!-- GENERAL section -->
@@ -199,9 +206,9 @@ function requireNonEmpty(control: AbstractControl) {
         </div>
 
         <div class="form-footer">
-          <button mat-button type="button" routerLink="/schedules">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
-            {{ submitting ? 'Saving...' : (isEdit ? 'Update' : 'Create') }}
+          <button mat-stroked-button type="button" class="btn-cancel" routerLink="/schedules">Cancel</button>
+          <button mat-flat-button type="submit" class="btn-save" [disabled]="form.invalid || submitting">
+            {{ submitting ? 'Saving…' : (isEdit ? 'Update Schedule' : 'Create Schedule') }}
           </button>
         </div>
       </form>
@@ -223,15 +230,18 @@ function requireNonEmpty(control: AbstractControl) {
       align-items: center;
       gap: 4px;
     }
-    .bc-link { color: rgba(255,255,255,0.6); text-decoration: none; }
-    .bc-link:hover { color: #fff; text-decoration: none; }
-    .bc-sep { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
+    .bc-link { color: rgba(255,255,255,0.45); text-decoration: none !important; transition: color 0.1s; }
+    .bc-link:hover { color: #79ECDD; }
+    .bc-current { color: rgba(255,255,255,0.65); }
+    .bc-sep { font-size: 14px; width: 14px; height: 14px; line-height: 14px; color: rgba(255,255,255,0.25); }
     .banner-row {
       display: flex;
-      align-items: center;
-      padding: 10px 0 16px;
+      align-items: flex-start;
+      padding: 10px 0 18px;
     }
+    .banner-left { display: flex; flex-direction: column; gap: 4px; }
     .banner-title { font-size: 22px; font-weight: 700; margin: 0; color: #fff; }
+    .banner-subtitle { font-size: 12px; color: rgba(255,255,255,0.5); }
 
     /* ── Card ───────────────────────────────────────────────── */
     .sn-card {
@@ -256,15 +266,55 @@ function requireNonEmpty(control: AbstractControl) {
       letter-spacing: 0.8px;
       color: #42526e;
     }
-    .form-section-body { padding: 20px 20px 4px; }
+    .form-section-body { padding: 16px 20px 4px; }
 
     .form-footer {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
-      padding: 12px 20px 14px;
+      align-items: center;
+      padding: 12px 20px;
       border-top: 1px solid #dee2ec;
       background: #f8f9fb;
+    }
+    .btn-cancel {
+      color: #42526e !important;
+      border-color: #c5cdd8 !important;
+      font-size: 13px !important;
+      height: 34px !important;
+    }
+    .btn-save {
+      background: #AD4780 !important;
+      color: #fff !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      height: 34px !important;
+    }
+    .btn-save[disabled] { opacity: 0.55 !important; }
+
+    /* ── Compact Material form fields ────────────────────────── */
+    /* CSS custom properties cascade into Material's internal tokens */
+    mat-form-field {
+      --mat-form-field-container-height: 42px;
+      --mat-form-field-container-vertical-padding: 8px;
+      --mat-form-field-container-text-size: 13px;
+      --mat-form-field-label-text-size: 13px;
+      --mat-form-field-subscript-text-size: 11px;
+    }
+    /* Fallback: target internal MDC classes directly */
+    ::ng-deep .sn-form-card .mat-mdc-form-field-infix {
+      min-height: 42px !important;
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
+    }
+    ::ng-deep .sn-form-card input.mat-mdc-input-element,
+    ::ng-deep .sn-form-card textarea.mat-mdc-input-element {
+      font-size: 13px !important;
+    }
+    ::ng-deep .sn-form-card .mat-mdc-select-value-text,
+    ::ng-deep .sn-form-card .mat-mdc-select-placeholder,
+    ::ng-deep .sn-form-card .mat-mdc-select-trigger {
+      font-size: 13px !important;
     }
 
     /* ── Form fields ─────────────────────────────────────────── */
@@ -272,11 +322,11 @@ function requireNonEmpty(control: AbstractControl) {
     .cron-section { margin-bottom: 16px; padding: 0; }
     .cron-label {
       display: block;
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       color: #42526e;
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
       margin-bottom: 8px;
     }
     .cron-error { font-size: 12px; margin-top: 4px; }
@@ -290,13 +340,18 @@ function requireNonEmpty(control: AbstractControl) {
     .file-picker-param .mat-mdc-form-field-subscript-wrapper {
       display: none;
     }
-    .browse-btn { height: 56px; }
+    .browse-btn {
+      height: 42px !important;
+      font-size: 13px !important;
+      color: #42526e !important;
+      border-color: #c5cdd8 !important;
+    }
     .param-section-label {
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       color: #42526e;
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
       margin-bottom: 10px;
       margin-top: 4px;
     }
@@ -309,6 +364,7 @@ export class ScheduleFormComponent implements OnInit {
   form: FormGroup;
   isEdit = false;
   scheduleId = '';
+  scheduleName = '';
   submitting = false;
   deployments: Deployment[] = [];
   scenarios: Scenario[] = [];
@@ -370,6 +426,7 @@ export class ScheduleFormComponent implements OnInit {
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (s: Schedule) => {
+            this.scheduleName = s.name;
             this.form.patchValue({
               ...s,
               document_ids_raw: s.document_ids.join(', '),
@@ -634,9 +691,9 @@ export class ScheduleFormComponent implements OnInit {
       : this.scheduleService.create(input);
 
     obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => {
+      next: (schedule) => {
         this.notifications.success(`Schedule ${this.isEdit ? 'updated' : 'created'}`);
-        this.router.navigate(['/schedules']);
+        this.router.navigate(['/schedules', schedule.id]);
       },
       error: (err: unknown) => { console.error('Schedule save error:', err); this.submitting = false; },
     });
