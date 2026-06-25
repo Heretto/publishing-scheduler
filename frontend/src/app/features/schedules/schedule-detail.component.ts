@@ -95,14 +95,12 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         <div class="record-field">
           <div class="field-label">Locales</div>
           <div class="field-value">
-            <ng-container *ngIf="schedule.locales?.length; else noLocales">
-              <div class="locale-code-list">
-                <span class="locale-code-chip" *ngFor="let l of schedule.locales">
-                  <mat-icon class="locale-code-icon">translate</mat-icon>{{ l }}
-                </span>
-              </div>
-            </ng-container>
-            <ng-template #noLocales>—</ng-template>
+            <div *ngIf="schedule.locales?.length" class="locale-code-list">
+              <span class="locale-code-chip" *ngFor="let l of schedule.locales">
+                <mat-icon class="locale-code-icon">translate</mat-icon>{{ l || 'Source' }}
+              </span>
+            </div>
+            <span *ngIf="!schedule.locales?.length">—</span>
           </div>
         </div>
         <div class="record-field-divider"></div>
@@ -215,7 +213,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
               <div class="locale-grid">
                 <div class="locale-item" *ngFor="let l of schedule.locales">
                   <mat-icon class="locale-icon">translate</mat-icon>
-                  <span>{{ l }}</span>
+                  <span>{{ l || 'Source' }}</span>
                 </div>
               </div>
             </div>

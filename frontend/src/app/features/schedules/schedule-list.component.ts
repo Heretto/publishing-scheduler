@@ -195,7 +195,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
             </span>
             <span *ngIf="s.locales?.length" class="tag tag-locale">
               <mat-icon>language</mat-icon>
-              {{ s.locales.length }} locale{{ s.locales.length !== 1 ? 's' : '' }}
+              {{ localeDisplay(s.locales) }}
             </span>
             <span *ngIf="sourceCount(s) > 0" class="tag tag-source">
               <mat-icon>description</mat-icon>
@@ -664,6 +664,11 @@ export class ScheduleListComponent implements OnInit {
 
   hasFailures(s: Schedule): boolean { return (s.consecutive_failures ?? 0) > 0; }
   sourceCount(s: Schedule): number { return (s.document_ids?.length ?? 0) + (s.folder_ids?.length ?? 0); }
+
+  localeDisplay(locales: string[]): string {
+    const codes = (locales || []).filter(l => l !== '');
+    return codes.length ? codes.join(' · ') : 'Source';
+  }
 
   clearFilters() { this.searchQuery = ''; this.activeFilter = 'all'; }
 
