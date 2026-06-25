@@ -39,7 +39,15 @@ interface BreadcrumbItem {
         MatCheckboxModule, MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule,
     ],
     template: `
-    <h2 mat-dialog-title>Select Documents</h2>
+    <div mat-dialog-title class="picker-header">
+      <div class="picker-header-text">
+        <div class="picker-title">Select Documents</div>
+        <div class="picker-subtitle">Browse or search your CCMS content repository</div>
+      </div>
+      <button mat-icon-button class="picker-close-btn" mat-dialog-close aria-label="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
     <mat-dialog-content class="picker-content">
       <div class="filter-bar" *ngIf="!data?.allowAllTypes">
         <mat-slide-toggle
@@ -59,7 +67,7 @@ interface BreadcrumbItem {
           </mat-select>
         </mat-form-field>
       </div>
-      <mat-tab-group>
+      <mat-tab-group class="picker-tabs">
         <mat-tab label="Browse">
           <div class="breadcrumbs" *ngIf="breadcrumbs.length > 0">
             <span *ngFor="let crumb of breadcrumbs; let last = last">
@@ -232,13 +240,49 @@ interface BreadcrumbItem {
       </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>Cancel</button>
-      <button mat-raised-button color="primary" (click)="confirm()">
+      <button mat-stroked-button class="picker-btn-cancel" mat-dialog-close>Cancel</button>
+      <button mat-flat-button class="picker-btn-select" (click)="confirm()">
         Select ({{ selectedItems.size + selectedFolders.size }})
       </button>
     </mat-dialog-actions>
   `,
     styles: [`
+    /* ── Dialog header ──────────────────────────────────────── */
+    .picker-header {
+      background: linear-gradient(135deg, #011627 0%, #0d2137 100%);
+      color: #fff;
+      padding: 14px 12px 14px 20px !important;
+      margin: 0 !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .picker-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+    .picker-subtitle { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+    .picker-close-btn { color: rgba(255,255,255,0.6) !important; }
+    .picker-close-btn:hover { color: rgba(255,255,255,0.95) !important; }
+
+    /* ── Dialog actions ─────────────────────────────────────── */
+    .picker-btn-cancel {
+      color: #42526e !important;
+      border-color: #c5cdd8 !important;
+      font-size: 13px !important;
+      height: 34px !important;
+    }
+    .picker-btn-select {
+      background: #AD4780 !important;
+      color: #fff !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      height: 34px !important;
+    }
+
+    /* ── Tabs ────────────────────────────────────────────────── */
+    .picker-tabs {
+      --mdc-tab-indicator-active-indicator-color: #79ECDD;
+    }
+
+    /* ── Content area ───────────────────────────────────────── */
     .picker-content {
       min-width: 500px;
       min-height: 400px;
@@ -248,7 +292,7 @@ interface BreadcrumbItem {
       display: flex;
       align-items: center;
       padding: 8px 0 4px;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid #dee2ec;
       margin-bottom: 4px;
     }
     .full-width { width: 100%; }
@@ -256,10 +300,10 @@ interface BreadcrumbItem {
     .breadcrumbs {
       padding: 8px 0;
       font-size: 13px;
-      color: #666;
+      color: #5e6e82;
     }
     .breadcrumbs a {
-      color: #1976d2;
+      color: #AD4780;
       cursor: pointer;
       text-decoration: none;
     }
@@ -276,14 +320,14 @@ interface BreadcrumbItem {
       gap: 8px;
       width: 100%;
     }
-    .item-icon { color: #666; margin-right: 4px; }
+    .item-icon { color: #5e6e82; margin-right: 4px; }
     .item-text-group { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
     .item-title { min-width: 0; }
-    .item-title.clickable { cursor: pointer; color: #1976d2; }
+    .item-title.clickable { cursor: pointer; color: #AD4780; }
     .item-title.clickable:hover { text-decoration: underline; }
     .item-type {
       font-size: 12px;
-      color: #999;
+      color: #5e6e82;
       text-transform: uppercase;
       margin-left: 5px;
     }
@@ -293,7 +337,7 @@ interface BreadcrumbItem {
       padding: 32px;
     }
     .empty-message {
-      color: #999;
+      color: #5e6e82;
       font-style: italic;
       padding: 16px 0;
     }
@@ -311,7 +355,7 @@ interface BreadcrumbItem {
       padding-top: 16px;
     }
     .selection-summary {
-      border-top: 1px solid #e0e0e0;
+      border-top: 1px solid #dee2ec;
       padding-top: 12px;
       margin-top: 12px;
     }
@@ -324,13 +368,13 @@ interface BreadcrumbItem {
     .chip {
       display: inline-flex;
       align-items: center;
-      background: #e3f2fd;
+      background: #eef1f8;
       border-radius: 16px;
       padding: 2px 8px 2px 12px;
       font-size: 13px;
     }
     .folder-chip {
-      background: #fff3e0;
+      background: #fef6ec;
       padding-left: 6px;
     }
     .chip-folder-icon {
@@ -338,7 +382,7 @@ interface BreadcrumbItem {
       width: 16px;
       height: 16px;
       margin-right: 4px;
-      color: #e65100;
+      color: #b45309;
     }
     .folder-entries {
       margin-top: 8px;
@@ -358,14 +402,14 @@ interface BreadcrumbItem {
     .folder-maps-preview {
       padding-left: 28px;
       font-size: 12px;
-      color: #666;
+      color: #5e6e82;
     }
     .maps-loading {
       font-style: italic;
     }
     .maps-empty {
       font-style: italic;
-      color: #999;
+      color: #5e6e82;
     }
     .maps-list {
       display: flex;
@@ -395,7 +439,7 @@ interface BreadcrumbItem {
       margin: 2px 0 0 0;
       padding-left: 16px;
       padding-bottom: 8px;
-      color: #444;
+      color: #3d4460;
     }
     .maps-bullet-list li {
       list-style: disc;
@@ -430,22 +474,22 @@ interface BreadcrumbItem {
       width: 16px;
       height: 16px;
       margin-right: 4px;
-      color: #555;
+      color: #5e6e82;
     }
     .release-btn {
       display: inline-flex;
       align-items: center;
-      background: #e8f0fe;
-      border: 1px solid #c5d6f8;
+      background: #f0edf6;
+      border: 1px solid #d8c5e0;
       border-radius: 10px;
       padding: 1px 4px 1px 8px;
       font-size: 11px;
       cursor: pointer;
       margin-left: 6px;
-      color: #1a73e8;
+      color: #AD4780;
       white-space: nowrap;
     }
-    .release-btn:hover { background: #d2e3fc; }
+    .release-btn:hover { background: #e4d9ef; }
     .release-arrow {
       font-size: 16px;
       width: 16px;
@@ -454,7 +498,7 @@ interface BreadcrumbItem {
     .release-panel {
       margin-left: 28px;
       background: #fff;
-      border: 1px solid #e0e0e0;
+      border: 1px solid #dee2ec;
       border-radius: 6px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.12);
       overflow: hidden;
@@ -463,28 +507,28 @@ interface BreadcrumbItem {
     .release-loading {
       padding: 8px 12px;
       font-size: 12px;
-      color: #888;
+      color: #5e6e82;
       font-style: italic;
     }
     .release-option {
       padding: 7px 12px;
       font-size: 13px;
       cursor: pointer;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid #f0f2f5;
       display: flex;
       align-items: center;
       gap: 4px;
     }
     .release-option:last-child { border-bottom: none; }
-    .release-option:hover { background: #f5f5f5; }
-    .release-selected { background: #e8f5e9; font-weight: 500; }
-    .release-selected:hover { background: #dcedc8; }
-    .release-meta { color: #888; font-size: 12px; }
-    .release-branch { color: #aaa; font-size: 11px; }
+    .release-option:hover { background: #f5f7fa; }
+    .release-selected { background: #f0faf8; font-weight: 500; }
+    .release-selected:hover { background: #dff5f0; }
+    .release-meta { color: #5e6e82; font-size: 12px; }
+    .release-branch { color: #5e6e82; font-size: 11px; }
     .release-empty {
       padding: 8px 12px;
       font-size: 12px;
-      color: #999;
+      color: #5e6e82;
       font-style: italic;
     }
     .chip-remove {
@@ -493,7 +537,7 @@ interface BreadcrumbItem {
       height: 16px;
       cursor: pointer;
       margin-left: 4px;
-      color: #666;
+      color: #5e6e82;
     }
     .status-filter-field {
       margin-left: 16px;
@@ -514,7 +558,7 @@ interface BreadcrumbItem {
       opacity: 0.4;
     }
     .loading-icon {
-      color: #aaa;
+      color: #b8c0cc;
     }
   `]
 })
