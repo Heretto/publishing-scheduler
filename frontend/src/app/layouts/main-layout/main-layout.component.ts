@@ -36,7 +36,10 @@ import { AuthService } from '../../core/services/auth.service';
             <mat-icon>help_outline</mat-icon>
           </button>
           <button class="user-avatar-btn" [matMenuTriggerFor]="userMenu" aria-label="User menu" matTooltip="Account">
-            <span class="user-avatar">{{ userInitial }}</span>
+            <span class="user-avatar">
+              <mat-icon *ngIf="!userInitial" class="avatar-icon">person</mat-icon>
+              <ng-container *ngIf="userInitial">{{ userInitial }}</ng-container>
+            </span>
           </button>
           <mat-menu #userMenu="matMenu" class="user-menu-panel">
             @if (auth.currentUser) {
@@ -181,6 +184,7 @@ import { AuthService } from '../../core/services/auth.service';
       font-weight: 700;
       text-transform: uppercase;
     }
+    .avatar-icon { font-size: 18px; width: 18px; height: 18px; }
 
     /* User menu styling */
     .menu-user-header {
@@ -308,7 +312,7 @@ import { AuthService } from '../../core/services/auth.service';
 export class MainLayoutComponent {
   get userInitial(): string {
     const email = this.auth.currentUser?.email ?? '';
-    return email.charAt(0).toUpperCase() || '?';
+    return email.charAt(0).toUpperCase();
   }
 
   constructor(public auth: AuthService, private router: Router) {}
