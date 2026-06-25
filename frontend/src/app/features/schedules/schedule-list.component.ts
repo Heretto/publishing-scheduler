@@ -28,7 +28,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         <div class="banner-left">
           <nav class="breadcrumb" aria-label="Breadcrumb">
             <a routerLink="/dashboard" class="bc-link">Home</a>
-            <mat-icon class="bc-sep">chevron_right</mat-icon>
+            <mat-icon class="bc-sep" aria-hidden="true">chevron_right</mat-icon>
             <span class="bc-current">Schedules</span>
           </nav>
           <h1 class="banner-title">Publishing Schedules</h1>
@@ -103,14 +103,17 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       </div>
       <div class="filter-tabs" role="tablist">
         <button role="tab" class="filter-tab" [class.filter-tab-active]="activeFilter === 'all'"
+                [attr.aria-selected]="activeFilter === 'all'"
                 (click)="activeFilter = 'all'" aria-label="Show all schedules">
           All <span class="tab-count">{{ schedules.length }}</span>
         </button>
         <button role="tab" class="filter-tab" [class.filter-tab-active]="activeFilter === 'active'"
+                [attr.aria-selected]="activeFilter === 'active'"
                 (click)="activeFilter = 'active'" aria-label="Show active schedules">
           Active <span class="tab-count">{{ activeCount }}</span>
         </button>
         <button role="tab" class="filter-tab" [class.filter-tab-active]="activeFilter === 'paused'"
+                [attr.aria-selected]="activeFilter === 'paused'"
                 (click)="activeFilter = 'paused'" aria-label="Show paused schedules">
           Paused <span class="tab-count">{{ pausedCount }}</span>
         </button>
@@ -122,7 +125,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 
     <!-- Loading state -->
     <div *ngIf="loading" class="loading-center">
-      <mat-spinner diameter="36"></mat-spinner>
+      <mat-spinner diameter="36" aria-label="Loading schedules"></mat-spinner>
     </div>
 
     <!-- Empty state -->
@@ -151,7 +154,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     <div *ngIf="!loading && filteredSchedules.length > 0" class="card-grid">
       <article class="sched-card" *ngFor="let s of filteredSchedules"
                (click)="openDetail(s)" role="button" tabindex="0"
-               (keydown.enter)="openDetail(s)"
+               (keydown.enter)="openDetail(s)" (keydown.space)="openDetail(s)"
                [attr.aria-label]="'Open schedule: ' + s.name">
 
         <!-- Status accent bar -->
@@ -191,14 +194,14 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           <!-- Metadata tags -->
           <div class="card-tags">
             <span *ngIf="s.branch" class="tag tag-branch">
-              <mat-icon>alt_route</mat-icon> {{ s.branch }}
+              <mat-icon aria-hidden="true">alt_route</mat-icon> {{ s.branch }}
             </span>
             <span *ngIf="s.locales?.length" class="tag tag-locale">
-              <mat-icon>language</mat-icon>
+              <mat-icon aria-hidden="true">language</mat-icon>
               {{ localeDisplay(s.locales) }}
             </span>
             <span *ngIf="sourceCount(s) > 0" class="tag tag-source">
-              <mat-icon>description</mat-icon>
+              <mat-icon aria-hidden="true">description</mat-icon>
               {{ sourceCount(s) }} source{{ sourceCount(s) !== 1 ? 's' : '' }}
             </span>
           </div>

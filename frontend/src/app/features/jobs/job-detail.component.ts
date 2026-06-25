@@ -18,7 +18,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     ],
     template: `
     <div class="loading-wrap" *ngIf="loading">
-      <mat-spinner diameter="40"></mat-spinner>
+      <mat-spinner diameter="40" aria-label="Loading job details"></mat-spinner>
     </div>
 
     <div class="sn-card not-found-card" *ngIf="!loading && !job">
@@ -30,7 +30,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       <div class="page-banner">
         <div class="banner-breadcrumb">
           <a routerLink="/jobs" class="bc-link">Job History</a>
-          <mat-icon class="bc-sep">chevron_right</mat-icon>
+          <mat-icon class="bc-sep" aria-hidden="true">chevron_right</mat-icon>
           <span>Job Run</span>
         </div>
         <div class="banner-row">

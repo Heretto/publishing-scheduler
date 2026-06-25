@@ -47,7 +47,7 @@ class MapsDialogComponent {
     <div class="page-banner">
       <div class="banner-breadcrumb">
         <span>Home</span>
-        <mat-icon class="bc-sep">chevron_right</mat-icon>
+        <mat-icon class="bc-sep" aria-hidden="true">chevron_right</mat-icon>
         <span>Dashboard</span>
       </div>
       <div class="banner-row">
@@ -85,7 +85,7 @@ class MapsDialogComponent {
       </div>
     </div>
 
-    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;"></mat-spinner>
+    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;" aria-label="Loading dashboard"></mat-spinner>
 
     <ng-container *ngIf="!loading">
 
@@ -94,7 +94,7 @@ class MapsDialogComponent {
         <div class="alert-left"></div>
         <div class="alert-body">
           <div class="alert-header">
-            <mat-icon class="attention-icon">warning</mat-icon>
+            <mat-icon class="attention-icon" aria-hidden="true">warning</mat-icon>
             <span class="alert-title">Needs Attention</span>
           </div>
           <div *ngFor="let s of needsAttentionSchedules" class="alert-row">
@@ -110,7 +110,7 @@ class MapsDialogComponent {
         <div class="alert-left"></div>
         <div class="alert-body">
           <div class="alert-header">
-            <mat-icon class="stale-icon">schedule</mat-icon>
+            <mat-icon class="stale-icon" aria-hidden="true">schedule</mat-icon>
             <span class="alert-title">Stale Schedules</span>
           </div>
           <p class="stale-note">These enabled schedules haven't run recently. Check their cron configuration.</p>
@@ -322,7 +322,7 @@ class MapsDialogComponent {
               <span class="sparkline-summary-failed">{{ periodFailedJobs }} failed</span>
             </div>
             <!-- Chart -->
-            <svg width="100%" height="60" viewBox="0 0 420 60" preserveAspectRatio="none">
+            <svg width="100%" height="60" viewBox="0 0 420 60" preserveAspectRatio="none" role="img" aria-label="Daily activity bar chart for the last 14 days">
               <!-- 50% reference line -->
               <line x1="0" y1="35" x2="420" y2="35" stroke="#e8e8e8" stroke-width="0.75"></line>
               <ng-container *ngFor="let d of summary!.daily_volumes; let i = index">

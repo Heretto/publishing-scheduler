@@ -170,15 +170,19 @@ interface BreadcrumbItem {
                               <div class="release-panel" *ngIf="releaseMenuOpenId === map.id">
                                 <div class="release-loading" *ngIf="releaseOptions.get(map.id)?.loading">Loading releases&hellip;</div>
                                 <ng-container *ngIf="!releaseOptions.get(map.id)?.loading">
-                                  <div class="release-option"
+                                  <div class="release-option" role="button" tabindex="0"
                                        [class.release-selected]="!selectedReleases.has(map.id)"
-                                       (click)="clearRelease(map.id)">
+                                       (click)="clearRelease(map.id)"
+                                       (keydown.enter)="clearRelease(map.id)"
+                                       (keydown.space)="$event.preventDefault(); clearRelease(map.id)">
                                     Latest (always current)
                                   </div>
-                                  <div class="release-option"
+                                  <div class="release-option" role="button" tabindex="0"
                                        *ngFor="let rel of releaseOptions.get(map.id)?.releases"
                                        [class.release-selected]="selectedReleases.get(map.id)?.id === rel.id"
-                                       (click)="selectRelease(map.id, rel)">
+                                       (click)="selectRelease(map.id, rel)"
+                                       (keydown.enter)="selectRelease(map.id, rel)"
+                                       (keydown.space)="$event.preventDefault(); selectRelease(map.id, rel)">
                                     {{ rel.name }}<span class="release-meta" *ngIf="rel.completedDateTime"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
                                     <span class="release-branch" *ngIf="rel.branchOfOriginName"> ({{ rel.branchOfOriginName }})</span>
                                   </div>
@@ -217,15 +221,19 @@ interface BreadcrumbItem {
               <div class="release-panel" *ngIf="releaseMenuOpenId === item.id">
                 <div class="release-loading" *ngIf="releaseOptions.get(item.id)?.loading">Loading releases&hellip;</div>
                 <ng-container *ngIf="!releaseOptions.get(item.id)?.loading">
-                  <div class="release-option"
+                  <div class="release-option" role="button" tabindex="0"
                        [class.release-selected]="!selectedReleases.has(item.id)"
-                       (click)="clearRelease(item.id)">
+                       (click)="clearRelease(item.id)"
+                       (keydown.enter)="clearRelease(item.id)"
+                       (keydown.space)="$event.preventDefault(); clearRelease(item.id)">
                     Latest (always current)
                   </div>
-                  <div class="release-option"
+                  <div class="release-option" role="button" tabindex="0"
                        *ngFor="let rel of releaseOptions.get(item.id)?.releases"
                        [class.release-selected]="selectedReleases.get(item.id)?.id === rel.id"
-                       (click)="selectRelease(item.id, rel)">
+                       (click)="selectRelease(item.id, rel)"
+                       (keydown.enter)="selectRelease(item.id, rel)"
+                       (keydown.space)="$event.preventDefault(); selectRelease(item.id, rel)">
                     {{ rel.name }}<span class="release-meta" *ngIf="rel.completedDateTime"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
                     <span class="release-branch" *ngIf="rel.branchOfOriginName"> ({{ rel.branchOfOriginName }})</span>
                   </div>

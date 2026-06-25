@@ -18,6 +18,7 @@ import { AuthService } from '../../core/services/auth.service';
         MatTooltipModule,
     ],
     template: `
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="app-shell">
 
       <!-- Global top bar -->
@@ -30,14 +31,14 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
         <div class="header-actions">
           <button mat-icon-button class="header-icon-btn" aria-label="Notifications" matTooltip="Notifications">
-            <mat-icon>notifications_none</mat-icon>
+            <mat-icon aria-hidden="true">notifications_none</mat-icon>
           </button>
           <button mat-icon-button class="header-icon-btn" aria-label="Help" matTooltip="Help">
-            <mat-icon>help_outline</mat-icon>
+            <mat-icon aria-hidden="true">help_outline</mat-icon>
           </button>
           <button class="user-avatar-btn" [matMenuTriggerFor]="userMenu" aria-label="User menu" matTooltip="Account">
             <span class="user-avatar">
-              <mat-icon *ngIf="!userInitial" class="avatar-icon">person</mat-icon>
+              <mat-icon *ngIf="!userInitial" class="avatar-icon" aria-hidden="true">person</mat-icon>
               <ng-container *ngIf="userInitial">{{ userInitial }}</ng-container>
             </span>
           </button>
@@ -68,17 +69,17 @@ import { AuthService } from '../../core/services/auth.service';
             <div class="nav-section-label">MAIN</div>
             <a class="nav-item" routerLink="/dashboard" routerLinkActive="nav-active"
                aria-label="Dashboard">
-              <mat-icon class="nav-icon">dashboard</mat-icon>
+              <mat-icon class="nav-icon" aria-hidden="true">dashboard</mat-icon>
               <span class="nav-label">Dashboard</span>
             </a>
             <a class="nav-item" routerLink="/schedules" routerLinkActive="nav-active"
                [routerLinkActiveOptions]="{ exact: false }" aria-label="Schedules">
-              <mat-icon class="nav-icon">event_repeat</mat-icon>
+              <mat-icon class="nav-icon" aria-hidden="true">event_repeat</mat-icon>
               <span class="nav-label">Schedules</span>
             </a>
             <a class="nav-item" routerLink="/jobs" routerLinkActive="nav-active"
                aria-label="Job History">
-              <mat-icon class="nav-icon">work_history</mat-icon>
+              <mat-icon class="nav-icon" aria-hidden="true">work_history</mat-icon>
               <span class="nav-label">Job History</span>
             </a>
           </div>
@@ -89,7 +90,7 @@ import { AuthService } from '../../core/services/auth.service';
             <div class="nav-section-label">SYSTEM</div>
             <a class="nav-item" routerLink="/settings" routerLinkActive="nav-active"
                aria-label="Settings">
-              <mat-icon class="nav-icon">settings</mat-icon>
+              <mat-icon class="nav-icon" aria-hidden="true">settings</mat-icon>
               <span class="nav-label">Settings</span>
             </a>
           </div>
@@ -97,7 +98,6 @@ import { AuthService } from '../../core/services/auth.service';
 
         <!-- Main content -->
         <main class="app-content" id="main-content" role="main">
-          <a class="skip-link" href="#main-content">Skip to content</a>
           <router-outlet></router-outlet>
         </main>
 

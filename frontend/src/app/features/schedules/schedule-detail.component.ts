@@ -27,7 +27,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     ],
     template: `
     <div *ngIf="loading" class="loading-center">
-      <mat-spinner diameter="36"></mat-spinner>
+      <mat-spinner diameter="36" aria-label="Loading schedule"></mat-spinner>
     </div>
 
     <ng-container *ngIf="!loading && schedule">
@@ -38,9 +38,9 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           <div class="banner-left">
             <nav class="breadcrumb" aria-label="Breadcrumb">
               <a routerLink="/dashboard" class="bc-link">Home</a>
-              <mat-icon class="bc-sep">chevron_right</mat-icon>
+              <mat-icon class="bc-sep" aria-hidden="true">chevron_right</mat-icon>
               <a routerLink="/schedules" class="bc-link">Schedules</a>
-              <mat-icon class="bc-sep">chevron_right</mat-icon>
+              <mat-icon class="bc-sep" aria-hidden="true">chevron_right</mat-icon>
               <span class="bc-current">{{ schedule.name }}</span>
             </nav>
             <div class="banner-title-row">
@@ -97,7 +97,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           <div class="field-value">
             <div *ngIf="schedule.locales?.length" class="locale-code-list">
               <span class="locale-code-chip" *ngFor="let l of schedule.locales">
-                <mat-icon class="locale-code-icon">translate</mat-icon>{{ l || 'Source' }}
+                <mat-icon class="locale-code-icon" aria-hidden="true">translate</mat-icon>{{ l || 'Source' }}
               </span>
             </div>
             <span *ngIf="!schedule.locales?.length">—</span>
@@ -121,14 +121,18 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       </div>
 
       <!-- Tab bar -->
-      <div class="tab-bar">
+      <div class="tab-bar" role="tablist">
         <button class="tab-btn" [class.tab-active]="activeTab === 'overview'"
-                (click)="activeTab = 'overview'" role="tab" aria-label="Overview">
-          <mat-icon>dashboard</mat-icon> Overview
+                (click)="activeTab = 'overview'" role="tab" aria-label="Overview"
+                [attr.aria-selected]="activeTab === 'overview'"
+                aria-controls="tab-panel-overview">
+          <mat-icon aria-hidden="true">dashboard</mat-icon> Overview
         </button>
         <button class="tab-btn" [class.tab-active]="activeTab === 'jobs'"
-                (click)="switchToJobs()" role="tab" aria-label="Job History">
-          <mat-icon>history</mat-icon> Job History
+                (click)="switchToJobs()" role="tab" aria-label="Job History"
+                [attr.aria-selected]="activeTab === 'jobs'"
+                aria-controls="tab-panel-jobs">
+          <mat-icon aria-hidden="true">history</mat-icon> Job History
           <span *ngIf="jobs.length > 0" class="tab-badge">{{ jobs.length }}</span>
         </button>
       </div>
@@ -138,6 +142,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 
         <!-- Overview tab -->
         <ng-container *ngIf="activeTab === 'overview'">
+          <div id="tab-panel-overview" role="tabpanel" aria-label="Overview">
 
           <!-- KPI cards -->
           <div class="kpi-grid">
@@ -206,7 +211,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
             <!-- Locales section -->
             <div class="detail-section" *ngIf="schedule.locales?.length">
               <div class="section-header">
-                <mat-icon class="section-icon">language</mat-icon>
+                <mat-icon class="section-icon" aria-hidden="true">language</mat-icon>
                 <span class="section-title">Locales</span>
                 <span class="section-count">{{ schedule.locales.length }}</span>
               </div>
@@ -221,12 +226,12 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
             <!-- Sources section -->
             <div class="detail-section" *ngIf="sourceCount > 0">
               <div class="section-header">
-                <mat-icon class="section-icon">description</mat-icon>
+                <mat-icon class="section-icon" aria-hidden="true">description</mat-icon>
                 <span class="section-title">Sources</span>
                 <span class="section-count">{{ sourceCount }}</span>
               </div>
               <div *ngIf="sourcesLoading" class="sources-loading">
-                <mat-spinner diameter="18"></mat-spinner>
+                <mat-spinner diameter="18" aria-label="Loading sources"></mat-spinner>
                 <span>Resolving source names…</span>
               </div>
               <div *ngIf="!sourcesLoading" class="source-list">
@@ -266,12 +271,14 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
               </div>
             </div>
           </div>
+          </div><!-- /tab-panel-overview -->
         </ng-container>
 
         <!-- Job History tab -->
         <ng-container *ngIf="activeTab === 'jobs'">
+          <div id="tab-panel-jobs" role="tabpanel" aria-label="Job History">
           <div *ngIf="jobsLoading" class="loading-center">
-            <mat-spinner diameter="32"></mat-spinner>
+            <mat-spinner diameter="32" aria-label="Loading job history"></mat-spinner>
           </div>
 
           <div *ngIf="!jobsLoading && jobs.length > 0" class="jobs-table-wrap">
@@ -333,6 +340,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
               <mat-icon>play_arrow</mat-icon> Run Now
             </button>
           </div>
+          </div><!-- /tab-panel-jobs -->
         </ng-container>
 
       </div>
@@ -341,7 +349,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     styles: [`
     .loading-center { display: flex; justify-content: center; padding: 60px; }
 
-    /* ── Page banner ─────────────────────────────────────────── */
     .page-banner {
       background: linear-gradient(135deg, #011627 0%, #0d2137 100%);
       border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -441,7 +448,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       background: rgba(222,53,11,0.08) !important;
     }
 
-    /* ── Record header fields ────────────────────────────────── */
     .record-header-card {
       display: flex;
       align-items: stretch;
@@ -476,7 +482,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       font-weight: 500;
     }
 
-    /* ── Tab bar ─────────────────────────────────────────────── */
     .tab-bar {
       display: flex;
       background: #fff;
@@ -517,10 +522,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       border-radius: 10px;
     }
 
-    /* ── Tab content ─────────────────────────────────────────── */
     .tab-content { padding: 24px 0; }
-
-    /* ── KPI grid ────────────────────────────────────────────── */
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -576,7 +578,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .kpi-empty { font-size: 14px; color: #5e6e82; }
     .kpi-sub { font-size: 11.5px; color: #5e6e82; }
 
-    /* ── Detail sections ─────────────────────────────────────── */
     .detail-sections { display: flex; flex-direction: column; gap: 14px; }
     .detail-section {
       background: #fff;
@@ -651,7 +652,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       height: 32px !important;
     }
 
-    /* ── Job history table ───────────────────────────────────── */
     .jobs-table-wrap {
       background: #fff;
       border: 1px solid #dee2ec;
@@ -703,7 +703,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .table-footer mat-icon { font-size: 14px; width: 14px; height: 14px; }
     .view-all-link { color: #1a5fa0; margin-left: 4px; }
 
-    /* ── Sources section ─────────────────────────────────────── */
     .sources-loading {
       display: flex;
       align-items: center;
@@ -767,7 +766,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     }
     .source-child-name { font-size: 12.5px; color: #3d4460; }
 
-    /* Empty states */
     .empty-state {
       display: flex;
       flex-direction: column;

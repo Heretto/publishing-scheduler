@@ -21,7 +21,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     <div class="page-banner">
       <div class="banner-breadcrumb">
         <span>Home</span>
-        <mat-icon class="bc-sep">chevron_right</mat-icon>
+        <mat-icon class="bc-sep" aria-hidden="true">chevron_right</mat-icon>
         <span>Job History</span>
       </div>
       <div class="banner-row">
@@ -29,7 +29,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       </div>
     </div>
 
-    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;"></mat-spinner>
+    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;" aria-label="Loading jobs"></mat-spinner>
 
     <div class="sn-card" *ngIf="!loading" style="margin-top: 20px;">
       <div class="sn-card-header">
@@ -53,7 +53,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           <th mat-header-cell *matHeaderCellDef>Trigger</th>
           <td mat-cell *matCellDef="let j">
             <span class="trigger-badge" [class.trigger-manual]="j.trigger_type === 'manual'" [class.trigger-schedule]="j.trigger_type !== 'manual'">
-              <mat-icon class="trigger-icon">{{ j.trigger_type === 'manual' ? 'touch_app' : 'schedule' }}</mat-icon>
+              <mat-icon class="trigger-icon" aria-hidden="true">{{ j.trigger_type === 'manual' ? 'touch_app' : 'schedule' }}</mat-icon>
               {{ j.trigger_type }}
             </span>
           </td>
