@@ -98,7 +98,7 @@ class MapsDialogComponent {
             <span class="alert-title">Needs Attention</span>
           </div>
           <div *ngFor="let s of needsAttentionSchedules" class="alert-row">
-            <a [routerLink]="['/schedules', s.id, 'edit']" class="table-link">{{ s.name }}</a>
+            <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
             <span class="failure-count">{{ s.consecutive_failures ?? 0 }} consecutive failure{{ (s.consecutive_failures ?? 0) !== 1 ? 's' : '' }}</span>
             <span *ngIf="!s.enabled" class="badge-disabled">Auto-disabled</span>
           </div>
@@ -115,7 +115,7 @@ class MapsDialogComponent {
           </div>
           <p class="stale-note">These enabled schedules haven't run recently. Check their cron configuration.</p>
           <div *ngFor="let s of staleSchedules" class="alert-row">
-            <a [routerLink]="['/schedules', s.id, 'edit']" class="table-link">{{ s.name }}</a>
+            <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
             <span *ngIf="s.last_run_at" class="muted-text">Last run: {{ s.last_run_at | date:'short' }}</span>
             <span *ngIf="!s.last_run_at" class="muted-text">Never run</span>
           </div>
@@ -138,7 +138,7 @@ class MapsDialogComponent {
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
               <td mat-cell *matCellDef="let s" class="col-truncate">
-                <a [routerLink]="['/schedules']" class="table-link">{{ s.name }}</a>
+                <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
               </td>
             </ng-container>
             <ng-container matColumnDef="description">
@@ -245,7 +245,7 @@ class MapsDialogComponent {
             <ng-container matColumnDef="schedule">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Schedule</th>
               <td mat-cell *matCellDef="let j" class="col-truncate">
-                <a [routerLink]="['/schedules', j.schedule_id, 'edit']" class="table-link">
+                <a [routerLink]="['/schedules', j.schedule_id]" class="table-link">
                   {{ j.schedule_name || j.schedule_id }}
                 </a>
               </td>
