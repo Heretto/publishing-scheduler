@@ -216,7 +216,7 @@ import { AuthService } from '../../core/services/auth.service';
       text-overflow: ellipsis;
       max-width: 200px;
     }
-    .menu-role { font-size: 11px; color: #97a0af; margin-top: 1px; }
+    .menu-role { font-size: 11px; color: #5e6e82; margin-top: 1px; }
     .menu-divider { height: 1px; background: #e0e4ec; margin: 4px 0; }
 
     /* ── Shell body ─────────────────────────────────────────── */
@@ -243,7 +243,7 @@ import { AuthService } from '../../core/services/auth.service';
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1px;
-      color: rgba(255,255,255,0.3);
+      color: rgba(255,255,255,0.5);
       padding: 12px 16px 4px;
       text-transform: uppercase;
     }

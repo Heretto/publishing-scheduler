@@ -131,7 +131,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       text-transform: uppercase;
       letter-spacing: 0.6px;
     }
-    .job-count { font-size: 12px; color: #97a0af; }
+    .job-count { font-size: 12px; color: #5e6e82; }
 
     /* ── Table ──────────────────────────────────────────────── */
     .jobs-table { width: 100%; }
@@ -155,7 +155,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
     .trigger-icon { font-size: 12px; width: 12px; height: 12px; }
 
     .details-btn { font-size: 12px; }
-    .empty-state { padding: 24px 16px; color: #97a0af; margin: 0; }
+    .empty-state { padding: 24px 16px; color: #5e6e82; margin: 0; }
   `]
 })
 export class JobListComponent implements OnInit {

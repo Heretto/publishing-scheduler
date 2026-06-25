@@ -171,11 +171,11 @@ import { ApiService } from '../../core/services/api.service';
       text-transform: uppercase;
       letter-spacing: 0.6px;
     }
-    .section-sub { font-size: 11px; color: #97a0af; }
+    .section-sub { font-size: 11px; color: #5e6e82; }
 
     /* ── Connection status ───────────────────────────────────── */
     .header-right { display: flex; align-items: center; gap: 4px; }
-    .last-checked { font-size: 11px; color: #97a0af; }
+    .last-checked { font-size: 11px; color: #5e6e82; }
     .refresh-btn { color: #42526e !important; width: 28px !important; height: 28px !important; }
     .refresh-btn mat-icon { font-size: 18px; width: 18px; height: 18px; line-height: 18px; }
     .spinning { animation: spin 0.8s linear infinite; }
@@ -184,7 +184,7 @@ import { ApiService } from '../../core/services/api.service';
     .status-body { padding: 0 16px; }
     .status-checking {
       display: flex; align-items: center; gap: 10px;
-      padding: 14px 0; color: #97a0af; font-size: 13px;
+      padding: 14px 0; color: #5e6e82; font-size: 13px;
     }
     .status-row {
       display: flex;

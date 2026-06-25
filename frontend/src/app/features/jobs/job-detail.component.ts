@@ -257,7 +257,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.6px;
-      color: #97a0af;
+      color: #5e6e82;
       margin-bottom: 4px;
     }
     .record-value { font-size: 13px; font-weight: 500; color: #1d1f2b; }
@@ -275,7 +275,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       overflow: hidden;
       margin-bottom: 14px;
     }
-    .not-found-card { padding: 24px; color: #97a0af; }
+    .not-found-card { padding: 24px; color: #5e6e82; }
     .sn-card-header {
       padding: 10px 16px;
       border-bottom: 1px solid #dee2ec;
@@ -292,7 +292,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       text-transform: uppercase;
       letter-spacing: 0.6px;
     }
-    .section-count { font-size: 12px; color: #97a0af; }
+    .section-count { font-size: 12px; color: #5e6e82; }
 
     /* ── Error card ─────────────────────────────────────────── */
     .error-card { border-left: 4px solid #de350b; }

@@ -493,10 +493,10 @@ class MapsDialogComponent {
       text-transform: uppercase;
       letter-spacing: 0.6px;
     }
-    .section-sub { font-size: 11px; color: #97a0af; }
+    .section-sub { font-size: 11px; color: #5e6e82; }
     .section-title-row { display: flex; align-items: center; gap: 8px; }
     .header-right { display: flex; align-items: center; gap: 12px; }
-    .row-count { font-size: 11px; color: #97a0af; }
+    .row-count { font-size: 11px; color: #5e6e82; }
     .see-all-link { font-size: 12px; color: #AD4780; text-decoration: none; font-weight: 500; }
     .see-all-link:hover { text-decoration: underline; }
 
@@ -520,7 +520,7 @@ class MapsDialogComponent {
     .rate-badge.rate-warn { background: #fff3e0; color: #e65100; }
     .rate-badge.rate-bad { background: #ffebee; color: #c62828; }
 
-    .empty-state { padding: 20px 16px; color: #97a0af; }
+    .empty-state { padding: 20px 16px; color: #5e6e82; }
     .empty-state p { margin: 0; }
     .empty-state a { color: #AD4780; }
 

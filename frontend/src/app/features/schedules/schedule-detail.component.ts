@@ -425,7 +425,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .field-label {
       font-size: 10.5px;
       font-weight: 700;
-      color: #97a0af;
+      color: #5e6e82;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 4px;
@@ -456,7 +456,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
-      color: #7a8494;
+      color: #5e6e82;
       margin-bottom: -2px;
       font-family: inherit;
       transition: color 0.12s;
@@ -526,15 +526,15 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .kpi-label {
       font-size: 10.5px;
       font-weight: 700;
-      color: #97a0af;
+      color: #5e6e82;
       text-transform: uppercase;
       letter-spacing: 0.4px;
     }
     .kpi-value-area { display: flex; align-items: center; min-height: 28px; }
     .kpi-value { font-size: 24px; font-weight: 700; color: #1d1f2b; }
     .kpi-value-alert { color: #de350b; }
-    .kpi-empty { font-size: 14px; color: #b0b8c4; }
-    .kpi-sub { font-size: 11.5px; color: #97a0af; }
+    .kpi-empty { font-size: 14px; color: #5e6e82; }
+    .kpi-sub { font-size: 11.5px; color: #5e6e82; }
 
     /* ── Detail sections ─────────────────────────────────────── */
     .detail-sections { display: flex; flex-direction: column; gap: 14px; }
@@ -553,7 +553,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       background: #f8f9fb;
       border-bottom: 1px solid #dee2ec;
     }
-    .section-icon { font-size: 16px; width: 16px; height: 16px; color: #7a8494; }
+    .section-icon { font-size: 16px; width: 16px; height: 16px; color: #5e6e82; }
     .section-icon-alert { color: #de350b; }
     .section-title { font-size: 12.5px; font-weight: 700; color: #3d4460; }
     .section-count {
@@ -582,7 +582,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       padding: 4px 10px;
       border-radius: 3px;
     }
-    .locale-icon { font-size: 13px; width: 13px; height: 13px; color: #7a8494; }
+    .locale-icon { font-size: 13px; width: 13px; height: 13px; color: #5e6e82; }
 
     .alert-body { padding: 14px 16px; }
     .alert-text { font-size: 13.5px; color: #5a0000; margin: 0 0 12px; line-height: 1.5; }
@@ -639,7 +639,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       padding: 10px 16px;
       border-top: 1px solid #dee2ec;
       font-size: 12.5px;
-      color: #97a0af;
+      color: #5e6e82;
       background: #fafbfc;
     }
     .table-footer mat-icon { font-size: 14px; width: 14px; height: 14px; }
@@ -663,9 +663,9 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       justify-content: center;
       margin-bottom: 16px;
     }
-    .empty-icon-wrap mat-icon { font-size: 26px; width: 26px; height: 26px; color: #b0b8c4; }
+    .empty-icon-wrap mat-icon { font-size: 26px; width: 26px; height: 26px; color: #5e6e82; }
     .empty-state h2 { font-size: 15px; color: #3d4460; margin: 0 0 8px; font-weight: 600; }
-    .empty-state p { color: #97a0af; font-size: 13px; margin: 0 0 20px; max-width: 340px; }
+    .empty-state p { color: #5e6e82; font-size: 13px; margin: 0 0 20px; max-width: 340px; }
   `]
 })
 export class ScheduleDetailComponent implements OnInit {

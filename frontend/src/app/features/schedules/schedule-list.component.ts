@@ -333,7 +333,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .metric-icon-active { background: rgba(0,166,80,0.1); }
     .metric-icon-active mat-icon { color: #00a650; }
     .metric-icon-paused { background: rgba(151,160,175,0.15); }
-    .metric-icon-paused mat-icon { color: #97a0af; }
+    .metric-icon-paused mat-icon { color: #5e6e82; }
     .metric-icon-alert { background: rgba(222,53,11,0.1); }
     .metric-icon-alert mat-icon { color: #de350b; }
     .metric-icon-ok { background: rgba(0,166,80,0.1); }
@@ -350,7 +350,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .metric-label {
       font-size: 11px;
       font-weight: 600;
-      color: #97a0af;
+      color: #5e6e82;
       text-transform: uppercase;
       letter-spacing: 0.4px;
       margin-top: 2px;
@@ -382,7 +382,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       font-size: 16px;
       width: 16px;
       height: 16px;
-      color: #97a0af;
+      color: #5e6e82;
     }
     .search-input {
       border: none;
@@ -393,14 +393,14 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       width: 100%;
       font-family: inherit;
     }
-    .search-input::placeholder { color: #b0b8c4; }
+    .search-input::placeholder { color: #5e6e82; }
     .search-clear {
       background: none;
       border: none;
       cursor: pointer;
       padding: 0;
       display: flex;
-      color: #97a0af;
+      color: #5e6e82;
     }
     .search-clear mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .filter-tabs {
@@ -448,7 +448,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .filter-bar-right { margin-left: auto; }
     .results-count {
       font-size: 12px;
-      color: #97a0af;
+      color: #5e6e82;
       white-space: nowrap;
     }
 
@@ -475,9 +475,9 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       justify-content: center;
       margin-bottom: 20px;
     }
-    .empty-icon-wrap mat-icon { font-size: 30px; width: 30px; height: 30px; color: #b0b8c4; }
+    .empty-icon-wrap mat-icon { font-size: 30px; width: 30px; height: 30px; color: #5e6e82; }
     .empty-state h2 { font-size: 16px; color: #3d4460; margin: 0 0 8px; font-weight: 600; }
-    .empty-state p { color: #97a0af; font-size: 13.5px; margin: 0 0 24px; }
+    .empty-state p { color: #5e6e82; font-size: 13.5px; margin: 0 0 24px; }
 
     /* ── Card grid ───────────────────────────────────────────── */
     .card-grid {
@@ -556,7 +556,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     }
     .card-desc {
       font-size: 12px;
-      color: #97a0af;
+      color: #5e6e82;
       display: block;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -572,7 +572,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       letter-spacing: 0.5px;
     }
     .pill-active { background: rgba(0,166,80,0.1); color: #006b34; }
-    .pill-paused { background: #f0f2f7; color: #7a8494; }
+    .pill-paused { background: #f0f2f7; color: #5e6e82; }
     .pill-alert { background: rgba(222,53,11,0.1); color: #b22a09; }
 
     /* Cron row */
@@ -587,7 +587,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       font-size: 14px;
       width: 14px;
       height: 14px;
-      color: #b0b8c4;
+      color: #5e6e82;
       flex-shrink: 0;
     }
 
@@ -628,12 +628,12 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       gap: 5px;
       flex-wrap: wrap;
     }
-    .run-label { font-size: 11px; color: #b0b8c4; font-weight: 500; }
-    .run-time { font-size: 11px; color: #7a8494; }
-    .next-run-row .run-label { color: #97a0af; }
+    .run-label { font-size: 11px; color: #5e6e82; font-weight: 500; }
+    .run-time { font-size: 11px; color: #5e6e82; }
+    .next-run-row .run-label { color: #5e6e82; }
     .next-run-val { font-size: 11px; color: #5a6070; font-weight: 500; }
     .card-actions { display: flex; gap: 0; }
-    .action-btn { color: #97a0af !important; }
+    .action-btn { color: #5e6e82 !important; }
     .action-btn:hover { color: #011627 !important; }
     .action-btn-danger:hover { color: #de350b !important; }
   `]
