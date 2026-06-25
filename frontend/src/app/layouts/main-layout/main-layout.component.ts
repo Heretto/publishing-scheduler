@@ -24,8 +24,10 @@ import { AuthService } from '../../core/services/auth.service';
       <!-- Global top bar -->
       <header class="global-header">
         <div class="header-brand">
-          <img src="assets/heretto-logo.svg" alt="Heretto" class="header-logo">
-          <span class="header-open-projects">Open Projects</span>
+          <div class="header-brand-left">
+            <img src="assets/heretto-logo.svg" alt="Heretto" class="header-logo">
+            <span class="header-open-projects">Open Projects</span>
+          </div>
           <div class="header-brand-divider"></div>
           <span class="header-app-name">Publishing Scheduler</span>
         </div>
@@ -131,13 +133,20 @@ import { AuthService } from '../../core/services/auth.service';
       align-items: flex-end;
       gap: 12px;
     }
-    .header-logo { height: 26px; filter: brightness(0) invert(1); }
+    .header-brand-left {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      width: 193px;
+    }
+    .header-logo { height: 26px; filter: brightness(0) invert(1); flex-shrink: 0; }
     .header-open-projects {
       font-size: 11px;
       font-weight: 500;
       color: rgba(255,255,255,0.45);
       letter-spacing: 0.2px;
-      margin-left: 2px;
+      white-space: nowrap;
+      overflow: hidden;
     }
     .header-brand-divider {
       width: 1px;
