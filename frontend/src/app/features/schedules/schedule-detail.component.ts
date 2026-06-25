@@ -8,8 +8,11 @@ import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
 import { JobService, Job } from '../../core/services/job.service';
+import { HerettoService } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
@@ -205,6 +208,36 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
                   <mat-icon class="locale-icon">translate</mat-icon>
                   <span>{{ l }}</span>
                 </div>
+              </div>
+            </div>
+
+            <!-- Sources section -->
+            <div class="detail-section" *ngIf="sourceCount > 0">
+              <div class="section-header">
+                <mat-icon class="section-icon">description</mat-icon>
+                <span class="section-title">Sources</span>
+                <span class="section-count">{{ sourceCount }}</span>
+              </div>
+              <div *ngIf="sourcesLoading" class="sources-loading">
+                <mat-spinner diameter="18"></mat-spinner>
+                <span>Resolving source names…</span>
+              </div>
+              <div *ngIf="!sourcesLoading" class="source-list">
+                <ng-container *ngFor="let src of sourceItems">
+                  <div class="source-item">
+                    <mat-icon class="source-icon-item">{{ src.type === 'folder' ? 'folder' : 'article' }}</mat-icon>
+                    <div class="source-info">
+                      <span class="source-name">{{ src.name }}</span>
+                      <span class="source-type-badge source-type-{{ src.type }}">{{ src.type }}</span>
+                    </div>
+                  </div>
+                  <div class="source-children" *ngIf="src.children?.length">
+                    <div class="source-child" *ngFor="let child of src.children">
+                      <mat-icon class="source-child-icon">article</mat-icon>
+                      <span class="source-child-name">{{ child.name }}</span>
+                    </div>
+                  </div>
+                </ng-container>
               </div>
             </div>
 
@@ -645,6 +678,70 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     .table-footer mat-icon { font-size: 14px; width: 14px; height: 14px; }
     .view-all-link { color: #1a5fa0; margin-left: 4px; }
 
+    /* ── Sources section ─────────────────────────────────────── */
+    .sources-loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      color: #5e6e82;
+      font-size: 13px;
+    }
+    .source-list { display: flex; flex-direction: column; }
+    .source-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid #f0f2f5;
+    }
+    .source-item:last-child { border-bottom: none; }
+    .source-icon-item {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #5e6e82;
+      flex-shrink: 0;
+    }
+    .source-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .source-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1d1f2b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .source-type-badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 3px;
+      text-transform: capitalize;
+      flex-shrink: 0;
+    }
+    .source-type-document { background: #e8f0fe; color: #1a5fa0; }
+    .source-type-folder { background: #fff8e1; color: #b45309; }
+    .source-children {
+      background: #fafbfc;
+      border-bottom: 1px solid #f0f2f5;
+      padding: 2px 0 4px;
+    }
+    .source-child {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 5px 16px 5px 38px;
+    }
+    .source-child-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #5e6e82;
+      flex-shrink: 0;
+    }
+    .source-child-name { font-size: 12.5px; color: #3d4460; }
+
     /* Empty states */
     .empty-state {
       display: flex;
@@ -679,6 +776,9 @@ export class ScheduleDetailComponent implements OnInit {
   jobsLoading = false;
   jobColumns = ['status', 'trigger', 'started', 'completed', 'link'];
 
+  sourceItems: { id: string; name: string; type: 'document' | 'folder'; children?: { id: string; name: string }[] }[] = [];
+  sourcesLoading = false;
+
   get hasFailures(): boolean { return (this.schedule?.consecutive_failures ?? 0) > 0; }
   get sourceCount(): number {
     return (this.schedule?.document_ids?.length ?? 0) + (this.schedule?.folder_ids?.length ?? 0);
@@ -689,6 +789,7 @@ export class ScheduleDetailComponent implements OnInit {
     private router: Router,
     private scheduleService: ScheduleService,
     private jobService: JobService,
+    private herettoService: HerettoService,
     private notifications: NotificationService,
     private dialog: MatDialog,
   ) {}
@@ -700,7 +801,7 @@ export class ScheduleDetailComponent implements OnInit {
     this.scheduleService.getById(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: s => { this.schedule = s; this.loading = false; },
+        next: s => { this.schedule = s; this.loading = false; this.loadSources(); },
         error: () => { this.loading = false; this.router.navigate(['/schedules']); },
       });
   }
@@ -718,6 +819,43 @@ export class ScheduleDetailComponent implements OnInit {
       .subscribe({
         next: r => { this.jobs = r.data; this.jobsLoading = false; },
         error: () => { this.jobsLoading = false; },
+      });
+  }
+
+  loadSources() {
+    if (!this.schedule) return;
+    const docIds = this.schedule.document_ids ?? [];
+    const folderIds = this.schedule.folder_ids ?? [];
+    if (docIds.length === 0 && folderIds.length === 0) return;
+
+    this.sourcesLoading = true;
+    const requests = [
+      ...docIds.map(id =>
+        this.herettoService.getDocumentInfo(id).pipe(
+          map(r => ({ id, name: r.title, type: 'document' as const })),
+          catchError(() => of({ id, name: id.substring(0, 8) + '…', type: 'document' as const })),
+        )
+      ),
+      ...folderIds.map(id =>
+        this.herettoService.getFolderContents(id).pipe(
+          map(r => ({
+            id,
+            name: r.title,
+            type: 'folder' as const,
+            children: r.children
+              .filter(c => c.type?.toLowerCase().includes('map'))
+              .map(c => ({ id: c.id, name: c.title })),
+          })),
+          catchError(() => of({ id, name: id.substring(0, 8) + '…', type: 'folder' as const, children: [] })),
+        )
+      ),
+    ];
+
+    forkJoin(requests)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: items => { this.sourceItems = items; this.sourcesLoading = false; },
+        error: () => { this.sourcesLoading = false; },
       });
   }
 
