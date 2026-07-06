@@ -12,6 +12,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAnimations(),
     provideHttpClient(withInterceptors([hopAuthInterceptor, notificationInterceptor])),
-    { provide: HOP_LOGO_SRC, useValue: 'assets/heretto-logo.svg' },
+    { provide: HOP_LOGO_SRC, useValue: 'assets/heretto_open_projects.png' },
   ],
 };
