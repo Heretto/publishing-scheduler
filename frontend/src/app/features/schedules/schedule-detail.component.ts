@@ -16,7 +16,7 @@ import { HerettoService } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
-import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { HopConfirmDialogComponent } from '@heretto/hop-ui';
 
 @Component({
     selector: 'app-schedule-detail',
@@ -68,11 +68,11 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
             </a>
             <button mat-stroked-button class="banner-btn" (click)="toggleEnabled()"
                     [attr.aria-label]="schedule.enabled ? 'Pause' : 'Enable'">
-              <mat-icon>{{ schedule.enabled ? 'pause_circle_outline' : 'play_circle_outline' }}</mat-icon>
+              <mat-icon>{{ schedule.enabled ? 'pause_circle' : 'play_circle' }}</mat-icon>
               {{ schedule.enabled ? 'Pause' : 'Enable' }}
             </button>
             <button mat-stroked-button class="banner-btn banner-btn-danger" (click)="deleteSchedule()" aria-label="Delete">
-              <mat-icon>delete_outline</mat-icon> Delete
+              <mat-icon>delete</mat-icon> Delete
             </button>
           </div>
         </div>
@@ -324,7 +324,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
               <tr mat-row *matRowDef="let row; columns: jobColumns" class="job-row"></tr>
             </table>
             <div class="table-footer" *ngIf="jobs.length >= 50">
-              <mat-icon>info_outline</mat-icon>
+              <mat-icon>info</mat-icon>
               Showing the 50 most recent jobs.
               <a routerLink="/jobs" [queryParams]="{ schedule_id: schedule.id }" class="view-all-link">View all in Job History</a>
             </div>
@@ -898,7 +898,7 @@ export class ScheduleDetailComponent implements OnInit {
 
   deleteSchedule() {
     if (!this.schedule) return;
-    const ref = this.dialog.open(ConfirmDialogComponent, {
+    const ref = this.dialog.open(HopConfirmDialogComponent, {
       data: {
         title: 'Delete Schedule',
         message: `Delete "${this.schedule.name}"? This will also delete all job history for this schedule.`,

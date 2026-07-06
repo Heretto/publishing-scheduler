@@ -1,24 +1,32 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 
 @Component({
     selector: 'app-status-badge',
-    imports: [CommonModule, MatChipsModule, MatIconModule],
+    imports: [CommonModule, MatIconModule],
     template: `
-    <mat-chip [class]="'status-' + status" [attr.aria-label]="'Status: ' + (status | titlecase)">
+    <span class="status-badge status-{{ status }}" [attr.aria-label]="'Status: ' + (status | titlecase)">
       <mat-icon *ngIf="icon" class="badge-icon">{{ icon }}</mat-icon>
       {{ status | titlecase }}
-    </mat-chip>
+    </span>
   `,
     styles: [`
-    .status-success, .status-completed { background-color: #79ECDD !important; color: #011627 !important; }
-    .status-failed { background-color: #AD4780 !important; color: #FFFFFF !important; }
-    .status-failed ::ng-deep .mdc-evolution-chip__text-label { color: #FFFFFF !important; }
-    .status-failed .badge-icon { color: #FFFFFF !important; }
-    .status-running, .status-pending { background-color: #F7D48E !important; color: #011627 !important; }
-    .badge-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; vertical-align: middle; margin-top: -2px; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+    .status-success, .status-completed { background-color: #79ECDD; color: #011627; }
+    .status-failed { background-color: #AD4780; color: #FFFFFF; }
+    .status-running, .status-pending { background-color: #F7D48E; color: #011627; }
+    .badge-icon { font-size: 16px; width: 16px; height: 16px; }
   `]
 })
 export class StatusBadgeComponent {

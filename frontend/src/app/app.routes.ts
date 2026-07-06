@@ -1,34 +1,35 @@
 import { Routes } from '@angular/router';
-import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
+import { ShellComponent } from './shell/shell.component';
 
 export const routes: Routes = [
   // ── Unauthenticated auth pages ─────────────────────────────────────────────
   {
     path: 'login',
-    loadComponent: () =>
-      import('./features/auth/login.component').then(m => m.LoginComponent),
+    loadComponent: () => import('@heretto/hop-ui').then(m => m.HopLoginComponent),
   },
   {
     path: 'forgot-password',
-    loadComponent: () =>
-      import('./features/auth/forgot-password.component').then(m => m.ForgotPasswordComponent),
+    loadComponent: () => import('@heretto/hop-ui').then(m => m.HopForgotPasswordComponent),
   },
   {
     path: 'reset-password',
-    loadComponent: () =>
-      import('./features/auth/reset-password.component').then(m => m.ResetPasswordComponent),
+    loadComponent: () => import('@heretto/hop-ui').then(m => m.HopResetPasswordComponent),
+  },
+  {
+    path: 'auth/sso/complete',
+    loadComponent: () => import('@heretto/hop-ui').then(m => m.HopSSOCallbackComponent),
   },
   {
     path: 'invite/:token',
-    loadComponent: () =>
-      import('./features/auth/accept-invitation.component').then(m => m.AcceptInvitationComponent),
+    loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAcceptInvitationComponent),
   },
 
   // ── Authenticated app shell ────────────────────────────────────────────────
   {
     path: '',
-    component: MainLayoutComponent,
+    component: ShellComponent,
     canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -71,6 +72,15 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings.component').then(m => m.SettingsComponent),
+      },
+      {
+        path: 'account',
+        loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAccountComponent),
+      },
+      {
+        path: 'admin',
+        canActivate: [adminGuard],
+        loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAdminComponent),
       },
       { path: '**', redirectTo: 'dashboard' },
     ],

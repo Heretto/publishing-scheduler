@@ -1,22 +1,21 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { from, map, switchMap, of, catchError } from 'rxjs';
-import { AuthService } from '../services/auth.service';
+import { HopAuthService } from '@heretto/hop-ui';
 
-export const authGuard: CanActivateFn = () => {
-  const auth = inject(AuthService);
-  const router = inject(Router);
-
-  if (auth.isLoggedIn$.value) {
-    return of(true);
+function isSafeReturnUrl(url: string): boolean {
+  try {
+    const decoded = decodeURIComponent(url);
+    return decoded.startsWith('/') && !decoded.startsWith('//') && !decoded.includes('://');
+  } catch {
+    return false;
   }
+}
 
-  // Try to restore session from HttpOnly refresh cookie
-  return auth.refresh().pipe(
-    map(() => true),
-    catchError(() => {
-      router.navigate(['/login']);
-      return of(false);
-    }),
-  );
+export const authGuard: CanActivateFn = (_route, state) => {
+  const authService = inject(HopAuthService);
+  const router = inject(Router);
+  if (authService.isAuthenticated()) return true;
+  const returnUrl = isSafeReturnUrl(state.url) ? state.url : '/dashboard';
+  router.navigate(['/login'], { queryParams: { returnUrl } });
+  return false;
 };

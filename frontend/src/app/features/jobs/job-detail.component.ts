@@ -87,7 +87,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         <div class="sn-card error-card" *ngIf="job.error">
           <div class="sn-card-header error-header-bar">
             <div class="error-header-inner">
-              <mat-icon>error_outline</mat-icon>
+              <mat-icon>error</mat-icon>
               <span>Job Failed</span>
             </div>
           </div>

@@ -12,7 +12,7 @@ import { ScheduleService, Schedule } from '../../core/services/schedule.service'
 import { NotificationService } from '../../core/services/notification.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
-import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { HopConfirmDialogComponent } from '@heretto/hop-ui';
 
 @Component({
     selector: 'app-schedule-list',
@@ -234,7 +234,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
               </a>
               <button mat-icon-button class="action-btn action-btn-danger" (click)="deleteSchedule(s)"
                       matTooltip="Delete" [attr.aria-label]="'Delete ' + s.name">
-                <mat-icon>delete_outline</mat-icon>
+                <mat-icon>delete</mat-icon>
               </button>
             </div>
           </div>
@@ -705,7 +705,7 @@ export class ScheduleListComponent implements OnInit {
   }
 
   deleteSchedule(schedule: Schedule) {
-    const ref = this.dialog.open(ConfirmDialogComponent, {
+    const ref = this.dialog.open(HopConfirmDialogComponent, {
       data: {
         title: 'Delete Schedule',
         message: `Delete "${schedule.name}"? This will also delete all job history for this schedule.`,
