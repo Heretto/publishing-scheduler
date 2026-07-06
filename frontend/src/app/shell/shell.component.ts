@@ -7,7 +7,6 @@ import { HopMainLayoutComponent, NavItem } from '@heretto/hop-ui';
   template: `
     <hop-main-layout
       appTitle="Publishing Scheduler"
-      logoSrc="assets/heretto-logo.svg"
       [navItems]="navItems">
     </hop-main-layout>
   `,
