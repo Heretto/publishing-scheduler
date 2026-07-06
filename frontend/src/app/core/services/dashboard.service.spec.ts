@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { DashboardService, DashboardSummary } from './dashboard.service';
+import { DashboardService, DashboardSummary, LocaleStat } from './dashboard.service';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('DashboardService', () => {
@@ -17,7 +17,10 @@ describe('DashboardService', () => {
       succeeded: i,
       failed: 0,
     })),
-    top_locales: { 'en-us': 24, 'fr-fr': 18 },
+    top_locales: {
+      'en-us': { total: 24, succeeded: 20, failed: 4, top_schedules: [] } as LocaleStat,
+      'fr-fr': { total: 18, succeeded: 15, failed: 3, top_schedules: [] } as LocaleStat,
+    },
   };
 
   beforeEach(() => {
@@ -45,7 +48,7 @@ describe('DashboardService', () => {
       expect(data.per_schedule_stats['sched-1'].succeeded).toBe(8);
       expect(data.per_schedule_stats['sched-1'].failed).toBe(2);
       expect(data.daily_volumes.length).toBe(14);
-      expect(data.top_locales['en-us']).toBe(24);
+      expect(data.top_locales['en-us'].total).toBe(24);
     });
     httpMock.expectOne('/api/v1/dashboard/summary').flush(mockSummary);
   });

@@ -26,7 +26,7 @@ def _make_db(schedule_rows=None, stat_rows=None, vol_rows=None, payload_rows=Non
       1. Schedule IDs (for org_ids)
       2. per-schedule-stats rows  → (schedule_id, status, count) tuples
       3. daily-volumes rows       → (date_str, status, count) tuples
-      4. request_payload rows     → (payload_str,) tuples
+      4. request_payload rows     → (payload_str, status, schedule_id) tuples
     """
     db = MagicMock()
     results = [
@@ -287,22 +287,22 @@ class TestGetSummary:
     def test_locales_counted_from_request_payload(self):
         from routes.dashboard import get_summary
         payloads = [
-            (json.dumps({"locales": ["en-us", "fr-fr"]}),),
-            (json.dumps({"locales": ["en-us"]}),),
+            (json.dumps({"locales": ["en-us", "fr-fr"]}), "completed", "sched-1"),
+            (json.dumps({"locales": ["en-us"]}), "completed", "sched-1"),
         ]
         db = _make_db(
             schedule_rows=[_make_schedule_row()],
             payload_rows=payloads,
         )
         result = get_summary(_make_ctx(), db)
-        assert result["top_locales"]["en-us"] == 2
-        assert result["top_locales"]["fr-fr"] == 1
+        assert result["top_locales"]["en-us"]["total"] == 2
+        assert result["top_locales"]["fr-fr"]["total"] == 1
 
     def test_top_locales_capped_at_10(self):
         from routes.dashboard import get_summary
         # 11 distinct locales, each appearing once except the first which appears twice
         locales = [f"lang-{i:02d}" for i in range(11)]
-        payloads = [(json.dumps({"locales": locales}),)]
+        payloads = [(json.dumps({"locales": locales}), "completed", "sched-1")]
         db = _make_db(schedule_rows=[_make_schedule_row()], payload_rows=payloads)
 
         result = get_summary(_make_ctx(), db)
@@ -311,34 +311,34 @@ class TestGetSummary:
     def test_top_locales_sorted_by_count_descending(self):
         from routes.dashboard import get_summary
         payloads = [
-            (json.dumps({"locales": ["en-us"]}),),
-            (json.dumps({"locales": ["en-us"]}),),
-            (json.dumps({"locales": ["fr-fr"]}),),
+            (json.dumps({"locales": ["en-us"]}), "completed", "sched-1"),
+            (json.dumps({"locales": ["en-us"]}), "completed", "sched-1"),
+            (json.dumps({"locales": ["fr-fr"]}), "completed", "sched-1"),
         ]
         db = _make_db(schedule_rows=[_make_schedule_row()], payload_rows=payloads)
 
         result = get_summary(_make_ctx(), db)
-        counts = list(result["top_locales"].values())
+        counts = [v["total"] for v in result["top_locales"].values()]
         assert counts == sorted(counts, reverse=True)
         assert list(result["top_locales"].keys())[0] == "en-us"
 
     def test_malformed_payload_json_is_skipped(self):
         from routes.dashboard import get_summary
         payloads = [
-            ("not valid json",),
-            (json.dumps({"locales": ["en-us"]}),),
-            (None,),
+            ("not valid json", "completed", "sched-1"),
+            (json.dumps({"locales": ["en-us"]}), "completed", "sched-1"),
+            (None, "completed", "sched-1"),
         ]
         db = _make_db(schedule_rows=[_make_schedule_row()], payload_rows=payloads)
 
         result = get_summary(_make_ctx(), db)
         # Only the valid payload should contribute
-        assert result["top_locales"].get("en-us") == 1
+        assert result["top_locales"].get("en-us", {}).get("total") == 1
 
     def test_payload_without_locales_key_is_skipped(self):
         from routes.dashboard import get_summary
         payloads = [
-            (json.dumps({"documentIds": ["doc-1"]}),),
+            (json.dumps({"documentIds": ["doc-1"]}), "completed", "sched-1"),
         ]
         db = _make_db(schedule_rows=[_make_schedule_row()], payload_rows=payloads)
 

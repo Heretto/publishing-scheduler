@@ -25,6 +25,7 @@ def _make_mock_settings():
     s.retry_max_delay_ms = 0
     s.retry_backoff_multiplier = 1.0
     s.scheduler_max_consecutive_failures = 5
+    s.job_timeout_seconds = 300
     s.job_retention_days = 90
     return s
 

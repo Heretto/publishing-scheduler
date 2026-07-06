@@ -4,7 +4,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { DashboardComponent } from './dashboard.component';
 import { Schedule } from '../../core/services/schedule.service';
-import { DashboardSummary } from '../../core/services/dashboard.service';
+import { DashboardSummary, LocaleStat } from '../../core/services/dashboard.service';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 // ── shared test data ───────────────────────────────────────────────────────────
@@ -41,7 +41,11 @@ const mockSummary: DashboardSummary = {
     succeeded: i + 1,
     failed: 0,
   })),
-  top_locales: { 'en-us': 24, 'fr-fr': 18, 'de-de': 10 },
+  top_locales: {
+    'en-us': { total: 24, succeeded: 20, failed: 4, top_schedules: [] } as LocaleStat,
+    'fr-fr': { total: 18, succeeded: 15, failed: 3, top_schedules: [] } as LocaleStat,
+    'de-de': { total: 10, succeeded: 9, failed: 1, top_schedules: [] } as LocaleStat,
+  },
 };
 
 const mockJobsResponse = {
@@ -281,11 +285,15 @@ describe('DashboardComponent', () => {
   it('topLocales returns entries sorted by count descending', () => {
     component.summary = {
       ...mockSummary,
-      top_locales: { 'fr-fr': 18, 'en-us': 24, 'de-de': 10 },
+      top_locales: {
+        'fr-fr': { total: 18, succeeded: 15, failed: 3, top_schedules: [] } as LocaleStat,
+        'en-us': { total: 24, succeeded: 20, failed: 4, top_schedules: [] } as LocaleStat,
+        'de-de': { total: 10, succeeded: 9, failed: 1, top_schedules: [] } as LocaleStat,
+      },
     };
     const locales = component.topLocales;
     expect(locales[0].code).toBe('en-us');
-    expect(locales[0].count).toBe(24);
+    expect(locales[0].total).toBe(24);
     expect(locales[1].code).toBe('fr-fr');
     expect(locales[2].code).toBe('de-de');
   });
@@ -314,7 +322,7 @@ describe('DashboardComponent', () => {
       ...mockSummary,
       daily_volumes: [{ date: '2026-06-23', total: 10, succeeded: 10, failed: 0 }],
     };
-    const height = component.barHeight({ date: '2026-06-23', total: 10, succeeded: 10, failed: 0 });
+    const height = component.barHeightTotal({ date: '2026-06-23', total: 10, succeeded: 10, failed: 0 });
     expect(height).toBe(46);
   });
 
@@ -323,7 +331,7 @@ describe('DashboardComponent', () => {
       ...mockSummary,
       daily_volumes: [{ date: '2026-06-23', total: 5, succeeded: 5, failed: 0 }],
     };
-    const height = component.barHeight({ date: '2026-06-22', total: 0, succeeded: 0, failed: 0 });
+    const height = component.barHeightTotal({ date: '2026-06-22', total: 0, succeeded: 0, failed: 0 });
     expect(height).toBe(2);
   });
 
