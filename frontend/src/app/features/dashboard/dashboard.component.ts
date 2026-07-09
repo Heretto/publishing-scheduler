@@ -283,7 +283,7 @@ class MapsDialogComponent {
             <ng-container matColumnDef="jobActions">
               <th mat-header-cell *matHeaderCellDef style="width: 6%"></th>
               <td mat-cell *matCellDef="let j">
-                <a mat-button [routerLink]="['/jobs', j.id]">Details</a>
+                <a class="table-link" [routerLink]="['/jobs', j.id]">Details</a>
               </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
