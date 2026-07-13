@@ -2,6 +2,15 @@
 
 @include hop.hop-core-theme();
 
+// The hop-core theme's a:hover rule outranks Material's button text-decoration:none.
+// Restore sane behaviour: no underline on the anchor/icon, underline on label text only.
+a.mat-mdc-button-base:hover {
+  text-decoration: none;
+}
+a.mat-mdc-button-base:hover .mdc-button__label {
+  text-decoration: underline;
+}
+
 // Document picker dialog — nudge right so it clears the sidebar edge
 .document-picker-panel {
   margin-left: 110px;

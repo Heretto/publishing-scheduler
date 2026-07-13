@@ -95,7 +95,7 @@ function requireNonEmpty(control: AbstractControl) {
           </mat-form-field>
 
           <div class="document-ids-section">
-            <mat-form-field appearance="outline" class="full-width">
+            <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
               <mat-label>Documents</mat-label>
               <input matInput [value]="documentDisplayValue" readonly placeholder="No documents selected">
             </mat-form-field>
@@ -135,7 +135,7 @@ function requireNonEmpty(control: AbstractControl) {
             <div *ngFor="let param of scenarioParameters" class="parameter-row">
               <ng-container [ngSwitch]="param.type">
                 <div *ngSwitchCase="'file_picker'" class="file-picker-param">
-                  <mat-form-field appearance="outline" class="full-width">
+                  <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
                     <mat-label>{{ param.displayName || param.name }}</mat-label>
                     <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
                   </mat-form-field>
@@ -145,7 +145,7 @@ function requireNonEmpty(control: AbstractControl) {
                   </button>
                 </div>
                 <div *ngSwitchCase="'file_uuid_picker'" class="file-picker-param">
-                  <mat-form-field appearance="outline" class="full-width">
+                  <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
                     <mat-label>{{ param.displayName || param.name }}</mat-label>
                     <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
                   </mat-form-field>
@@ -333,7 +333,7 @@ function requireNonEmpty(control: AbstractControl) {
     .document-ids-section, .file-picker-param {
       display: flex;
       gap: 8px;
-      align-items: flex-start;
+      align-items: center;
     }
     .document-ids-section .full-width, .file-picker-param .full-width { flex: 1; }
     .document-ids-section .mat-mdc-form-field-subscript-wrapper,
@@ -342,6 +342,7 @@ function requireNonEmpty(control: AbstractControl) {
     }
     .browse-btn {
       height: 42px !important;
+      margin-top: 3px;
       font-size: 13px !important;
       color: #42526e !important;
       border-color: #c5cdd8 !important;
