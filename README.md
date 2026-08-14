@@ -29,6 +29,7 @@
 - [Quick Start](#-quick-start)
 - [Installation Options](#-installation-options)
 - [Configuration](#-configuration)
+  - [SSO / Single Sign-On](#-sso--single-sign-on)
 - [Usage Guide](#-usage-guide)
 - [Use Cases & Recommendations](#-use-cases--recommendations)
 - [Monitoring & Metrics](#-monitoring--metrics)
@@ -247,6 +248,68 @@ npm run dev
 # ⚠️  HERETTO_USERNAME is not set — Heretto API calls will fail
 # ⚠️  CORS_ALLOWED_ORIGINS is not set in production — API will reject cross-origin requests
 ```
+
+### 🔐 SSO / Single Sign-On
+
+The app supports **Google** and **Microsoft (Azure AD / Entra ID)** as SSO providers. Enabling either is optional — username/password login remains available alongside SSO unless you explicitly disable it.
+
+SSO is configured entirely through environment variables in `backend/.env`. The login page automatically shows only the providers that are configured.
+
+---
+
+#### Google SSO
+
+**What you need:** A Google Cloud project with the OAuth 2.0 consent screen configured and a Web client ID.
+
+1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Create a new **OAuth 2.0 Client ID** (Application type: Web application)
+3. Add your app's URL to **Authorized JavaScript origins** (e.g. `https://scheduler.yourcompany.com`)
+4. Copy the **Client ID** and add it to `backend/.env`:
+
+```bash
+GOOGLE_OAUTH_CLIENT_ID=123456789-xxxxxxxxxxxx.apps.googleusercontent.com
+```
+
+No client secret is required — Google SSO uses a client-side token that the backend verifies against Google's public keys.
+
+---
+
+#### Microsoft SSO (Azure AD / Entra ID)
+
+**What you need:** An Azure app registration with a client secret.
+
+1. Go to [Azure Portal → App registrations](https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/RegisteredApps) → **New registration**
+2. Set the **Redirect URI** (type: Web) to:
+   `https://scheduler.yourcompany.com/api/v1/auth/sso/microsoft/callback`
+3. Under **Certificates & secrets**, create a new **Client secret** and copy its value immediately
+4. Add all three values to `backend/.env`:
+
+```bash
+MICROSOFT_OAUTH_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+MICROSOFT_OAUTH_CLIENT_SECRET=your-client-secret-value
+MICROSOFT_OAUTH_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # omit to allow any Microsoft account
+```
+
+`MICROSOFT_OAUTH_TENANT_ID` restricts logins to a single Azure AD tenant. Leave it unset to allow any Microsoft account (personal or organizational).
+
+---
+
+#### Additional Options
+
+| Variable | Default | Description |
+|---|---|---|
+| `SSO_ONLY` | `false` | Set to `true` to disable username/password login and require SSO for all users |
+| `ALLOWED_EMAIL_DOMAINS` | _(none)_ | Comma-separated list of domains allowed to auto-register via SSO (e.g. `heretto.com,partner.com`). Existing users are unaffected. |
+
+---
+
+#### How it works
+
+- On first SSO login, an account is automatically created and the user is enrolled in the organization.
+- If an account already exists with the same email address, the SSO provider is linked to that existing account.
+- Restart the backend after changing any SSO environment variables.
+
+---
 
 ## 📖 Usage Guide
 
