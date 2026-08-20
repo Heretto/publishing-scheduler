@@ -44,7 +44,8 @@
 
 ### Required
 
-- **Node.js 20+** - [Download](https://nodejs.org/)
+- **Python 3.11+** - [Download](https://www.python.org/downloads/)
+- **Node.js 20+** - [Download](https://nodejs.org/) _(frontend only)_
 - **Heretto CCMS Account** - Active subscription with API access
 - **Heretto Credentials** - Username and password with publishing permissions
 
@@ -63,100 +64,69 @@
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
-
-The fastest way to get started:
+### Option 1: Local Development (Recommended)
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/jarodsickler/publishing-scheduler.git
 cd publishing-scheduler
 
-# 2. Configure environment
-cp .env.example .env
-nano .env  # Edit with your Heretto credentials
+# 2. Set up the backend (creates .venv, installs deps, generates .env, seeds DB)
+bash backend/scripts/setup.sh
 
-# 3. Start the application
-docker compose up -d
+# 3. Install frontend dependencies
+cd frontend && npm install && cd ..
 
-# 4. Open your browser
-open http://localhost:4200
+# 4. Start both servers
+bash scripts/dev.sh
 ```
 
 **That's it!** The application is now running with:
 - Frontend: http://localhost:4200
-- Backend API: http://localhost:3000
-- Metrics: http://localhost:3000/metrics
-- Health Check: http://localhost:3000/api/health
+- Backend API: http://localhost:8000
+- Health Check: http://localhost:8000/api/health
 
-### Option 2: Local Development
-
-For development and customization:
+### Option 2: Docker
 
 ```bash
-# 1. Clone and configure
+# 1. Clone the repository
 git clone https://github.com/jarodsickler/publishing-scheduler.git
 cd publishing-scheduler
-cp .env.example .env
-nano .env  # Add your credentials
 
-# 2. Start backend
-cd backend
-npm install
-npm run dev  # Runs on http://localhost:3000
+# 2. Start the application
+docker compose up -d
 
-# 3. In a new terminal, start frontend
-cd ../frontend
-npm install
-npm start  # Runs on http://localhost:4200
+# 3. Open your browser
+open http://localhost:4200
 ```
 
 ## 📦 Installation Options
 
-### Docker Deployment (Production)
+### Local Development
 
-**Best for:** Production environments, consistent deployments, easy scaling
+**Best for:** Development, customization, debugging
 
 ```bash
-# Production mode with optimized builds
-docker compose up -d
+# 1. One-time backend setup (creates venv, installs deps, generates secrets, seeds DB)
+bash backend/scripts/setup.sh
 
-# View logs
-docker compose logs -f
+# 2. Install frontend dependencies (first time only)
+cd frontend && npm install && cd ..
 
-# Stop services
-docker compose down
-
-# Update to latest version
-git pull
-docker compose up -d --build
+# 3. Start both servers (run from project root)
+bash scripts/dev.sh
 ```
 
-**Pros:**
-- Isolated environment
-- Consistent across platforms
-- Easy updates and rollbacks
-- Includes Nginx for frontend serving
+The `dev.sh` script starts both the Python backend (port 8000) and the Angular dev server (port 4200) in a single terminal, with log output from both.
 
-### Manual Installation (Development)
-
-**Best for:** Local development, customization, debugging
+To start them separately:
 
 ```bash
-# Backend setup
-cd backend
-npm install
-npm run build  # Compile TypeScript
-npm start      # Production mode
-# OR
-npm run dev    # Development with hot reload
+# Backend only (from project root)
+bash backend/scripts/start.sh
 
-# Frontend setup
-cd frontend
-npm install
-npm run build  # Production build
-# OR
-npx ng serve   # Development with hot reload
+# Frontend only
+cd frontend && npx ng serve
 ```
 
 **Pros:**
@@ -165,89 +135,61 @@ npx ng serve   # Development with hot reload
 - Live code reloading
 - Direct access to all tools
 
-### PM2 Deployment (Production without Docker)
+### Docker Deployment (Production)
 
-**Best for:** VPS deployments, systemd integration
+**Best for:** Production environments, consistent deployments
 
 ```bash
-# Install PM2 globally
-npm install -g pm2
+# Start
+docker compose up -d
 
-# Build and start backend
-cd backend
-npm install
-npm run build
-pm2 start dist/index.js --name publishing-scheduler
+# View logs
+docker compose logs -f
 
-# Build and serve frontend (with nginx or serve)
-cd ../frontend
-npm install
-npm run build
-# Serve dist/frontend with nginx or: npx serve -s dist/frontend -l 4200
+# Stop
+docker compose down
 
-# Save PM2 configuration
-pm2 save
-pm2 startup  # Follow instructions for auto-start on reboot
+# Update to latest version
+git pull && docker compose up -d --build
 ```
+
+**Pros:**
+- Isolated environment
+- Consistent across platforms
+- Includes Nginx for frontend serving
 
 ## ⚙️ Configuration
 
 ### Environment Variables
 
-Create a `.env` file in the project root (copy from `.env.example`):
+Configuration lives in `backend/.env`. Running `bash backend/scripts/setup.sh` generates this file for you with secure random secrets. Copy `backend/.env.example` as a reference for all available options.
+
+Key variables:
 
 ```bash
-# ============================================
-# HERETTO CREDENTIALS (Required)
-# ============================================
+# ── Heretto API (Required) ────────────────────────────────
 HERETTO_API_BASE_URL=https://your-instance.heretto.com/ezdnxtgen/api/v2
-HERETTO_CCMS_BASE_URL=https://your-instance.heretto.com/rest
 HERETTO_USERNAME=your-username
 HERETTO_PASSWORD=your-password
 
-# ============================================
-# SERVER CONFIGURATION
-# ============================================
-PORT=3000
-NODE_ENV=production  # or 'development'
+# ── Auth secrets (auto-generated by setup.sh) ─────────────
+APP_SECRET_KEY=...
+JWT_SECRET_KEY=...
+ENCRYPTION_KEY=...
 
-# ============================================
-# CORS SECURITY (Important for production!)
-# ============================================
+# ── CORS (Important for production!) ──────────────────────
 # Comma-separated list of allowed origins
-# Development default: http://localhost:4200,http://localhost:3000
-CORS_ALLOWED_ORIGINS=https://scheduler.yourcompany.com
+CORS_ORIGINS=https://scheduler.yourcompany.com
 
-# ============================================
-# DATABASE
-# ============================================
-DB_PATH=./data/scheduler.db  # SQLite database location
+# ── Database ───────────────────────────────────────────────
+DATABASE_URL=sqlite:///./data/scheduler.db
 
-# ============================================
-# RETRY CONFIGURATION (Optional)
-# ============================================
-RETRY_MAX_ATTEMPTS=3              # Number of retry attempts
-RETRY_INITIAL_DELAY_MS=1000       # Initial delay before retry
-RETRY_MAX_DELAY_MS=30000          # Maximum delay between retries
-RETRY_BACKOFF_MULTIPLIER=2        # Exponential backoff multiplier
-
-# ============================================
-# SCHEDULER CONFIGURATION (Optional)
-# ============================================
+# ── Scheduler (Optional) ──────────────────────────────────
 SCHEDULER_MAX_CONSECUTIVE_FAILURES=5  # Auto-disable after N failures
+RETRY_MAX_ATTEMPTS=3
 ```
 
-### Configuration Validation
-
-The application validates configuration on startup and warns about missing required values:
-
-```bash
-npm run dev
-
-# You'll see warnings like:
-# ⚠️  HERETTO_USERNAME is not set — Heretto API calls will fail
-# ⚠️  CORS_ALLOWED_ORIGINS is not set in production — API will reject cross-origin requests
-```
+See `backend/.env.example` for the full list including SMTP and SSO options.
 
 ### 🔐 SSO / Single Sign-On
 
@@ -614,16 +556,16 @@ job_concurrent_executions
 │  │  Dashboard │ Schedules │ Jobs │ Settings        │   │
 │  └──────────────────────────────────────────────────┘   │
 └────────────────────┬────────────────────────────────────┘
-                     │ REST API (/api)
+                     │ REST API (/api) — proxied to :8000
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│           Express Backend (Port 3000)                   │
+│           FastAPI Backend (Port 8000)                   │
 │  ┌─────────────────────────────────────────────────┐    │
-│  │ Rate Limiter │ CORS │ Metrics │ Error Handler  │    │
+│  │  hop-core: Auth │ SSO │ Users │ Multi-tenancy  │    │
 │  └─────────────────────────────────────────────────┘    │
 │  ┌─────────────────────────────────────────────────┐    │
 │  │  Scheduler Service  │  Job Executor Service    │    │
-│  │  (node-cron)        │  (Retry Logic)           │    │
+│  │  (APScheduler)      │  (Retry Logic)           │    │
 │  └─────────────────────────────────────────────────┘    │
 │  ┌─────────────────────────────────────────────────┐    │
 │  │  SQLite Database    │  Heretto API Client      │    │
@@ -640,24 +582,22 @@ job_concurrent_executions
 ### Technology Stack
 
 **Backend:**
-- **Runtime:** Node.js 20 (TypeScript 5.5)
-- **Framework:** Express.js 4.21
-- **Database:** SQLite (better-sqlite3) with WAL mode
-- **Scheduler:** node-cron
-- **Validation:** Zod
-- **Metrics:** prom-client (Prometheus)
-- **Security:** Helmet, CORS, express-rate-limit
+- **Runtime:** Python 3.11+
+- **Framework:** FastAPI (via [hop-core](https://github.com/Heretto/hop-core))
+- **Auth:** hop-core — JWT, SSO (Google, Microsoft), multi-tenancy
+- **Database:** SQLite (SQLAlchemy + Alembic migrations)
+- **Scheduler:** APScheduler
+- **HTTP Client:** httpx
 
 **Frontend:**
-- **Framework:** Angular 17
-- **UI Library:** Angular Material
+- **Framework:** Angular 19
+- **UI Library:** Angular Material + @heretto/hop-ui
 - **HTTP Client:** RxJS
 - **Cron Parser:** cronstrue
 
 **Infrastructure:**
 - **Containerization:** Docker & Docker Compose
 - **Web Server:** Nginx (for frontend in production)
-- **Process Management:** PM2 (optional)
 
 ### Database Schema
 
@@ -691,11 +631,11 @@ job_concurrent_executions
 ### Key Design Decisions
 
 ✅ **SQLite over PostgreSQL** - Simpler deployment, sufficient for workload
-✅ **Better-sqlite3 over node-sqlite3** - Synchronous API, better performance
-✅ **WAL mode** - Concurrent reads during writes
-✅ **Zod validation** - Type-safe runtime validation
-✅ **Circuit breaker** - Prevents runaway failures
-✅ **Exponential backoff** - Handles transient failures gracefully
+✅ **Alembic migrations** - Schema changes are versioned and applied automatically on startup
+✅ **hop-core for auth** - Auth, SSO, and multi-tenancy handled by a shared platform library
+✅ **APScheduler** - Robust cron scheduling with persistent job state
+✅ **Circuit breaker** - Prevents runaway failures by auto-disabling broken schedules
+✅ **Exponential backoff** - Handles transient Heretto API failures gracefully
 
 ## 🛠️ Development
 
@@ -703,101 +643,84 @@ job_concurrent_executions
 
 ```
 publishing-scheduler/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/      # Request handlers
-│   │   ├── models/           # Database models
-│   │   ├── services/         # Business logic
-│   │   ├── routes/           # API routes
-│   │   ├── middleware/       # Express middleware
-│   │   ├── metrics/          # Prometheus metrics
-│   │   ├── heretto/          # Heretto API client
-│   │   ├── db/migrations/    # Database migrations
-│   │   └── utils/            # Utilities
-│   ├── tests/
-│   │   ├── unit/             # Unit tests
-│   │   └── integration/      # Integration tests
-│   └── package.json
-├── frontend/
+├── backend/                  # Python/FastAPI backend
+│   ├── clients/              # Heretto API clients
+│   ├── migrations/           # Alembic DB migrations
+│   ├── models.py             # SQLAlchemy models
+│   ├── routes/               # API route handlers
+│   ├── services/             # Business logic (scheduler, job executor)
+│   ├── settings.py           # App configuration
+│   ├── main.py               # FastAPI app entry point
+│   ├── scripts/
+│   │   ├── setup.sh          # One-time setup script
+│   │   └── start.sh          # Backend start script
+│   ├── tests/                # pytest test suite
+│   ├── requirements.txt
+│   └── requirements-test.txt
+├── frontend/                 # Angular frontend
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── core/         # Services, interceptors
-│   │   │   ├── features/     # Feature modules
-│   │   │   ├── shared/       # Shared components
-│   │   │   └── layouts/      # Layout components
+│   │   │   ├── core/         # Services, interceptors, guards
+│   │   │   ├── features/     # Feature modules (dashboard, schedules, jobs)
+│   │   │   └── shell/        # App shell layout
 │   │   └── assets/
 │   └── package.json
+├── scripts/
+│   └── dev.sh                # Starts both servers together
 ├── docker-compose.yml
-├── .env.example
+├── .env.example              # Root env template (for docker-compose)
 └── README.md
 ```
 
 ### Running Tests
 
 ```bash
-# Backend tests
+# Backend tests (pytest)
 cd backend
-npm test              # Run all tests
-npm run test:watch    # Watch mode for development
+.venv/bin/pytest              # Run all tests
+.venv/bin/pytest --tb=short   # Compact output
 
 # Frontend tests
 cd frontend
-npm test              # Run unit tests
-npm run test:watch    # Watch mode
-npm run e2e           # End-to-end tests
+npm test                      # Run unit tests
 ```
 
-**Current test coverage:** 107 passing tests
+**Current test coverage:** 120 passing backend tests
 
 ### Adding a New Feature
 
 1. **Backend:**
    ```bash
-   # 1. Create model (if needed)
-   touch backend/src/models/new-feature.model.ts
-
-   # 2. Create service
-   touch backend/src/services/new-feature.service.ts
-
-   # 3. Create controller
-   touch backend/src/controllers/new-feature.controller.ts
-
-   # 4. Create routes
-   touch backend/src/routes/new-feature.routes.ts
-
-   # 5. Add tests
-   touch backend/tests/unit/new-feature.test.ts
-
-   # 6. Update app.ts to register routes
+   # 1. Add model to models.py (or a new file)
+   # 2. Create a migration: alembic revision --autogenerate -m "description"
+   # 3. Add route handler in routes/
+   # 4. Register the router in main.py
+   # 5. Add tests in tests/
    ```
 
 2. **Frontend:**
    ```bash
-   # 1. Generate feature module
-   npx ng generate module features/new-feature
+   # 1. Generate component
+   npx ng generate component features/my-feature/my-feature
 
-   # 2. Generate components
-   npx ng generate component features/new-feature/new-feature
+   # 2. Generate service (if needed)
+   npx ng generate service core/services/my-feature
 
-   # 3. Generate service
-   npx ng generate service core/services/new-feature
-
-   # 4. Add route to app.routes.ts
+   # 3. Add route to app.routes.ts
    ```
 
 ### Code Style
 
 **Backend:**
-- TypeScript strict mode enabled
-- Prefer async/await over callbacks
-- Use Zod for validation
-- Export types and interfaces
+- Python type hints throughout
+- Async route handlers with FastAPI
+- Pydantic models for request/response validation
 
 **Frontend:**
 - Angular style guide
 - Reactive forms
 - RxJS for async operations
-- Material Design components
+- Material Design components via hop-ui
 
 ### Database Migrations
 
@@ -1061,16 +984,16 @@ chmod 755 backend/data
 
 ---
 
-**❌ "Port 3000 already in use"**
+**❌ "Port 8000 already in use"**
 
-**Solution:** Change the port in `.env`:
+**Solution:** Change the port in `backend/.env`:
 ```bash
-PORT=3001
+PORT=8001
 ```
 
-Or kill the process using port 3000:
+Or kill the process using port 8000:
 ```bash
-lsof -ti:3000 | xargs kill -9
+lsof -ti:8000 | xargs kill -9
 ```
 
 ---
@@ -1103,23 +1026,27 @@ RETRY_MAX_ATTEMPTS=5
 
 **❌ CORS errors in browser**
 
-**Solution:** Configure CORS for your domain:
+**Solution:** Configure CORS in `backend/.env`:
 ```bash
-CORS_ALLOWED_ORIGINS=https://yourdomain.com
+CORS_ORIGINS=https://yourdomain.com
 ```
 
 ### Debug Mode
 
-Enable verbose logging:
+Enable verbose logging by setting in `backend/.env`:
 
 ```bash
-LOG_LEVEL=debug npm run dev
+APP_DEBUG=true
 ```
 
 ### Getting Help
 
 1. **Check the logs:**
    ```bash
+   # Local
+   bash scripts/dev.sh  # both server logs appear inline
+
+   # Docker
    docker compose logs -f backend
    ```
 
@@ -1136,7 +1063,7 @@ We welcome contributions! Here's how to get started:
 1. **Fork the repository**
 2. **Create a feature branch:** `git checkout -b feature/amazing-feature`
 3. **Make your changes**
-4. **Write tests:** Ensure tests pass with `npm test`
+4. **Write tests:** Ensure tests pass with `cd backend && .venv/bin/pytest`
 5. **Commit:** `git commit -m 'Add amazing feature'`
 6. **Push:** `git push origin feature/amazing-feature`
 7. **Open a Pull Request**
