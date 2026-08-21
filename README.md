@@ -1,11 +1,11 @@
 # 📅 Heretto Publishing Scheduler
 
-> A production-ready web application for scheduling and automating publishing jobs in Heretto CCMS with enterprise-grade reliability, monitoring, and security.
+> A web application for scheduling and automating publishing jobs in Heretto CCMS, with authentication, multi-tenancy, retry handling, and a full audit trail.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org/)
-[![Angular](https://img.shields.io/badge/Angular-17-red)](https://angular.io/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-informational)](https://fastapi.tiangolo.com/)
+[![Angular](https://img.shields.io/badge/Angular-19-red)](https://angular.io/)
 
 ## 🌟 Features
 
@@ -13,26 +13,26 @@
 - **🌍 Locale-Aware Publishing** - Select source and/or translated locales per schedule; each locale triggers a separate Heretto publish job automatically
 - **🗺️ DITA Map Filtering** - Document picker filters to DITA maps only, with full folder browsing of your CCMS content repository
 - **📁 Folder-Based Scheduling** - Select an entire folder to publish all DITA maps it contains; folder references are resolved dynamically at run time, so maps added to the folder after the schedule was created are automatically included in future runs
-- **🏷️ Release Publishing** - Pin a specific named release (snapshot) of a DITA map for scheduled publishing instead of always using the latest version; the release picker appears inline in the document picker and displays releases by their user-given name
+- **🏷️ Release Publishing** - Pin a specific named release (snapshot) of a DITA map for scheduled publishing instead of always using the latest version
 - **🎭 Multiple Scenarios** - Assign multiple publishing scenarios to a single schedule; each runs as an independent publish job
 - **📄 Multiple Output Formats** - Choose multiple output types (PDF, HTML5, XHTML, etc.) per scenario in a single schedule
+- **🔐 Authentication & SSO** - Username/password plus optional Google and Microsoft (Entra ID) sign-in
+- **🏢 Multi-Tenancy** - Organizations, members, invitations, and per-org data isolation
 - **🔄 Automatic Retry** - Exponential backoff for transient failures (network, timeouts, 5xx errors)
 - **🛡️ Circuit Breaker** - Auto-disable schedules after consecutive failures to prevent resource waste
 - **📈 Job History** - Complete audit trail with per-publish-result detail, including scenario, locale, document ID, and Heretto job ID
 - **🎯 Manual Triggers** - Override schedules and run jobs on-demand
 - **🚦 Graceful Shutdown** - Waits for in-flight jobs during server restarts
-- **🧪 Test Coverage** - Comprehensive test suite covering scheduling, locale, and publishing features
 
 ## 📋 Table of Contents
 
 - [Prerequisites](#-prerequisites)
 - [Quick Start](#-quick-start)
-- [Installation Options](#-installation-options)
 - [Configuration](#-configuration)
   - [SSO / Single Sign-On](#-sso--single-sign-on)
 - [Usage Guide](#-usage-guide)
 - [Use Cases & Recommendations](#-use-cases--recommendations)
-- [Monitoring & Metrics](#-monitoring--metrics)
+- [Health & Observability](#-health--observability)
 - [Architecture](#-architecture)
 - [Development](#-development)
 - [Deployment](#-deployment)
@@ -44,272 +44,218 @@
 
 ### Required
 
-- **Node.js 20+** - [Download](https://nodejs.org/)
-- **Heretto CCMS Account** - Active subscription with API access
-- **Heretto Credentials** - Username and password with publishing permissions
+- **Python 3.11+** — the backend ([download](https://www.python.org/downloads/))
+- **Node.js 20+** — to build or serve the Angular frontend ([download](https://nodejs.org/))
+- **Heretto CCMS account** with API access, and credentials with publishing permissions
+- **Network access to GitHub** — the backend installs `hop-core` and the frontend installs `@heretto/hop-ui` from GitHub releases
 
-### Optional (for different deployment methods)
+### Optional
 
-- **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
-- **Git** - [Install Git](https://git-scm.com/downloads)
-- **Prometheus** - For metrics collection (production)
-- **Grafana** - For metrics visualization (production)
+- **Docker & Docker Compose** — for the containerized path ([install](https://docs.docker.com/get-docker/))
+- **SMTP server** — required only for password reset and invitation emails
 
 ### System Requirements
 
-- **Memory:** Minimum 512MB RAM (1GB+ recommended for production)
-- **Disk:** ~100MB for application + space for SQLite database (grows with job history)
-- **Network:** Outbound HTTPS access to Heretto CCMS API
+- **Memory:** 512 MB minimum, 1 GB+ recommended
+- **Disk:** ~200 MB for the application, plus space for the SQLite database (grows with job history)
+- **Network:** outbound HTTPS to your Heretto CCMS instance
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
+### Option 1: Local development (recommended for getting started)
 
-The fastest way to get started:
+Two scripts do the whole job. The setup script creates a virtualenv, installs dependencies, **generates the required secrets for you**, prompts for your Heretto credentials, and seeds the database:
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/jarodsickler/publishing-scheduler.git
+git clone https://github.com/Heretto/publishing-scheduler.git
 cd publishing-scheduler
 
-# 2. Configure environment
+bash backend/scripts/setup.sh   # one time: venv, deps, secrets, backend/.env, seed
+bash scripts/dev.sh             # starts backend + frontend, opens the browser
+```
+
+`dev.sh` picks free ports (backend from 8000, frontend from 4200), wires an Angular proxy so the frontend reaches the API, and tails both servers until you press Ctrl+C. It prints the URLs it chose, including interactive API docs at `/docs`.
+
+To run only the backend: `bash backend/scripts/start.sh`.
+
+### Option 2: Docker
+
+```bash
+git clone https://github.com/Heretto/publishing-scheduler.git
+cd publishing-scheduler
+
 cp .env.example .env
-nano .env  # Edit with your Heretto credentials
+```
 
-# 3. Start the application
+Then generate the three required secrets and add them to `.env`:
+
+```bash
+# Run three times, once per variable
+openssl rand -hex 32
+```
+
+```bash
+APP_SECRET_KEY=<generated>
+JWT_SECRET_KEY=<generated>
+ENCRYPTION_KEY=<generated>
+```
+
+Add your Heretto credentials to the same file, then:
+
+```bash
 docker compose up -d
-
-# 4. Open your browser
 open http://localhost:4200
 ```
 
-**That's it!** The application is now running with:
-- Frontend: http://localhost:4200
-- Backend API: http://localhost:3000
-- Metrics: http://localhost:3000/metrics
-- Health Check: http://localhost:3000/api/health
+Services:
 
-### Option 2: Local Development
+| | URL |
+|---|---|
+| Frontend | http://localhost:4200 |
+| Backend API | http://localhost:3000 |
+| Interactive API docs | http://localhost:3000/docs |
+| Health check | http://localhost:3000/api/health |
 
-For development and customization:
-
-```bash
-# 1. Clone and configure
-git clone https://github.com/jarodsickler/publishing-scheduler.git
-cd publishing-scheduler
-cp .env.example .env
-nano .env  # Add your credentials
-
-# 2. Start backend
-cd backend
-npm install
-npm run dev  # Runs on http://localhost:3000
-
-# 3. In a new terminal, start frontend
-cd ../frontend
-npm install
-npm start  # Runs on http://localhost:4200
-```
-
-## 📦 Installation Options
-
-### Docker Deployment (Production)
-
-**Best for:** Production environments, consistent deployments, easy scaling
+Compose refuses to start if any of the three secrets is missing, naming the one it needs. Useful commands:
 
 ```bash
-# Production mode with optimized builds
-docker compose up -d
-
-# View logs
-docker compose logs -f
-
-# Stop services
-docker compose down
-
-# Update to latest version
-git pull
-docker compose up -d --build
+docker compose logs -f backend
+docker compose down          # stop
+docker compose down -v       # stop and delete the database volume
+docker compose up -d --build # rebuild after a git pull
 ```
 
-**Pros:**
-- Isolated environment
-- Consistent across platforms
-- Easy updates and rollbacks
-- Includes Nginx for frontend serving
-
-### Manual Installation (Development)
-
-**Best for:** Local development, customization, debugging
-
-```bash
-# Backend setup
-cd backend
-npm install
-npm run build  # Compile TypeScript
-npm start      # Production mode
-# OR
-npm run dev    # Development with hot reload
-
-# Frontend setup
-cd frontend
-npm install
-npm run build  # Production build
-# OR
-npx ng serve   # Development with hot reload
-```
-
-**Pros:**
-- Full control over the environment
-- Easy debugging
-- Live code reloading
-- Direct access to all tools
-
-### PM2 Deployment (Production without Docker)
-
-**Best for:** VPS deployments, systemd integration
-
-```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Build and start backend
-cd backend
-npm install
-npm run build
-pm2 start dist/index.js --name publishing-scheduler
-
-# Build and serve frontend (with nginx or serve)
-cd ../frontend
-npm install
-npm run build
-# Serve dist/frontend with nginx or: npx serve -s dist/frontend -l 4200
-
-# Save PM2 configuration
-pm2 save
-pm2 startup  # Follow instructions for auto-start on reboot
-```
+> **⚠️ Do not lose `ENCRYPTION_KEY`.** Stored Heretto credentials are encrypted with a key derived from it. Change it and existing encrypted rows can no longer be decrypted.
 
 ## ⚙️ Configuration
 
-### Environment Variables
+### Two `.env` files, by design
 
-Create a `.env` file in the project root (copy from `.env.example`):
+This trips people up, so it is worth stating plainly:
+
+| File | Used by | Created by |
+|---|---|---|
+| `backend/.env` | local development (`dev.sh`, `start.sh`, `uvicorn`) | `backend/scripts/setup.sh` |
+| `.env` (repo root) | `docker compose` | you, from `.env.example` |
+
+The backend reads `.env` relative to its working directory, which is `backend/` when run locally. Docker Compose reads the root `.env` and passes the values into the container. Keeping both in sync matters only if you use both paths.
+
+Each has a matching template: `.env.example` at the repo root documents every supported variable for the Docker path, and `backend/.env.example` is the local-development equivalent.
+
+### Required settings
+
+The application will not start without these. Compose fails fast with a readable message; run locally and you get a Pydantic validation error.
+
+| Variable | Notes |
+|---|---|
+| `APP_SECRET_KEY` | Generate with `openssl rand -hex 32` |
+| `JWT_SECRET_KEY` | Separate value from the above |
+| `ENCRYPTION_KEY` | Minimum 16 characters. Encrypts stored credentials — see the warning above |
+| `DATABASE_URL` | SQLAlchemy URL. Compose sets this to the container volume for you; locally `sqlite:///./data/scheduler.db` |
+
+### Heretto
 
 ```bash
-# ============================================
-# HERETTO CREDENTIALS (Required)
-# ============================================
 HERETTO_API_BASE_URL=https://your-instance.heretto.com/ezdnxtgen/api/v2
-HERETTO_CCMS_BASE_URL=https://your-instance.heretto.com/rest
 HERETTO_USERNAME=your-username
 HERETTO_PASSWORD=your-password
-
-# ============================================
-# SERVER CONFIGURATION
-# ============================================
-PORT=3000
-NODE_ENV=production  # or 'development'
-
-# ============================================
-# CORS SECURITY (Important for production!)
-# ============================================
-# Comma-separated list of allowed origins
-# Development default: http://localhost:4200,http://localhost:3000
-CORS_ALLOWED_ORIGINS=https://scheduler.yourcompany.com
-
-# ============================================
-# DATABASE
-# ============================================
-DB_PATH=./data/scheduler.db  # SQLite database location
-
-# ============================================
-# RETRY CONFIGURATION (Optional)
-# ============================================
-RETRY_MAX_ATTEMPTS=3              # Number of retry attempts
-RETRY_INITIAL_DELAY_MS=1000       # Initial delay before retry
-RETRY_MAX_DELAY_MS=30000          # Maximum delay between retries
-RETRY_BACKOFF_MULTIPLIER=2        # Exponential backoff multiplier
-
-# ============================================
-# SCHEDULER CONFIGURATION (Optional)
-# ============================================
-SCHEDULER_MAX_CONSECUTIVE_FAILURES=5  # Auto-disable after N failures
+HERETTO_ORG=your-org-slug
+HERETTO_BRANCH=master
+HERETTO_REPOSITORY=content
 ```
 
-### Configuration Validation
+The CCMS and search base URLs are **derived** from `HERETTO_API_BASE_URL` and cannot be set independently.
 
-The application validates configuration on startup and warns about missing required values:
+### Server & security
 
 ```bash
-npm run dev
-
-# You'll see warnings like:
-# ⚠️  HERETTO_USERNAME is not set — Heretto API calls will fail
-# ⚠️  CORS_ALLOWED_ORIGINS is not set in production — API will reject cross-origin requests
+APP_ENV=production            # or 'development'
+APP_DEBUG=false               # true also enables SQL echo and verbose logs
+CORS_ORIGINS=https://scheduler.yourcompany.com   # comma-separated
+FRONTEND_BASE_URL=https://scheduler.yourcompany.com  # used in outbound email links
+COOKIE_SECURE=true            # enable when serving over HTTPS
+COOKIE_DOMAIN=
 ```
+
+### Scheduler, jobs, and retry
+
+```bash
+SCHEDULER_MAX_CONSECUTIVE_FAILURES=5   # auto-disable a schedule after N failures
+JOB_RETENTION_DAYS=90                  # job history older than this is pruned daily
+JOB_TIMEOUT_SECONDS=1800
+
+RETRY_MAX_ATTEMPTS=3
+RETRY_INITIAL_DELAY_MS=1000
+RETRY_MAX_DELAY_MS=30000
+RETRY_BACKOFF_MULTIPLIER=2
+```
+
+### Tokens, email, and tenancy
+
+```bash
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=30
+
+SMTP_HOST=                    # password reset and invitations need SMTP
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=
+SMTP_FROM_NAME=Publishing Scheduler
+SMTP_USE_TLS=true
+
+SINGLE_ORG_MODE=false         # setup.sh sets this true for local development
+SINGLE_ORG_SLUG=
+```
+
+`REDIS_URL` is accepted but unused; it is reserved for future work and the rate limiter currently stores state in memory.
 
 ### 🔐 SSO / Single Sign-On
 
-The app supports **Google** and **Microsoft (Azure AD / Entra ID)** as SSO providers. Enabling either is optional — username/password login remains available alongside SSO unless you explicitly disable it.
+**Google** and **Microsoft (Azure AD / Entra ID)** are supported. Enabling either is optional, and username/password login remains available alongside SSO unless you set `SSO_ONLY=true`. The login page shows only the providers that are configured.
 
-SSO is configured entirely through environment variables in `backend/.env`. The login page automatically shows only the providers that are configured.
+#### Google
 
----
+You need a Google Cloud project with an OAuth consent screen and a Web client ID.
 
-#### Google SSO
-
-**What you need:** A Google Cloud project with the OAuth 2.0 consent screen configured and a Web client ID.
-
-1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
-2. Create a new **OAuth 2.0 Client ID** (Application type: Web application)
-3. Add your app's URL to **Authorized JavaScript origins** (e.g. `https://scheduler.yourcompany.com`)
-4. Copy the **Client ID** and add it to `backend/.env`:
+1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Create an **OAuth 2.0 Client ID** (type: Web application)
+3. Add your app's URL to **Authorized JavaScript origins**
+4. Set the client ID:
 
 ```bash
 GOOGLE_OAUTH_CLIENT_ID=123456789-xxxxxxxxxxxx.apps.googleusercontent.com
 ```
 
-No client secret is required — Google SSO uses a client-side token that the backend verifies against Google's public keys.
+No client secret is needed — the backend verifies a client-side token against Google's public keys.
 
----
-
-#### Microsoft SSO (Azure AD / Entra ID)
-
-**What you need:** An Azure app registration with a client secret.
+#### Microsoft (Azure AD / Entra ID)
 
 1. Go to [Azure Portal → App registrations](https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/RegisteredApps) → **New registration**
-2. Set the **Redirect URI** (type: Web) to:
-   `https://scheduler.yourcompany.com/api/v1/auth/sso/microsoft/callback`
-3. Under **Certificates & secrets**, create a new **Client secret** and copy its value immediately
-4. Add all three values to `backend/.env`:
+2. Set the **Redirect URI** (type: Web) to `https://your-domain/api/v1/auth/sso/microsoft/callback`
+3. Under **Certificates & secrets**, create a client secret and copy it immediately
+4. Set:
 
 ```bash
 MICROSOFT_OAUTH_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 MICROSOFT_OAUTH_CLIENT_SECRET=your-client-secret-value
-MICROSOFT_OAUTH_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # omit to allow any Microsoft account
+MICROSOFT_OAUTH_TENANT_ID=common   # 'common' allows any Microsoft account
 ```
 
-`MICROSOFT_OAUTH_TENANT_ID` restricts logins to a single Azure AD tenant. Leave it unset to allow any Microsoft account (personal or organizational).
-
----
-
-#### Additional Options
+#### Additional options
 
 | Variable | Default | Description |
 |---|---|---|
-| `SSO_ONLY` | `false` | Set to `true` to disable username/password login and require SSO for all users |
-| `ALLOWED_EMAIL_DOMAINS` | _(none)_ | Comma-separated list of domains allowed to auto-register via SSO (e.g. `heretto.com,partner.com`). Existing users are unaffected. |
-
----
+| `SSO_ONLY` | `false` | `true` disables username/password login |
+| `ALLOWED_EMAIL_DOMAINS` | _(none)_ | Comma-separated domains allowed to auto-register via SSO. Existing users are unaffected |
+| `OAUTH_REDIRECT_BASE_URL` | _(none)_ | Override the base URL used to build OAuth redirects, for proxied deployments |
 
 #### How it works
 
-- On first SSO login, an account is automatically created and the user is enrolled in the organization.
-- If an account already exists with the same email address, the SSO provider is linked to that existing account.
-- Restart the backend after changing any SSO environment variables.
-
----
+- On first SSO login an account is created and enrolled in the organization.
+- If an account already exists with the same email, the provider is linked to it.
+- Restart the backend after changing SSO variables.
 
 ## 📖 Usage Guide
 
@@ -383,7 +329,6 @@ The scheduler uses standard cron syntax:
 
 **Use Case:** Publish updated documentation to your website daily.
 
-**Recommended Setup:**
 ```
 Schedule: 0 2 * * * (2 AM daily)
 Scenario: "Website Publishing"
@@ -391,212 +336,96 @@ Documents: All product documentation
 Branch: master
 ```
 
-**Benefits:**
-- Ensures documentation is always current
-- Reduces manual publishing workload
-- Consistent publishing schedule
-
----
+Keeps documentation current, removes manual publishing work, and runs on a predictable cadence.
 
 ### 2. **Multi-Environment Deployments**
 
 **Use Case:** Publish to staging hourly, production daily.
 
-**Recommended Setup:**
-
-**Staging:**
 ```
-Schedule: 0 * * * * (Every hour)
-Deployment: "Staging Environment"
-Scenario: "Staging Publish"
+Staging:     0 * * * *   → "Staging Environment"
+Production:  0 3 * * *   → "Production Environment"
 ```
 
-**Production:**
-```
-Schedule: 0 3 * * * (3 AM daily)
-Deployment: "Production Environment"
-Scenario: "Production Publish"
-```
-
-**Benefits:**
-- Staging stays synchronized with content updates
-- Production deploys at low-traffic times
-- Separate testing and production cycles
-
----
+Staging stays synchronized with content updates while production deploys at low-traffic times.
 
 ### 3. **Release Publishing Workflow**
 
 **Use Case:** Publish release notes when new versions are tagged.
 
-**Recommended Setup:**
 ```
-Schedule: Manual trigger only (disable automatic)
+Schedule: disabled — manual trigger only
 Scenario: "Release Notes Publishing"
-Documents: release-notes/v1.0.0.md
 ```
 
-**Workflow:**
-1. Tag release in source control
-2. Manually trigger schedule after validation
-3. Job history provides audit trail
-
-**Benefits:**
-- Controlled, deliberate publishing
-- Audit trail for compliance
-- Manual verification before publishing
-
----
+Tag the release, verify, then trigger manually. Job history provides the audit trail.
 
 ### 4. **Batch Content Updates**
 
 **Use Case:** Publish large content batches during off-hours.
 
-**Recommended Setup:**
 ```
 Schedule: 0 1 * * 6 (Saturday 1 AM)
-Scenario: "Batch Update Publishing"
 Documents: [100+ documents]
-Max Failures: 10
 Retry Attempts: 5
 ```
 
-**Benefits:**
-- Minimizes impact on business hours
-- Retry logic handles transient failures
-- Auto-disable prevents infinite retry loops
-
----
+Minimizes business-hours impact; retry logic absorbs transient failures and the circuit breaker prevents runaway retries.
 
 ### 5. **Compliance & Audit Requirements**
 
-**Use Case:** Maintain audit trail for regulated industries.
-
-**Recommended Features:**
-- Job history retained for 90 days (configurable)
-- Request/response payloads captured
-- Trigger type tracked (scheduled vs manual)
-- Prometheus metrics for compliance reporting
-
-**Recommended Monitoring:**
-```
-- Alert on failed jobs
-- Track publish success rate
-- Monitor job execution duration
-- Export job history for audits
-```
-
----
+Job history retains request and response payloads, trigger type, and timing for `JOB_RETENTION_DAYS` (default 90). Combined with per-organization isolation, this supports audit review in regulated environments.
 
 ### Best Practices
 
-✅ **Start with conservative schedules** - Test with manual triggers first
-✅ **Use descriptive names** - Future you will thank you
-✅ **Monitor job history** - Check for patterns in failures
-✅ **Set up alerts** - Use Prometheus metrics for proactive monitoring
-✅ **Test on staging first** - Validate schedules before production
-✅ **Document your schedules** - Use the description field extensively
-✅ **Review logs regularly** - Catch issues before they become critical
+✅ Test new schedules with a manual trigger first
+✅ Use descriptive names and fill in the description field
+✅ Review job history for failure patterns
+✅ Validate on staging before production
+✅ Back up the SQLite database (see [Backup & Restore](#backup--restore))
 
-⚠️ **Avoid:**
-- Scheduling too many concurrent jobs
-- Very short intervals (<5 minutes) without consideration
+⚠️ Avoid:
+- Scheduling many concurrent jobs
+- Intervals under 5 minutes without a specific reason
 - Publishing during peak traffic hours
-- Ignoring failed job notifications
 
-## 📊 Monitoring & Metrics
+## 📊 Health & Observability
 
-### Prometheus Metrics
+### Health check
 
-Access metrics at: `http://localhost:3000/metrics`
-
-**Available Metrics:**
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `http_request_duration_seconds` | Histogram | Request latency by endpoint |
-| `http_requests_total` | Counter | Total requests by method/route/status |
-| `job_execution_duration_seconds` | Histogram | Job execution time |
-| `job_executions_total` | Counter | Total jobs by status |
-| `job_concurrent_executions` | Gauge | Currently running jobs |
-| `scheduler_active_schedules` | Gauge | Number of active schedules |
-| `schedule_failures_total` | Counter | Schedule failures by reason |
-
-**Plus default Node.js metrics:** CPU, memory, event loop lag, GC stats
-
-### Setting Up Monitoring
-
-**1. Deploy Prometheus:**
-
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: 'publishing-scheduler'
-    static_configs:
-      - targets: ['localhost:3000']
-    metrics_path: '/metrics'
-    scrape_interval: 15s
-```
-
-**2. Example Queries:**
-
-```promql
-# Request success rate
-rate(http_requests_total{status_code=~"2.."}[5m]) /
-rate(http_requests_total[5m]) * 100
-
-# Job success rate
-rate(job_executions_total{status="success"}[5m]) /
-rate(job_executions_total[5m]) * 100
-
-# 95th percentile request latency
-histogram_quantile(0.95,
-  rate(http_request_duration_seconds_bucket[5m])
-)
-
-# Active jobs right now
-job_concurrent_executions
-```
-
-**3. Recommended Alerts:**
-
-```yaml
-# High error rate
-- alert: HighErrorRate
-  expr: rate(http_requests_total{status_code=~"5.."}[5m]) > 0.05
-  for: 5m
-
-# Job failure rate
-- alert: HighJobFailureRate
-  expr: rate(job_executions_total{status="failed"}[5m]) / rate(job_executions_total[5m]) > 0.1
-  for: 10m
-
-# Schedule auto-disabled
-- alert: ScheduleAutoDisabled
-  expr: increase(schedules_auto_disabled_total[5m]) > 0
-```
-
-### Health Checks
-
-**Endpoint:** `GET /api/health`
+**`GET /api/health`** — note this sits *outside* the `/api/v1` prefix and requires no authentication.
 
 ```json
 {
   "status": "ok",
-  "timestamp": "2026-06-18T04:06:52.855Z",
+  "timestamp": "2026-08-21T16:01:03.904112+00:00",
   "checks": {
     "database": "ok",
-    "scheduler": {
-      "activeJobs": 0
-    }
+    "scheduler": { "activeJobs": 0 }
   }
 }
 ```
 
-**Use for:**
-- Load balancer health checks
-- Kubernetes liveness/readiness probes
-- Uptime monitoring services
+`status` is `ok` when the database probe succeeds and `degraded` otherwise; the endpoint returns HTTP 200 either way, so alerting should inspect the body rather than the status code. The container `HEALTHCHECK` uses this endpoint, and Compose waits for the backend to report healthy before starting the frontend.
+
+Suitable for load balancer checks and Kubernetes liveness/readiness probes.
+
+### Logs
+
+The backend logs structured JSON to stdout:
+
+```bash
+docker compose logs -f backend
+```
+
+Set `APP_DEBUG=true` for verbose logging plus SQLAlchemy statement echo. Every response carries an `X-Request-ID` header, echoing the inbound value when present, which is useful for correlating logs across a proxy.
+
+### Other built-in protections
+
+- **Rate limiting** via SlowAPI, with in-memory storage
+- **Security headers** on every response: CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and HSTS when the request is HTTPS
+
+> **No Prometheus metrics.** Earlier versions of this document described a `/metrics` endpoint and named counters and histograms. Those do not exist in the current backend. Use `/api/health` and the logs, or open an issue if metrics are needed.
 
 ## 🏗️ Architecture
 
@@ -609,93 +438,98 @@ job_concurrent_executions
                      │ HTTP/HTTPS
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Angular Frontend (Port 4200)               │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  Dashboard │ Schedules │ Jobs │ Settings        │   │
-│  └──────────────────────────────────────────────────┘   │
+│         Angular 19 Frontend (nginx, port 4200)          │
+│   Dashboard │ Schedules │ Jobs │ Settings │ Account     │
+│   Shared UI and theme from @heretto/hop-ui              │
 └────────────────────┬────────────────────────────────────┘
-                     │ REST API (/api)
+                     │ REST (/api/v1), proxied by nginx
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│           Express Backend (Port 3000)                   │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ Rate Limiter │ CORS │ Metrics │ Error Handler  │    │
-│  └─────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │  Scheduler Service  │  Job Executor Service    │    │
-│  │  (node-cron)        │  (Retry Logic)           │    │
-│  └─────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │  SQLite Database    │  Heretto API Client      │    │
-│  └─────────────────────────────────────────────────┘    │
+│            FastAPI Backend (port 3000)                  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ hop-core: auth, SSO, orgs, invitations,           │  │
+│  │           credentials, rate limiting              │  │
+│  └───────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ APScheduler        │  Job Executor (retry,        │  │
+│  │ (cron triggers)    │  circuit breaker)            │  │
+│  └───────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ SQLAlchemy + Alembic → SQLite                     │  │
+│  │ Heretto API clients │ document status cache       │  │
+│  └───────────────────────────────────────────────────┘  │
 └────────────────────┬────────────────────────────────────┘
                      │ HTTPS
                      ▼
 ┌─────────────────────────────────────────────────────────┐
 │              Heretto CCMS API                           │
-│  Deployments │ Scenarios │ Publishing Jobs              │
+│  Deployments │ Scenarios │ Releases │ Publishing Jobs   │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Technology Stack
 
-**Backend:**
-- **Runtime:** Node.js 20 (TypeScript 5.5)
-- **Framework:** Express.js 4.21
-- **Database:** SQLite (better-sqlite3) with WAL mode
-- **Scheduler:** node-cron
-- **Validation:** Zod
-- **Metrics:** prom-client (Prometheus)
-- **Security:** Helmet, CORS, express-rate-limit
+**Backend**
+- **Runtime:** Python 3.11+ (containers use 3.12)
+- **Framework:** FastAPI, served by Uvicorn
+- **Platform library:** [`hop-core`](https://github.com/Heretto/hop-core), pinned to a release tag in `requirements.txt`
+- **Database:** SQLite via SQLAlchemy 2.x, migrated with Alembic
+- **Scheduler:** APScheduler
+- **HTTP client:** httpx
+- **Validation:** Pydantic v2 / pydantic-settings
+- **Rate limiting:** SlowAPI
 
-**Frontend:**
-- **Framework:** Angular 17
-- **UI Library:** Angular Material
-- **HTTP Client:** RxJS
-- **Cron Parser:** cronstrue
-
-**Infrastructure:**
-- **Containerization:** Docker & Docker Compose
-- **Web Server:** Nginx (for frontend in production)
-- **Process Management:** PM2 (optional)
+**Frontend**
+- **Framework:** Angular 19
+- **UI:** Angular Material 19 plus `@heretto/hop-ui` (shared components and design system, installed from a hop-core GitHub release)
+- **Cron parsing:** cronstrue
+- **Served by:** nginx in the container image
 
 ### Database Schema
 
-**schedules table:**
-```sql
-- id (TEXT PRIMARY KEY)
-- name, description
-- cron_expression
-- scenario_id, deployment_id
-- document_ids (JSON array)
-- folder_ids (JSON array)          -- folders whose DITA maps are resolved at run time
-- document_releases (JSON object)  -- {mapId: snapshotFileId} for pinned releases
-- enabled (BOOLEAN)
-- branch, publish_parameters (JSON)
-- consecutive_failures (INTEGER)
-- last_run_at, last_run_status
-- created_at, updated_at
+Application tables (`backend/models.py`):
+
+**`schedules`**
+```
+id, org_id (FK → organizations)
+name, description
+cron_expression
+scenario_id, deployment_id
+document_ids       (JSON array)
+folder_ids         (JSON array)   -- resolved to DITA maps at run time
+document_releases  (JSON object)  -- {mapId: snapshotFileId} for pinned releases
+locale, branch, publish_parameters (JSON)
+enabled, consecutive_failures
+last_run_at, last_run_status
+created_at, updated_at
 ```
 
-**job_history table:**
-```sql
-- id (TEXT PRIMARY KEY)
-- schedule_id (FOREIGN KEY)
-- status, trigger_type
-- started_at, completed_at
-- heretto_job_id
-- request_payload, response_payload (JSON)
-- error
+**`job_history`**
 ```
+id, schedule_id (FK → schedules, cascade)
+status, trigger_type
+started_at, completed_at
+heretto_job_id
+request_payload, response_payload
+error
+```
+
+**`status_value_exclusions`**
+```
+id, org_id (FK → organizations, cascade)
+value, created_at
+unique (org_id, value)
+```
+
+Additional tables — `users`, `organizations`, `organization_members`, `organization_invitations`, `credentials` — are defined by `hop-core` and share the same database and metadata.
 
 ### Key Design Decisions
 
-✅ **SQLite over PostgreSQL** - Simpler deployment, sufficient for workload
-✅ **Better-sqlite3 over node-sqlite3** - Synchronous API, better performance
-✅ **WAL mode** - Concurrent reads during writes
-✅ **Zod validation** - Type-safe runtime validation
-✅ **Circuit breaker** - Prevents runaway failures
-✅ **Exponential backoff** - Handles transient failures gracefully
+- **SQLite over PostgreSQL** — simpler deployment, sufficient for this workload
+- **Built on hop-core** — auth, SSO, and multi-tenancy are shared with other Heretto applications rather than reimplemented
+- **Migrations applied at startup** — no separate deploy step can be forgotten
+- **Circuit breaker + exponential backoff** — contains transient Heretto failures without unbounded retries
+- **In-memory document status cache** — refreshed hourly, avoiding repeated CCMS search calls
 
 ## 🛠️ Development
 
@@ -704,163 +538,128 @@ job_concurrent_executions
 ```
 publishing-scheduler/
 ├── backend/
-│   ├── src/
-│   │   ├── controllers/      # Request handlers
-│   │   ├── models/           # Database models
-│   │   ├── services/         # Business logic
-│   │   ├── routes/           # API routes
-│   │   ├── middleware/       # Express middleware
-│   │   ├── metrics/          # Prometheus metrics
-│   │   ├── heretto/          # Heretto API client
-│   │   ├── db/migrations/    # Database migrations
-│   │   └── utils/            # Utilities
+│   ├── main.py              # app factory, lifespan, middleware, /api/health
+│   ├── settings.py          # AppSettings, extends hop-core's HopCoreSettings
+│   ├── models.py            # SQLAlchemy models
+│   ├── limiter.py           # SlowAPI rate limiting
+│   ├── utils.py
+│   ├── routes/              # schedules, jobs, heretto, dashboard, settings
+│   ├── services/            # scheduler, job_executor, status_cache
+│   ├── clients/             # heretto, heretto_ccms
+│   ├── migrations/          # Alembic env + versions/
+│   ├── scripts/             # setup.sh, start.sh, seed.py
 │   ├── tests/
-│   │   ├── unit/             # Unit tests
-│   │   └── integration/      # Integration tests
-│   └── package.json
+│   ├── requirements.txt
+│   └── requirements-test.txt
 ├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── core/         # Services, interceptors
-│   │   │   ├── features/     # Feature modules
-│   │   │   ├── shared/       # Shared components
-│   │   │   └── layouts/      # Layout components
-│   │   └── assets/
+│   ├── src/app/
+│   │   ├── core/            # services, guards, interceptors
+│   │   ├── features/        # dashboard, schedules, jobs, settings
+│   │   ├── shared/          # shared components
+│   │   └── shell/           # layout
+│   ├── nginx.conf
 │   └── package.json
+├── scripts/dev.sh           # start both servers
 ├── docker-compose.yml
-├── .env.example
-└── README.md
+└── .env.example
 ```
 
 ### Running Tests
 
 ```bash
-# Backend tests
+# Backend
 cd backend
-npm test              # Run all tests
-npm run test:watch    # Watch mode for development
+pip install -r requirements-test.txt
+pytest
 
-# Frontend tests
+# Frontend
 cd frontend
-npm test              # Run unit tests
-npm run test:watch    # Watch mode
-npm run e2e           # End-to-end tests
+npm test
 ```
 
-**Current test coverage:** 107 passing tests
+The backend suite is pytest with `asyncio_mode = auto` and uses `respx` to stub Heretto HTTP calls; `tests/conftest.py` patches settings, so no `.env` is needed. The frontend uses Karma and Jasmine via `ng test`.
 
-### Adding a New Feature
-
-1. **Backend:**
-   ```bash
-   # 1. Create model (if needed)
-   touch backend/src/models/new-feature.model.ts
-
-   # 2. Create service
-   touch backend/src/services/new-feature.service.ts
-
-   # 3. Create controller
-   touch backend/src/controllers/new-feature.controller.ts
-
-   # 4. Create routes
-   touch backend/src/routes/new-feature.routes.ts
-
-   # 5. Add tests
-   touch backend/tests/unit/new-feature.test.ts
-
-   # 6. Update app.ts to register routes
-   ```
-
-2. **Frontend:**
-   ```bash
-   # 1. Generate feature module
-   npx ng generate module features/new-feature
-
-   # 2. Generate components
-   npx ng generate component features/new-feature/new-feature
-
-   # 3. Generate service
-   npx ng generate service core/services/new-feature
-
-   # 4. Add route to app.routes.ts
-   ```
-
-### Code Style
-
-**Backend:**
-- TypeScript strict mode enabled
-- Prefer async/await over callbacks
-- Use Zod for validation
-- Export types and interfaces
-
-**Frontend:**
-- Angular style guide
-- Reactive forms
-- RxJS for async operations
-- Material Design components
+There is no coverage tooling configured and **no end-to-end suite**. Older documentation referenced `npm run test:watch` and `npm run e2e`; neither script exists.
 
 ### Database Migrations
 
-Create a new migration:
+Migrations live in `backend/migrations/versions/` and are **applied automatically at startup**, so there is no manual upgrade step in normal operation. To apply them by hand:
 
 ```bash
-cd backend/src/db/migrations
-touch 004-description.sql
+cd backend
+.venv/bin/alembic upgrade head
 ```
 
-Migrations run automatically on application start in order by filename.
+Revision files here are numbered manually (`001_…`, `002_…`) rather than hash-generated.
+
+> **⚠️ Autogenerate is restricted.** `backend/migrations/env.py` filters autogenerate to a hardcoded table set (`schedules`, `job_history`). `status_value_exclusions` is not in that set, so `alembic revision --autogenerate` will not see it and may propose dropping it. Write revision files manually, as the existing ones are, or update that set first.
+
+### Adding a Feature
+
+**Backend:** add the model to `models.py`, business logic under `services/`, the route module under `routes/`, register the router in `main.py`'s `create_hop_app(extra_routers=[...])` call, then add a migration under `migrations/versions/` and tests under `tests/`.
+
+**Frontend:**
+
+```bash
+cd frontend
+npx ng generate component features/new-feature
+npx ng generate service core/services/new-feature
+# then add the route in src/app/app.routes.ts
+```
+
+### Code Style
+
+**Backend:** type hints throughout, Pydantic models for request and response validation, `async def` for I/O-bound handlers, dependency injection for database sessions and the current user.
+
+**Frontend:** Angular style guide, standalone components, reactive forms, RxJS for async work, Material plus `hop-ui` components rather than bespoke widgets.
 
 ## 🚀 Deployment
 
-### Docker Deployment
+### Docker Compose
 
-**Production-ready Docker Compose:**
+`docker-compose.yml` builds both services, keeps the SQLite database on the `db-data` volume, and gates frontend startup on the backend reporting healthy. For production, front it with a TLS-terminating reverse proxy and set:
 
-```yaml
-# docker-compose.prod.yml
-services:
-  backend:
-    build: ./backend
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-    volumes:
-      - db-data:/app/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  frontend:
-    build: ./frontend
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - backend
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-
-volumes:
-  db-data:
+```bash
+APP_ENV=production
+APP_DEBUG=false
+COOKIE_SECURE=true
+CORS_ORIGINS=https://scheduler.yourcompany.com
+FRONTEND_BASE_URL=https://scheduler.yourcompany.com
 ```
 
-### Kubernetes Deployment
+### Without Docker
 
-**Example manifests:**
+Run Uvicorn under a process supervisor. A minimal systemd unit:
+
+```ini
+[Unit]
+Description=Publishing Scheduler
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/publishing-scheduler/backend
+EnvironmentFile=/opt/publishing-scheduler/backend/.env
+ExecStart=/opt/publishing-scheduler/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 3000
+Restart=always
+User=scheduler
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Build the frontend with `npm run build` and serve `dist/frontend/browser` from nginx, proxying `/api` to the backend. `frontend/nginx.conf` is a working reference.
+
+> Run a **single** backend instance. Schedules are held by an in-process APScheduler with no distributed lock, so multiple replicas would each fire the same schedule. Scale vertically, or introduce a shared job store first.
+
+### Kubernetes
 
 ```yaml
-# deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: publishing-scheduler
 spec:
-  replicas: 2
+  replicas: 1          # see the note above about APScheduler
   selector:
     matchLabels:
       app: publishing-scheduler
@@ -870,98 +669,97 @@ spec:
         app: publishing-scheduler
     spec:
       containers:
-      - name: backend
-        image: your-registry/publishing-scheduler:latest
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: HERETTO_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: heretto-creds
-              key: username
-        ports:
-        - containerPort: 3000
-        livenessProbe:
-          httpGet:
-            path: /api/health
-            port: 3000
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
+        - name: backend
+          image: your-registry/publishing-scheduler-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: APP_ENV
+              value: "production"
+            - name: DATABASE_URL
+              value: "sqlite:////app/data/scheduler.db"
+          envFrom:
+            - secretRef:
+                name: scheduler-secrets   # APP_SECRET_KEY, JWT_SECRET_KEY, ENCRYPTION_KEY, HERETTO_*
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+          resources:
+            requests: { memory: "512Mi", cpu: "250m" }
+            limits:   { memory: "1Gi",   cpu: "500m" }
 ```
+
+SQLite on a volume means the pod is stateful; use a `StatefulSet` with a `PersistentVolumeClaim` rather than a rolling `Deployment` if you keep SQLite.
 
 ### Security Checklist
 
-Before deploying to production:
-
-- [ ] Set `NODE_ENV=production`
-- [ ] Configure `CORS_ALLOWED_ORIGINS` with your domain
-- [ ] Use strong, unique `HERETTO_PASSWORD`
-- [ ] Enable HTTPS/TLS for all traffic
-- [ ] Set up firewall rules (only expose ports 80/443)
-- [ ] Configure rate limiting appropriately
-- [ ] Set up log aggregation (e.g., ELK stack)
-- [ ] Enable automatic security updates
-- [ ] Implement authentication (coming soon)
-- [ ] Set up backup strategy for SQLite database
-- [ ] Configure monitoring and alerting
+- [ ] `APP_ENV=production` and `APP_DEBUG=false`
+- [ ] `CORS_ORIGINS` restricted to your domain
+- [ ] `COOKIE_SECURE=true` behind HTTPS
+- [ ] Secrets injected from a secret manager, not committed
+- [ ] `ENCRYPTION_KEY` backed up somewhere recoverable
+- [ ] TLS terminated in front of the app
+- [ ] Only the proxy's ports exposed publicly
+- [ ] `ALLOWED_EMAIL_DOMAINS` set if SSO auto-registration is enabled
+- [ ] Database backups scheduled and restore tested
+- [ ] Log aggregation in place
 
 ### Backup & Restore
 
-**Backup SQLite database:**
+The image is slim and does **not** include the `sqlite3` CLI, so copy the file out instead:
 
 ```bash
-# Using Docker
-docker compose exec backend sqlite3 /app/data/scheduler.db ".backup '/app/data/backup.db'"
+# Back up
+docker compose cp backend:/app/data/scheduler.db ./scheduler-backup.db
 
-# Or copy the file
-docker cp publishing-scheduler-backend-1:/app/data/scheduler.db ./backup.db
+# Restore
+docker compose stop backend
+docker compose cp ./scheduler-backup.db backend:/app/data/scheduler.db
+docker compose start backend
 ```
 
-**Restore:**
+For a consistent snapshot without stopping the service, use Python's backup API inside the container:
 
 ```bash
-docker cp ./backup.db publishing-scheduler-backend-1:/app/data/scheduler.db
-docker compose restart backend
+docker compose exec backend python -c "
+import sqlite3
+src = sqlite3.connect('/app/data/scheduler.db')
+dst = sqlite3.connect('/app/data/backup.db')
+src.backup(dst); dst.close(); src.close()
+"
 ```
+
+Back up `ENCRYPTION_KEY` alongside the database. Without it, encrypted rows in the restored copy cannot be read.
 
 ## 📚 API Reference
 
+All application endpoints are under **`/api/v1`** and **require authentication**; unauthenticated requests return `401 {"detail":"Not authenticated"}`. The exception is `GET /api/health`.
+
+Interactive, always-current documentation is served by the app itself:
+
+- **Swagger UI:** `/docs`
+- **ReDoc:** `/redoc`
+- **OpenAPI JSON:** `/openapi.json`
+
+Prefer those over this section — they are generated from the code.
+
+> **Collection routes end with a slash.** `GET /api/v1/schedules/` is correct; `/api/v1/schedules` (no slash) does not match and returns 404.
+
 ### Schedules
 
-**`GET /api/schedules`** - List all schedules
+| Method | Path |
+|---|---|
+| GET | `/api/v1/schedules/` |
+| POST | `/api/v1/schedules/` |
+| GET | `/api/v1/schedules/{schedule_id}` |
+| PUT | `/api/v1/schedules/{schedule_id}` |
+| DELETE | `/api/v1/schedules/{schedule_id}` |
+| PATCH | `/api/v1/schedules/{schedule_id}/toggle` |
+| POST | `/api/v1/schedules/{schedule_id}/trigger` |
 
-**Response:**
-```json
-[
-  {
-    "id": "uuid",
-    "name": "Daily Documentation Build",
-    "description": "Publishes docs daily",
-    "cron_expression": "0 2 * * *",
-    "scenario_id": "123",
-    "deployment_id": "456",
-    "document_ids": ["doc-1", "doc-2"],
-    "enabled": true,
-    "consecutive_failures": 0,
-    "last_run_at": "2026-06-18T02:00:00Z",
-    "last_run_status": "success",
-    "created_at": "2026-06-01T10:00:00Z",
-    "updated_at": "2026-06-18T02:00:00Z"
-  }
-]
-```
+Create payload:
 
----
-
-**`POST /api/schedules`** - Create schedule
-
-**Request:**
 ```json
 {
   "name": "Daily Documentation Build",
@@ -977,112 +775,113 @@ docker compose restart backend
 }
 ```
 
----
-
-**`POST /api/schedules/:id/trigger`** - Manually trigger job
-
-**Response:** Returns created job object
-
----
-
-**`PATCH /api/schedules/:id/toggle`** - Enable/disable
-
-**Request:**
-```json
-{
-  "enabled": false
-}
-```
-
 ### Jobs
 
-**`GET /api/jobs?page=1&limit=20&schedule_id=uuid&status=completed`**
+| Method | Path |
+|---|---|
+| GET | `/api/v1/jobs/` |
+| GET | `/api/v1/jobs/{job_id}` |
 
-Query params:
-- `page` - Page number (default: 1)
-- `limit` - Items per page (default: 20, max: 100)
-- `schedule_id` - Filter by schedule
-- `status` - Filter by status (running|completed|failed)
+### Dashboard & Settings
 
-**Response:**
-```json
-{
-  "data": [...],
-  "total": 150,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 8
-}
-```
+| Method | Path |
+|---|---|
+| GET | `/api/v1/dashboard/summary` |
+| GET | `/api/v1/settings/status-exclusions` |
+| POST | `/api/v1/settings/status-exclusions` |
+| DELETE | `/api/v1/settings/status-exclusions/{value}` |
 
-### Heretto API Proxy
+### Heretto Proxy
 
-**`GET /api/heretto/deployments`** - List deployments
+| Method | Path |
+|---|---|
+| GET | `/api/v1/heretto/deployments` |
+| GET | `/api/v1/heretto/scenarios` |
+| GET | `/api/v1/heretto/scenarios/{scenario_id}/parameters` |
+| GET | `/api/v1/heretto/releases` |
+| GET | `/api/v1/heretto/ccms/root` |
+| GET | `/api/v1/heretto/ccms/branches` |
+| GET | `/api/v1/heretto/ccms/folders/{folder_id}` |
+| GET | `/api/v1/heretto/ccms/folders/search` |
+| GET | `/api/v1/heretto/ccms/documents/{doc_id}` |
+| GET | `/api/v1/heretto/ccms/documents/{doc_id}/releases` |
+| GET | `/api/v1/heretto/ccms/documents/{doc_id}/status` |
+| GET | `/api/v1/heretto/ccms/metadata/status-values` |
+| POST | `/api/v1/heretto/ccms/locales` |
+| POST | `/api/v1/heretto/ccms/search` |
 
-**`GET /api/heretto/scenarios`** - List publishing scenarios
+### Auth, Account, and Organizations
 
-**`GET /api/heretto/scenarios/:id/parameters`** - Get scenario parameters
-
-**`GET /api/heretto/ccms/root`** - Get root CCMS folder contents
-
-**`GET /api/heretto/ccms/folders/:id`** - Get folder contents
-
-**`GET /api/heretto/ccms/documents/:id/releases`** - List named releases for a DITA map, newest first
-
-### Metrics
-
-**`GET /metrics`** - Prometheus metrics (text/plain)
-
-### Health
-
-**`GET /api/health`** - Health check
+Provided by `hop-core`: `/api/v1/auth/*` (login, logout, refresh, register, forgot-password, reset-password, SSO), `/api/v1/account/me`, `/api/v1/credentials`, `/api/v1/organizations/*`, `/api/v1/invitations/*`, `/api/v1/admin/*`, and `/api/v1/superadmin/*`. See `/docs` for the full list.
 
 ## 🔍 Troubleshooting
 
-### Common Issues
+**❌ `docker compose up` fails: `required variable APP_SECRET_KEY is missing a value`**
 
-**❌ "HERETTO_USERNAME is not set"**
+Add the three required secrets to the root `.env`:
 
-**Solution:** Configure credentials in `.env`:
 ```bash
-HERETTO_USERNAME=your-username
-HERETTO_PASSWORD=your-password
+openssl rand -hex 32   # run once per variable
 ```
 
 ---
 
-**❌ "Database not initialized"**
+**❌ `docker compose up` fails: `failed to read dockerfile`**
 
-**Solution:** Ensure the data directory exists and is writable:
+You are on an old checkout from before the backend had a Dockerfile, or `docker-compose.yml` points at a directory that no longer exists. Pull the latest `main`.
+
+---
+
+**❌ `pip install -r requirements.txt` fails on `hop-core`**
+
+`hop-core` installs from a GitHub release tag and needs `git` plus network access:
+
 ```bash
-mkdir -p backend/data
-chmod 755 backend/data
+git --version
+pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.0"
 ```
 
 ---
 
-**❌ "Port 3000 already in use"**
+**❌ `npm ci` fails on `@heretto/hop-ui`**
 
-**Solution:** Change the port in `.env`:
-```bash
-PORT=3001
-```
+That package installs from a hop-core GitHub release asset. Confirm you can reach GitHub, and that the URL in `frontend/package.json` matches an existing release asset. Note the auto-generated source archives on a release are *not* npm-installable; the `.tgz` asset is.
 
-Or kill the process using port 3000:
-```bash
-lsof -ti:3000 | xargs kill -9
-```
+---
+
+**❌ Pydantic validation error at startup naming several fields**
+
+Required settings are missing. Locally, check `backend/.env` — running `bash backend/scripts/setup.sh` generates it with valid secrets. Under Docker, check the root `.env`.
+
+---
+
+**❌ API returns 401 for everything**
+
+Expected when not signed in — every `/api/v1` route requires authentication. Sign in through the frontend, or use `/docs` to authenticate interactively. `/api/health` is the only unauthenticated endpoint.
+
+---
+
+**❌ API returns 404 for a path that should exist**
+
+Check for a missing trailing slash on collection routes: `/api/v1/schedules/`, not `/api/v1/schedules`.
+
+---
+
+**❌ `/api/health` reports `"database": "error"`**
+
+The database probe failed. The reason is logged as `Health check database probe failed: …` — check `docker compose logs backend`. A common cause is the data volume not being writable.
 
 ---
 
 **❌ Jobs failing with network errors**
 
-**Solution:** Check retry configuration and network connectivity:
-```bash
-# Test Heretto API connectivity
-curl -u username:password https://your-instance.heretto.com/ezdnxtgen/api/v2/deployments
+Verify connectivity and credentials, then consider raising the retry budget:
 
-# Increase retry attempts
+```bash
+curl -u username:password https://your-instance.heretto.com/ezdnxtgen/api/v2/deployments
+```
+
+```bash
 RETRY_MAX_ATTEMPTS=5
 ```
 
@@ -1090,81 +889,68 @@ RETRY_MAX_ATTEMPTS=5
 
 **❌ Schedule auto-disabled**
 
-**Solution:** Check job history for errors, fix the issue, then re-enable:
-```
-1. Go to Jobs tab
-2. Filter by the schedule
-3. Review error messages
-4. Fix the issue (e.g., invalid document ID)
-5. Re-enable the schedule
+The circuit breaker tripped after `SCHEDULER_MAX_CONSECUTIVE_FAILURES` consecutive failures. Review the errors in the Jobs view, fix the cause, then re-enable the schedule.
+
+---
+
+**❌ CORS errors in the browser**
+
+Set `CORS_ORIGINS` to the exact origin serving the frontend, including scheme and port:
+
+```bash
+CORS_ORIGINS=https://scheduler.yourcompany.com
 ```
 
 ---
 
-**❌ CORS errors in browser**
+**❌ Password reset or invitation emails never arrive**
 
-**Solution:** Configure CORS for your domain:
-```bash
-CORS_ALLOWED_ORIGINS=https://yourdomain.com
-```
+SMTP is not configured. Set at least `SMTP_HOST` and `SMTP_FROM_EMAIL`; without them the app runs but sends nothing.
 
-### Debug Mode
-
-Enable verbose logging:
+### Debug logging
 
 ```bash
-LOG_LEVEL=debug npm run dev
+APP_DEBUG=true bash backend/scripts/start.sh
 ```
 
 ### Getting Help
 
-1. **Check the logs:**
-   ```bash
-   docker compose logs -f backend
-   ```
-
-2. **Review job history** in the web UI
-
-3. **Check Prometheus metrics** at `/metrics`
-
-4. **Open an issue:** [GitHub Issues](https://github.com/jarodsickler/publishing-scheduler/issues)
+1. Check the logs: `docker compose logs -f backend`
+2. Review job history in the web UI
+3. Confirm the API surface at `/docs`
+4. Open an issue: [GitHub Issues](https://github.com/Heretto/publishing-scheduler/issues)
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how to get started:
+1. **Create a feature branch:** `git checkout -b feature/amazing-feature`
+2. **Make your changes**
+3. **Write tests:** `cd backend && pytest`, `cd frontend && npm test`
+4. **Commit:** keep commits atomic and well described
+5. **Push and open a Pull Request**
 
-1. **Fork the repository**
-2. **Create a feature branch:** `git checkout -b feature/amazing-feature`
-3. **Make your changes**
-4. **Write tests:** Ensure tests pass with `npm test`
-5. **Commit:** `git commit -m 'Add amazing feature'`
-6. **Push:** `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
-
-### Development Guidelines
+### Guidelines
 
 - Follow existing code style
-- Write tests for new features
-- Update documentation
-- Keep commits atomic and well-described
-- Run tests before submitting PR
+- Write tests for new behavior
+- Update documentation, including this file, when behavior changes
+- Add a migration for any schema change, written by hand (see the autogenerate caveat above)
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache License 2.0 — see [LICENSE](LICENSE).
 
 ## 🙏 Acknowledgments
 
 - Built for [Heretto CCMS](https://heretto.com/)
-- Uses [Angular Material](https://material.angular.io/)
-- Metrics powered by [prom-client](https://github.com/siimon/prom-client)
-- Scheduling via [node-cron](https://github.com/node-cron/node-cron)
+- Platform features from [hop-core](https://github.com/Heretto/hop-core)
+- Scheduling via [APScheduler](https://apscheduler.readthedocs.io/)
+- API framework: [FastAPI](https://fastapi.tiangolo.com/)
+- UI: [Angular Material](https://material.angular.io/)
 
 ## 📞 Support
 
-- **Documentation:** See [IMPROVEMENTS.md](IMPROVEMENTS.md) and [SECURITY-FIXES.md](SECURITY-FIXES.md)
-- **Issues:** [GitHub Issues](https://github.com/jarodsickler/publishing-scheduler/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/jarodsickler/publishing-scheduler/discussions)
+- **Additional docs:** [IMPROVEMENTS.md](IMPROVEMENTS.md), [SECURITY-FIXES.md](SECURITY-FIXES.md)
+- **Issues:** [GitHub Issues](https://github.com/Heretto/publishing-scheduler/issues)
 
 ---
 
