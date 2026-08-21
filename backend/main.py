@@ -215,13 +215,15 @@ app.router.lifespan_context = _lifespan
 @app.get("/api/health")
 async def health():
     from hop_core.db import get_engine
+    from sqlalchemy import text
     db_ok = False
     try:
         engine = get_engine()
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         db_ok = True
-    except Exception:
+    except Exception as exc:
+        logger.warning("Health check database probe failed: %s", exc)
         db_ok = False
 
     return {
