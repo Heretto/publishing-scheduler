@@ -84,14 +84,21 @@ To run only the backend: `bash backend/scripts/start.sh`.
 git clone https://github.com/Heretto/publishing-scheduler.git
 cd publishing-scheduler
 
-cp .env.example .env
+bash scripts/docker-up.sh
 ```
 
-Then generate the three required secrets and add them to `.env`:
+That script creates `.env` from `.env.example` if it is missing, generates any of the three required secrets that are absent, and then starts the stack. It **never overwrites a value that is already set**, so it is safe to re-run.
+
+Add your Heretto credentials to `.env` and re-run it, or the app will start but Heretto API calls will fail — the script warns when that is the case.
+
+Arguments are passed straight through to `docker compose up`, so `bash scripts/docker-up.sh --build` works.
+
+<details>
+<summary>Doing it manually instead</summary>
 
 ```bash
-# Run three times, once per variable
-openssl rand -hex 32
+cp .env.example .env
+openssl rand -hex 32   # once per variable, into .env
 ```
 
 ```bash
@@ -100,12 +107,11 @@ JWT_SECRET_KEY=<generated>
 ENCRYPTION_KEY=<generated>
 ```
 
-Add your Heretto credentials to the same file, then:
-
 ```bash
 docker compose up -d
-open http://localhost:4200
 ```
+
+</details>
 
 Services:
 
@@ -829,6 +835,29 @@ openssl rand -hex 32   # run once per variable
 **❌ `docker compose up` fails: `failed to read dockerfile`**
 
 You are on an old checkout from before the backend had a Dockerfile, or `docker-compose.yml` points at a directory that no longer exists. Pull the latest `main`.
+
+---
+
+**❌ Code changes have no effect in Docker**
+
+`docker compose up -d` reuses the existing image and does not rebuild when source changes. Rebuild explicitly:
+
+```bash
+bash scripts/docker-up.sh --build
+```
+
+If that still serves the old code, Docker's view of the build context can go stale — the build log will report `COPY . .` as `CACHED` even though files changed. Force it:
+
+```bash
+docker compose build --no-cache backend
+docker compose up -d
+```
+
+To confirm which code a container is actually running:
+
+```bash
+docker compose exec backend grep -n 'SELECT 1' /app/main.py
+```
 
 ---
 
