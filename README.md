@@ -598,7 +598,9 @@ cd backend
 
 Revision files here are numbered manually (`001_…`, `002_…`) rather than hash-generated.
 
-> **⚠️ Autogenerate is restricted.** `backend/migrations/env.py` filters autogenerate to a hardcoded table set (`schedules`, `job_history`). `status_value_exclusions` is not in that set, so `alembic revision --autogenerate` will not see it and may propose dropping it. Write revision files manually, as the existing ones are, or update that set first.
+> **⚠️ Autogenerate is restricted, deliberately.** This app's models share hop-core's declarative `Base`, so `Base.metadata` also describes hop-core's tables. Left unfiltered, `--autogenerate` emits a dozen spurious `modify_type` operations against hop-core's schema, because its UUID columns reflect out of SQLite as `NUMERIC` — migrations that would rewrite tables this app does not own. `backend/migrations/env.py` therefore restricts the comparison to our own tables, which it derives from `models.py` rather than a hand-written list. A table absent from that set is excluded from the comparison entirely, so changes to it would never reach a migration and the schema would drift unnoticed.
+>
+> Note that `alembic revision` also needs a `script.py.mako` template, which this project does not have; existing revisions are written by hand and numbered manually (`001_…`, `002_…`).
 
 ### Adding a Feature
 
