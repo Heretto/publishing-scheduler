@@ -18,8 +18,10 @@ die()     { echo -e "${RED}[dev]${RESET} $*" >&2; exit 1; }
 command -v node &>/dev/null    || die "node not found — install Node.js 18+"
 command -v npm  &>/dev/null    || die "npm not found"
 
-[ -d "$VENV" ]                 || die "Python venv not found. Run: bash backend/scripts/setup.sh"
-[ -f "$BACKEND_DIR/.env" ]     || die ".env not found. Run: bash backend/scripts/setup.sh"
+if [ ! -d "$VENV" ] || [ ! -f "$BACKEND_DIR/.env" ]; then
+  info "Running first-time setup..."
+  bash "$BACKEND_DIR/scripts/setup.sh"
+fi
 [ -d "$FRONTEND_DIR/node_modules" ] || {
   info "Installing frontend dependencies..."
   (cd "$FRONTEND_DIR" && npm install --silent)
@@ -73,6 +75,9 @@ cat > "$PROXY_TMP" <<EOF
 }
 EOF
 
+# ── Ensure data directory exists (SQLite path is relative to backend/) ────────
+mkdir -p "$BACKEND_DIR/data"
+
 # ── Start backend ─────────────────────────────────────────────────────────────
 echo ""
 info "Starting Publishing Scheduler"
@@ -97,9 +102,12 @@ wait_for_http "http://127.0.0.1:${BACKEND_PORT}/" "backend" 40 \
   || die "Backend did not start — check logs above"
 
 # ── Start frontend ────────────────────────────────────────────────────────────
+# Clear Angular's esbuild cache so node_modules or config changes are always picked up.
+rm -rf "$FRONTEND_DIR/.angular/cache"
+
 (
   cd "$FRONTEND_DIR"
-  exec npx ng serve \
+  NG_CLI_ANALYTICS=false exec npx ng serve \
     --port "$FRONTEND_PORT" \
     --proxy-config "$PROXY_TMP" \
     --configuration development \

@@ -53,8 +53,12 @@ print(Fernet.generate_key().decode())
   read -rp "  Heretto username: " HERETTO_USERNAME
   read -rsp "  Heretto password: " HERETTO_PASSWORD
   echo ""
-  read -rp "  Heretto org slug [jorsek]: " HERETTO_ORG
-  HERETTO_ORG="${HERETTO_ORG:-jorsek}"
+  read -rp "  Heretto host (e.g. acme.heretto.com or cms.acme.com): " HERETTO_HOST
+  # Suggest the first subdomain segment as the org ID default — works for standard
+  # *.heretto.com instances but must be overridden when the org slug differs.
+  SUGGESTED_ORG="${HERETTO_HOST%%.*}"
+  read -rp "  Heretto org ID [${SUGGESTED_ORG}]: " HERETTO_ORG
+  HERETTO_ORG="${HERETTO_ORG:-$SUGGESTED_ORG}"
 
   cat > "$ENV_FILE" <<EOF
 # ── hop-core required ──────────────────────────────────────────────────────────
@@ -87,10 +91,13 @@ MICROSOFT_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_SECRET=
 
 # ── Heretto API ────────────────────────────────────────────────────────────────
-HERETTO_API_BASE_URL=https://demo-nxt.heretto.com/ezdnxtgen/api/v2
+# HERETTO_HOST: full domain of the Heretto instance (e.g. acme.heretto.com)
+# HERETTO_ORG: org identifier used in CCMS content paths — usually equals the
+#   subdomain, but may differ (e.g. host "demo-nxt.heretto.com", org "jorsek")
+HERETTO_HOST=$HERETTO_HOST
+HERETTO_ORG=$HERETTO_ORG
 HERETTO_USERNAME=$HERETTO_USERNAME
 HERETTO_PASSWORD=$HERETTO_PASSWORD
-HERETTO_ORG=$HERETTO_ORG
 HERETTO_BRANCH=master
 HERETTO_REPOSITORY=content
 
@@ -109,8 +116,9 @@ EOF
 fi
 
 # ── Seed database ─────────────────────────────────────────────────────────────
+mkdir -p "$BACKEND_DIR/data"
 info "Seeding database..."
-"$VENV/bin/python" "$SCRIPT_DIR/seed.py"
+(cd "$BACKEND_DIR" && "$VENV/bin/python" "$SCRIPT_DIR/seed.py")
 
 echo ""
 info "Setup complete. Start the application with:"

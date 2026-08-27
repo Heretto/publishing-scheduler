@@ -10,7 +10,16 @@
       "Bash(npm install:*)",
       "Bash(node:*)",
       "Bash(npx vitest:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(docker compose *)",
+      "Read(//Users/patrickbosek/_heretto/**)",
+      "Read(//Users/patrickbosek/**)",
+      "Bash(gh api *)",
+      "Bash(gh auth *)",
+      "Bash(docker build *)",
+      "Bash(git check-ignore *)",
+      "Bash(git ls-remote *)",
+      "Bash(git push *)"
     ]
   }
 }

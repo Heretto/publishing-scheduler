@@ -12,12 +12,13 @@ from unittest.mock import MagicMock, patch
 
 def _make_mock_settings():
     s = MagicMock()
-    s.heretto_api_base_url = "https://test.heretto.com/ezdnxtgen/api/v2"
+    s.heretto_host = "test.heretto.com"
+    s.heretto_org = "testorg"
     s.heretto_username = "testuser"
     s.heretto_password = "testpass"
-    s.heretto_org = "testorg"
     s.heretto_branch = "master"
     s.heretto_repository = "content"
+    s.heretto_api_base_url = "https://test.heretto.com/ezdnxtgen/api/v2"
     s.heretto_ccms_base_url = "https://test.heretto.com/rest"
     s.heretto_search_base_url = "https://test.heretto.com/ezdnxtgen/api"
     s.retry_max_attempts = 1

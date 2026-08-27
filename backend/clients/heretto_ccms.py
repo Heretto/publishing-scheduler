@@ -34,7 +34,7 @@ class HerettoCcmsClient:
     def __init__(self):
         s = get_settings()
         self._auth = (s.heretto_username, s.heretto_password)
-        self._org = s.heretto_org
+        self._org = s.heretto_org  # CCMS content-path org identifier (set via HERETTO_ORG)
         self._branch = s.heretto_branch
         self._repo = s.heretto_repository
         self._rest_base_url = s.heretto_ccms_base_url
@@ -94,24 +94,37 @@ class HerettoCcmsClient:
             "endOffset": 1,
             "foldersToSearch": {root_path: True},
         }
+        logger.debug("get_root_folder: searching path %s", root_path)
 
         # Discover the documents folder UUID via its children's parentId
         async with self._search_client() as c:
             r = await c.post("/search", json=body)
+            logger.debug("get_root_folder: search status=%d", r.status_code)
             if r.status_code == 204 or not r.content:
-                raise HTTPException(status_code=404, detail="CCMS root folder not found")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"CCMS root folder not found — check HERETTO_ORG/HERETTO_BRANCH/HERETTO_REPOSITORY (searched: {root_path})",
+                )
             try:
                 r.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 raise _heretto_exc(exc) from exc
             data = r.json()
-            hits = data.get("hits") or []
+            # Heretto API returns hits under "hits", "results", or "items" depending on version
+            hits = data.get("hits") or data.get("results") or data.get("items") or []
             if not hits:
-                raise HTTPException(status_code=404, detail="CCMS root folder not found")
-            documents_id = (hits[0].get("fileEntity") or {}).get("parentId")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"CCMS root folder not found — no results (searched: {root_path})",
+                )
+            # Raw response wraps entities in "fileEntity"; some versions return the entity directly
+            first_hit = hits[0]
+            entity = first_hit.get("fileEntity") or first_hit
+            documents_id = entity.get("parentId")
             if not documents_id:
-                raise HTTPException(status_code=404, detail="CCMS documents folder not found")
+                raise HTTPException(status_code=404, detail="CCMS documents folder not found — parentId missing from search hit")
 
+        logger.debug("get_root_folder: resolved documents folder id=%s", documents_id)
         # Return the documents folder contents — this is what users see as the root
         return await self.get_folder_contents(documents_id)
 

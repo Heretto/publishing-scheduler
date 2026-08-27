@@ -10,20 +10,30 @@ class AppSettings(HopCoreSettings):
     redis_url: str = ""
 
     # Heretto API
-    heretto_api_base_url: str = "https://demo-nxt.heretto.com/ezdnxtgen/api/v2"
+    # heretto_host: full domain of the Heretto instance
+    #   (e.g. "acme.heretto.com" or "cms.acme.com" for self-hosted)
+    # heretto_org: org identifier used in CCMS content paths
+    #   (/db/organizations/{org}/repositories/...)
+    #   Usually equals the subdomain of heretto_host, but not always —
+    #   set explicitly when they differ (e.g. host "demo-nxt.heretto.com", org "jorsek").
+    heretto_host: str = ""
+    heretto_org: str = ""
     heretto_username: str = ""
     heretto_password: str = ""
-    heretto_org: str = "jorsek"
     heretto_branch: str = "master"
     heretto_repository: str = "content"
 
     @property
+    def heretto_api_base_url(self) -> str:
+        return f"https://{self.heretto_host}/ezdnxtgen/api/v2"
+
+    @property
     def heretto_ccms_base_url(self) -> str:
-        return self.heretto_api_base_url.replace("/ezdnxtgen/api/v2", "/rest")
+        return f"https://{self.heretto_host}/rest"
 
     @property
     def heretto_search_base_url(self) -> str:
-        return self.heretto_api_base_url.replace("/ezdnxtgen/api/v2", "/ezdnxtgen/api")
+        return f"https://{self.heretto_host}/ezdnxtgen/api"
 
     # Scheduler
     scheduler_max_consecutive_failures: int = 5

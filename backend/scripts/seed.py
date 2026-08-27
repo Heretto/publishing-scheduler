@@ -109,21 +109,21 @@ def seed() -> None:
             warning("Update is_superuser=True in the database manually if needed.")
             return
 
-        if not password:
-            password = getpass.getpass("  Admin password: ")
-
-        errors = []
-        if len(password) < 12:
-            errors.append("at least 12 characters")
-        if not re.search(r"[A-Z]", password):
-            errors.append("at least one uppercase letter")
-        if not re.search(r"\d", password):
-            errors.append("at least one digit")
-        if not re.search(r"[^A-Za-z0-9]", password):
-            errors.append("at least one special character")
-        if errors:
-            print("Password must contain: " + ", ".join(errors) + ".")
-            sys.exit(1)
+        while not password:
+            candidate = getpass.getpass("  Admin password: ")
+            errors = []
+            if len(candidate) < 12:
+                errors.append("at least 12 characters")
+            if not re.search(r"[A-Z]", candidate):
+                errors.append("at least one uppercase letter")
+            if not re.search(r"\d", candidate):
+                errors.append("at least one digit")
+            if not re.search(r"[^A-Za-z0-9]", candidate):
+                errors.append("at least one special character")
+            if errors:
+                print("Password must contain: " + ", ".join(errors) + ".")
+            else:
+                password = candidate
 
         admin = User(
             id=uuid.uuid4(),

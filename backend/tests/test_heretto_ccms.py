@@ -9,6 +9,7 @@ from clients.heretto_ccms import HerettoCcmsClient
 
 
 REST_BASE = "https://test.heretto.com/rest"
+SEARCH_BASE = "https://test.heretto.com/ezdnxtgen/api"
 
 DOC_XML_WITH_LOCALES = b"""<?xml version="1.0"?>
 <resource id="doc-1" title="My Doc">
@@ -379,3 +380,113 @@ class TestGetReleasesForDocument:
             with pytest.raises(Exception) as exc_info:
                 await ccms.get_releases_for_document("no-such")
         assert exc_info.value.status_code == 404
+
+
+# ── Fixtures for get_root_folder tests ────────────────────────────────────────
+
+SEARCH_HIT_WRAPPED = {
+    "hits": [
+        {
+            "fileEntity": {
+                "ID": "subfolder-1",
+                "name": "SubFolder",
+                "parentId": "documents-root-uuid",
+                "@class": "com.Jorsek.easyDITA.kernel.content.FolderImpl",
+            }
+        }
+    ],
+    "totalResults": 1,
+}
+
+FOLDER_XML_ROOT = b"""<?xml version="1.0"?>
+<resource id="documents-root-uuid">
+  <children>
+    <folder id="subfolder-1" name="SubFolder"/>
+  </children>
+</resource>
+"""
+
+
+@pytest.mark.asyncio
+class TestGetRootFolder:
+    async def test_success_returns_folder_contents(self, ccms):
+        """Happy path: search finds a sub-folder; its parentId resolves the root UUID."""
+        with respx.mock() as mock:
+            mock.post(f"{SEARCH_BASE}/search").mock(
+                return_value=httpx.Response(200, json=SEARCH_HIT_WRAPPED)
+            )
+            mock.get(f"{REST_BASE}/all-files/documents-root-uuid").mock(
+                return_value=httpx.Response(200, content=FOLDER_XML_ROOT)
+            )
+            result = await ccms.get_root_folder()
+
+        assert result["id"] == "documents-root-uuid"
+        assert result["type"] == "folder"
+
+    async def test_204_response_raises_404(self, ccms):
+        """Heretto returns 204 when the search path does not exist (wrong org/branch/repo)."""
+        with respx.mock() as mock:
+            mock.post(f"{SEARCH_BASE}/search").mock(return_value=httpx.Response(204))
+            with pytest.raises(Exception) as exc_info:
+                await ccms.get_root_folder()
+        assert exc_info.value.status_code == 404
+        assert "HERETTO_ORG" in exc_info.value.detail
+
+    async def test_empty_hits_raises_404(self, ccms):
+        with respx.mock() as mock:
+            mock.post(f"{SEARCH_BASE}/search").mock(
+                return_value=httpx.Response(200, json={"hits": [], "totalResults": 0})
+            )
+            with pytest.raises(Exception) as exc_info:
+                await ccms.get_root_folder()
+        assert exc_info.value.status_code == 404
+
+    async def test_missing_parent_id_raises_404(self, ccms):
+        """A hit with no parentId cannot be resolved to the documents root."""
+        payload = {
+            "hits": [{"fileEntity": {"ID": "sub-1", "name": "Sub"}}],
+            "totalResults": 1,
+        }
+        with respx.mock() as mock:
+            mock.post(f"{SEARCH_BASE}/search").mock(
+                return_value=httpx.Response(200, json=payload)
+            )
+            with pytest.raises(Exception) as exc_info:
+                await ccms.get_root_folder()
+        assert exc_info.value.status_code == 404
+
+    async def test_results_key_accepted(self, ccms):
+        """Some Heretto API versions return 'results' instead of 'hits'."""
+        payload = {
+            "results": [
+                {"fileEntity": {"ID": "sub-1", "parentId": "documents-root-uuid", "name": "Sub"}}
+            ],
+            "totalResults": 1,
+        }
+        with respx.mock() as mock:
+            mock.post(f"{SEARCH_BASE}/search").mock(
+                return_value=httpx.Response(200, json=payload)
+            )
+            mock.get(f"{REST_BASE}/all-files/documents-root-uuid").mock(
+                return_value=httpx.Response(200, content=FOLDER_XML_ROOT)
+            )
+            result = await ccms.get_root_folder()
+
+        assert result["id"] == "documents-root-uuid"
+
+    async def test_unwrapped_entity_accepted(self, ccms):
+        """Entity without a fileEntity wrapper — parentId read from the hit directly."""
+        payload = {
+            "hits": [{"ID": "sub-1", "parentId": "documents-root-uuid", "name": "Sub"}],
+            "totalResults": 1,
+        }
+        with respx.mock() as mock:
+            mock.post(f"{SEARCH_BASE}/search").mock(
+                return_value=httpx.Response(200, json=payload)
+            )
+            mock.get(f"{REST_BASE}/all-files/documents-root-uuid").mock(
+                return_value=httpx.Response(200, content=FOLDER_XML_ROOT)
+            )
+            result = await ccms.get_root_folder()
+
+        assert result["id"] == "documents-root-uuid"
