@@ -187,6 +187,87 @@ def _run_migrations():
     logger.info("Database migrations up to date")
 
 
+def _auto_seed():
+    """Create the initial admin account from ADMIN_EMAIL / ADMIN_PASSWORD env vars.
+
+    Runs only when both vars are set and no superuser exists yet, so it is
+    safe to leave in place permanently — it is a no-op after the first run.
+    """
+    import re
+    import uuid as _uuid
+    from hop_core.models.user import User
+    from hop_core.models.organization import Organization, OrganizationMember
+    from hop_core.models.enums import OrganizationRole
+    from hop_core.core.security import get_password_hash
+
+    s = get_settings()
+    if not s.admin_email or not s.admin_password:
+        logger.info(
+            "ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping auto-seed. "
+            "Run backend/scripts/seed.py to create the first admin account."
+        )
+        return
+
+    SessionLocal = get_session_factory()
+    db = SessionLocal()
+    try:
+        if db.query(User).filter(User.is_superuser.is_(True)).first():
+            logger.debug("Auto-seed: superuser already exists, skipping.")
+            return
+
+        password = s.admin_password
+        errors = []
+        if len(password) < 12:
+            errors.append("at least 12 characters")
+        if not re.search(r"[A-Z]", password):
+            errors.append("at least one uppercase letter")
+        if not re.search(r"\d", password):
+            errors.append("at least one digit")
+        if not re.search(r"[^A-Za-z0-9]", password):
+            errors.append("at least one special character")
+        if errors:
+            logger.error(
+                "Auto-seed skipped: ADMIN_PASSWORD does not meet requirements (%s).",
+                ", ".join(errors),
+            )
+            return
+
+        slug = s.single_org_slug or "publishing-scheduler"
+        org = db.query(Organization).filter(Organization.slug == slug).first()
+        if not org:
+            org = Organization(
+                id=_uuid.uuid4(),
+                name="Publishing Scheduler",
+                slug=slug,
+                is_active=True,
+            )
+            db.add(org)
+            db.commit()
+
+        admin = User(
+            id=_uuid.uuid4(),
+            email=s.admin_email,
+            password_hash=get_password_hash(password),
+            is_active=True,
+            is_superuser=True,
+            current_organization_id=org.id,
+        )
+        db.add(admin)
+        db.flush()
+        db.add(OrganizationMember(
+            user_id=admin.id,
+            organization_id=org.id,
+            role=OrganizationRole.ADMIN,
+        ))
+        db.commit()
+        logger.info("Auto-seed: created admin account <%s>.", s.admin_email)
+    except Exception:
+        logger.exception("Auto-seed failed — continuing startup.")
+        db.rollback()
+    finally:
+        db.close()
+
+
 # @app.on_event("startup/shutdown") does not fire when the app is created with
 # an explicit lifespan= (Starlette 0.20+, which hop-core uses). Capture the
 # hop-core lifespan and wrap it so our startup runs inside it — after
@@ -198,6 +279,7 @@ _hop_lifespan = app.router.lifespan_context
 async def _lifespan(app: FastAPI):
     async with _hop_lifespan(app):
         _run_migrations()
+        _auto_seed()
         sched.start()
         _load_schedules()
         asyncio.create_task(_prune_old_jobs())

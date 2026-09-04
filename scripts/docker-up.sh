@@ -88,6 +88,17 @@ if ! grep -qE "^HERETTO_USERNAME=.+" "$ENV_FILE" || grep -qE "^HERETTO_USERNAME=
   warning "HERETTO_USERNAME looks unset in .env — the app will start, but Heretto API calls will fail"
 fi
 
+# ── Warn about missing first-run admin ────────────────────────────────────────
+if ! grep -qE "^ADMIN_EMAIL=.+" "$ENV_FILE"; then
+  echo ""
+  warning "ADMIN_EMAIL is not set in .env."
+  warning "The app will start, but you will not be able to log in."
+  warning "Set ADMIN_EMAIL and ADMIN_PASSWORD in .env before running, or"
+  warning "create an account manually after startup:"
+  warning "  docker compose exec backend python scripts/seed.py"
+  echo ""
+fi
+
 # ── Bring up the stack ────────────────────────────────────────────────────────
 info "Starting containers..."
 cd "$PROJECT_DIR"

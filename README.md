@@ -83,35 +83,45 @@ To run only the backend: `bash backend/scripts/start.sh`.
 ```bash
 git clone https://github.com/Heretto/publishing-scheduler.git
 cd publishing-scheduler
-
-bash scripts/docker-up.sh
-```
-
-That script creates `.env` from `.env.example` if it is missing, generates any of the three required secrets that are absent, and then starts the stack. It **never overwrites a value that is already set**, so it is safe to re-run.
-
-Add your Heretto credentials to `.env` and re-run it, or the app will start but Heretto API calls will fail — the script warns when that is the case.
-
-Arguments are passed straight through to `docker compose up`, so `bash scripts/docker-up.sh --build` works.
-
-<details>
-<summary>Doing it manually instead</summary>
-
-```bash
 cp .env.example .env
-openssl rand -hex 32   # once per variable, into .env
 ```
 
+Open `.env` and fill in at minimum:
+
 ```bash
+# Generate with: openssl rand -hex 32
 APP_SECRET_KEY=<generated>
 JWT_SECRET_KEY=<generated>
 ENCRYPTION_KEY=<generated>
+
+# First admin account — created automatically on first startup
+ADMIN_EMAIL=you@yourcompany.com
+ADMIN_PASSWORD=YourStr0ng!Password
+
+# Your Heretto instance
+HERETTO_HOST=acme.heretto.com
+HERETTO_ORG=acme          # usually the subdomain; may differ — see Configuration
+HERETTO_USERNAME=your-username
+HERETTO_PASSWORD=your-password
 ```
+
+Then start the stack:
 
 ```bash
-docker compose up -d
+bash scripts/docker-up.sh
 ```
 
-</details>
+The script generates any missing secrets for you, warns about unset values, and starts the containers. On first boot the backend creates the admin account from `ADMIN_EMAIL` / `ADMIN_PASSWORD` automatically — you can log in at http://localhost:4200 as soon as the stack is up. The auto-seed is a no-op on every subsequent restart, so it is safe to leave those vars in place.
+
+> **Password requirements:** 12+ characters, at least one uppercase letter, one digit, and one special character. The startup log reports an error and skips seeding if the password does not qualify.
+
+`docker-up.sh` **never overwrites a value that is already set** in `.env`, so it is safe to re-run. Arguments are passed straight through to `docker compose up`, so `bash scripts/docker-up.sh --build` works.
+
+**Prefer `seed.py` for interactive setup:** if you would rather be prompted instead of setting vars in `.env`, skip `ADMIN_EMAIL` / `ADMIN_PASSWORD` and run this after the stack is up:
+
+```bash
+docker compose exec backend python scripts/seed.py
+```
 
 Services:
 
@@ -823,6 +833,18 @@ Create payload:
 Provided by `hop-core`: `/api/v1/auth/*` (login, logout, refresh, register, forgot-password, reset-password, SSO), `/api/v1/account/me`, `/api/v1/credentials`, `/api/v1/organizations/*`, `/api/v1/invitations/*`, `/api/v1/admin/*`, and `/api/v1/superadmin/*`. See `/docs` for the full list.
 
 ## 🔍 Troubleshooting
+
+**❌ App is running but I can't log in — no account exists**
+
+If you skipped `ADMIN_EMAIL` / `ADMIN_PASSWORD`, create the first admin interactively:
+
+```bash
+docker compose exec backend python scripts/seed.py
+```
+
+Alternatively, add `ADMIN_EMAIL` and `ADMIN_PASSWORD` to `.env` and restart — the backend creates the account on startup when no admin exists yet.
+
+---
 
 **❌ `docker compose up` fails: `required variable APP_SECRET_KEY is missing a value`**
 

@@ -9,6 +9,11 @@ class AppSettings(HopCoreSettings):
     # Override redis_url to be optional — reserved for future use in hop-core
     redis_url: str = ""
 
+    # First-run admin bootstrap — if set and no superuser exists at startup,
+    # an admin account is created automatically (Docker / unattended installs).
+    admin_email: Optional[str] = None
+    admin_password: Optional[str] = None
+
     # Heretto API
     # heretto_host: full domain of the Heretto instance
     #   (e.g. "acme.heretto.com" or "cms.acme.com" for self-hosted)
