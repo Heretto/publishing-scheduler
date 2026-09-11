@@ -8,6 +8,7 @@ export interface SFTPConfig {
   username: string;
   password: string;
   remote_path: string;
+  host_key: string;
 }
 
 export interface S3Config {
@@ -37,6 +38,7 @@ export interface UpsertDeliveryTargetInput {
   username?: string;
   password?: string;
   remote_path?: string;
+  host_key?: string;
   // S3
   bucket?: string;
   prefix?: string;

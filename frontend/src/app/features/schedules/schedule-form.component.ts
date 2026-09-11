@@ -247,6 +247,12 @@ function requireNonEmpty(control: AbstractControl) {
                 <input matInput formControlName="sftp_remote_path" placeholder="/">
                 <mat-hint>Directory on the SFTP server where ZIPs will be placed</mat-hint>
               </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Host Key</mat-label>
+                <textarea matInput formControlName="sftp_host_key" rows="3"
+                  placeholder="ssh-ed25519 AAAA..." autocomplete="off"></textarea>
+                <mat-hint>Paste the server's public key — run <code>ssh-keyscan -p PORT HOST</code> to obtain it</mat-hint>
+              </mat-form-field>
             </ng-container>
 
             <!-- S3 fields -->
@@ -507,6 +513,7 @@ export class ScheduleFormComponent implements OnInit {
         sftp_username: [''],
         sftp_password: [''],
         sftp_remote_path: ['/'],
+        sftp_host_key: [''],
         s3_bucket: [''],
         s3_region: [''],
         s3_access_key_id: [''],
@@ -595,6 +602,7 @@ export class ScheduleFormComponent implements OnInit {
                 sftp_host: c.host, sftp_port: c.port,
                 sftp_username: c.username, sftp_password: c.password,
                 sftp_remote_path: c.remote_path,
+                sftp_host_key: c.host_key,
               });
             } else if (target.type === 's3') {
               const c = target.config as S3Config;
@@ -860,6 +868,7 @@ export class ScheduleFormComponent implements OnInit {
           username: dv.sftp_username,
           password: dv.sftp_password,
           remote_path: dv.sftp_remote_path || '/',
+          host_key: dv.sftp_host_key,
           enabled: true,
         }
       : {

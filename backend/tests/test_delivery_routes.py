@@ -1,8 +1,18 @@
 """Tests for delivery-target route schemas and helper logic."""
 
+import base64
 import pytest
+import paramiko
 from pydantic import ValidationError
 from unittest.mock import MagicMock, patch
+
+
+def _make_test_host_key() -> str:
+    key = paramiko.RSAKey.generate(1024)
+    return f"ssh-rsa {base64.b64encode(key.asbytes()).decode()}"
+
+
+_TEST_HOST_KEY = _make_test_host_key()
 
 
 # ── SFTPTargetBody / S3TargetBody schemas ─────────────────────────────────────
@@ -16,6 +26,7 @@ class TestSFTPTargetBody:
             "username": "user",
             "password": "secret",
             "remote_path": "/uploads",
+            "host_key": _TEST_HOST_KEY,
         }
         base.update(overrides)
         return base
@@ -53,6 +64,13 @@ class TestSFTPTargetBody:
         with pytest.raises(ValidationError):
             SFTPTargetBody(**payload)
 
+    def test_host_key_required(self):
+        from routes.schedules import SFTPTargetBody
+        payload = self._valid()
+        del payload["host_key"]
+        with pytest.raises(ValidationError):
+            SFTPTargetBody(**payload)
+
     def test_remote_path_defaults_to_slash(self):
         from routes.schedules import SFTPTargetBody
         payload = self._valid()
@@ -68,6 +86,7 @@ class TestSFTPTargetBody:
         assert "enabled" not in config
         assert "host" in config
         assert "password" in config
+        assert "host_key" in config
 
 
 class TestS3TargetBody:
@@ -166,13 +185,14 @@ class TestMaskedSecretPreservation:
         existing_config = {
             "host": "sftp.example.com", "port": 22,
             "username": "user", "password": "stored-real-password",
-            "remote_path": "/uploads",
+            "remote_path": "/uploads", "host_key": _TEST_HOST_KEY,
         }
 
         # Client sends *** back (didn't touch the password field)
         body = SFTPTargetBody(
             type="sftp", host="sftp.example.com", port=22,
             username="user", password=_MASK, remote_path="/uploads",
+            host_key=_TEST_HOST_KEY,
         )
         new_config = body.model_dump(exclude={"type", "enabled"})
         assert new_config["password"] == _MASK
@@ -211,6 +231,7 @@ class TestMaskedSecretPreservation:
         body = SFTPTargetBody(
             type="sftp", host="h", port=22,
             username="u", password="new-real-password",
+            host_key=_TEST_HOST_KEY,
         )
         new_config = body.model_dump(exclude={"type", "enabled"})
         # The mask check would NOT trigger

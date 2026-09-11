@@ -302,6 +302,7 @@ class SFTPTargetBody(BaseModel):
     username: str = Field(..., min_length=1, max_length=255)
     password: str = Field(..., min_length=1, max_length=1024)
     remote_path: str = Field("/", max_length=1024)
+    host_key: str = Field(..., min_length=1, max_length=4096)
     enabled: bool = True
 
 
@@ -399,6 +400,14 @@ def upsert_delivery_target(
                 pass
         if not new_config.get("secret_access_key") or new_config["secret_access_key"] == _MASK:
             raise HTTPException(status_code=422, detail="S3 secret access key is required")
+
+    # Validate that the SFTP host key can be parsed before storing it.
+    if body.type == "sftp":
+        from clients.sftp_delivery import _parse_host_key
+        try:
+            _parse_host_key(new_config["host_key"])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"Invalid host_key: {exc}")
 
     encrypted = encrypt_credentials(new_config)
 

@@ -277,11 +277,18 @@ class TestProcessRow:
 
 class TestMakeDeliveryClient:
     def test_sftp_type_returns_sftp_client(self):
+        import base64, paramiko
         from services.delivery_poller import _make_delivery_client
         from clients.sftp_delivery import SFTPDeliveryClient
 
+        rsa = paramiko.RSAKey.generate(1024)
+        host_key = f"ssh-rsa {base64.b64encode(rsa.asbytes()).decode()}"
+
         target = _make_target(type_="sftp")
-        config = {"host": "h", "username": "u", "password": "p", "port": 22, "remote_path": "/"}
+        config = {
+            "host": "h", "username": "u", "password": "p",
+            "port": 22, "remote_path": "/", "host_key": host_key,
+        }
 
         with patch("services.delivery_poller.decrypt_credentials", return_value=config):
             client = _make_delivery_client(target)
