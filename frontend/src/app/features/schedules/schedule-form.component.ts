@@ -251,8 +251,25 @@ function requireNonEmpty(control: AbstractControl) {
                 <mat-label>Host Key</mat-label>
                 <textarea matInput formControlName="sftp_host_key" rows="3"
                   placeholder="ssh-ed25519 AAAA..." autocomplete="off"></textarea>
-                <mat-hint>Paste the server's public key — run <code>ssh-keyscan -p PORT HOST</code> to obtain it</mat-hint>
               </mat-form-field>
+              <div class="host-key-help">
+                <div class="host-key-help-header" (click)="hostKeyHelpOpen = !hostKeyHelpOpen">
+                  <mat-icon class="host-key-help-icon">info_outline</mat-icon>
+                  <span>How to obtain the host key</span>
+                  <mat-icon class="host-key-chevron">{{ hostKeyHelpOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </div>
+                <div class="host-key-help-body" *ngIf="hostKeyHelpOpen">
+                  <p>The host key verifies the server's identity and prevents man-in-the-middle attacks over the internet.</p>
+                  <ol>
+                    <li>Run the following command in a terminal, replacing the port and hostname:
+                      <pre class="host-key-cmd">ssh-keyscan -p 22 sftp.example.com</pre>
+                    </li>
+                    <li>The output contains one line per key type. Prefer <code>ssh-ed25519</code> if present, otherwise use <code>ecdsa-sha2-*</code> or <code>ssh-rsa</code>.</li>
+                    <li>Paste the full line (e.g. <code>ssh-ed25519 AAAA…</code>) into the Host Key field above.</li>
+                  </ol>
+                  <p class="host-key-providers"><strong>Managed providers:</strong> AWS Transfer Family exposes the host key under the server's <em>Host key</em> tab in the console. For other providers, run <code>ssh-keyscan</code> against the public hostname.</p>
+                </div>
+              </div>
             </ng-container>
 
             <!-- S3 fields -->
@@ -447,6 +464,54 @@ function requireNonEmpty(control: AbstractControl) {
     }
     .delivery-host { flex: 3; margin-bottom: 8px; }
     .delivery-port { flex: 1; margin-bottom: 8px; }
+
+    .host-key-help {
+      border: 1px solid var(--hop-border, #e0e0e0);
+      border-radius: 6px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .host-key-help-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--hop-surface-subtle, #f5f8ff);
+      user-select: none;
+    }
+    .host-key-help-header:hover { background: var(--hop-surface-hover, #eef2ff); }
+    .host-key-help-icon { font-size: 18px; width: 18px; height: 18px; color: #3b6fd4; }
+    .host-key-chevron { font-size: 18px; width: 18px; height: 18px; margin-left: auto; opacity: 0.6; }
+    .host-key-help-body {
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      border-top: 1px solid var(--hop-border, #e0e0e0);
+    }
+    .host-key-help-body p { margin: 0 0 8px; }
+    .host-key-help-body ol { margin: 0 0 8px; padding-left: 20px; }
+    .host-key-help-body li { margin-bottom: 6px; }
+    .host-key-cmd {
+      display: block;
+      margin: 6px 0 2px;
+      padding: 6px 10px;
+      background: var(--hop-code-bg, #1e1e2e);
+      color: var(--hop-code-fg, #cdd6f4);
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .host-key-providers { margin-top: 8px !important; }
+    code {
+      font-family: monospace;
+      font-size: 12px;
+      background: var(--hop-code-inline-bg, rgba(0,0,0,0.07));
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
   `]
 })
 export class ScheduleFormComponent implements OnInit {
@@ -460,6 +525,7 @@ export class ScheduleFormComponent implements OnInit {
   scheduleName = '';
   submitting = false;
   deliveryTargetExists = false;
+  hostKeyHelpOpen = false;
   deployments: Deployment[] = [];
   scenarios: Scenario[] = [];
   branches: CcmsBranch[] = [];
