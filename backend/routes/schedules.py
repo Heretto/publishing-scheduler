@@ -2,17 +2,18 @@
 
 import json
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from hop_core.api.dependencies import CurrentUserContext, get_current_active_user_with_org
+from hop_core.core.security import decrypt_credentials, encrypt_credentials
 from hop_core.db import get_db
 
 from limiter import limiter
-from models import Schedule
+from models import DeliveryTarget, Schedule
 from services import scheduler as sched
 from utils import parse_ids
 
@@ -282,3 +283,158 @@ async def trigger_schedule(request: Request, schedule_id: str, ctx: OrgCtx, db: 
     logger.info("AUDIT schedule_triggered id=%s org=%s", schedule_id, org_id)
     result = await executor.execute(schedule_id, db, trigger_type="manual")
     return result
+
+
+# ── Delivery target sub-resource ──────────────────────────────────────────────
+# One optional delivery target per schedule: GET / PUT / DELETE
+# PUT is upsert — creates on first call, replaces on subsequent calls.
+# Sensitive fields (password, secret_access_key) are masked as "***" in GET
+# responses.  Sending "***" back in a PUT preserves the stored value so the
+# frontend does not need to re-supply credentials on every edit.
+
+_MASK = "***"
+
+
+class SFTPTargetBody(BaseModel):
+    type: Literal["sftp"]
+    host: str = Field(..., min_length=1, max_length=255)
+    port: int = Field(22, ge=1, le=65535)
+    username: str = Field(..., min_length=1, max_length=255)
+    password: str = Field(..., min_length=1, max_length=1024)
+    remote_path: str = Field("/", max_length=1024)
+    enabled: bool = True
+
+
+class S3TargetBody(BaseModel):
+    type: Literal["s3"]
+    bucket: str = Field(..., min_length=1, max_length=255)
+    prefix: str = Field("", max_length=1024)
+    region: str = Field(..., min_length=1, max_length=64)
+    access_key_id: str = Field(..., min_length=1, max_length=255)
+    secret_access_key: str = Field(..., min_length=1, max_length=1024)
+    enabled: bool = True
+
+
+DeliveryTargetBody = Annotated[
+    SFTPTargetBody | S3TargetBody,
+    Field(discriminator="type"),
+]
+
+
+def _mask_config(target_type: str, config: dict) -> dict:
+    """Return config with sensitive fields replaced by the mask token."""
+    masked = dict(config)
+    if target_type == "sftp":
+        masked["password"] = _MASK
+    elif target_type == "s3":
+        masked["secret_access_key"] = _MASK
+    return masked
+
+
+def _fmt_target(t: DeliveryTarget) -> dict:
+    try:
+        config = decrypt_credentials(t.config_encrypted)
+    except Exception:
+        config = {}
+    return {
+        "id": t.id,
+        "schedule_id": t.schedule_id,
+        "type": t.type,
+        "config": _mask_config(t.type, config),
+        "enabled": t.enabled,
+        "created_at": t.created_at.isoformat() + "+00:00" if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() + "+00:00" if t.updated_at else None,
+    }
+
+
+@router.get("/{schedule_id}/delivery-target")
+def get_delivery_target(schedule_id: str, ctx: OrgCtx, db: DB):
+    _get_or_404(schedule_id, str(ctx.organization_id), db)
+    target = (
+        db.query(DeliveryTarget)
+        .filter(DeliveryTarget.schedule_id == schedule_id)
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="No delivery target configured")
+    return _fmt_target(target)
+
+
+@router.put("/{schedule_id}/delivery-target", status_code=status.HTTP_200_OK)
+def upsert_delivery_target(
+    schedule_id: str,
+    body: DeliveryTargetBody,
+    ctx: OrgCtx,
+    db: DB,
+):
+    org_id = str(ctx.organization_id)
+    _get_or_404(schedule_id, org_id, db)
+
+    existing = (
+        db.query(DeliveryTarget)
+        .filter(DeliveryTarget.schedule_id == schedule_id)
+        .first()
+    )
+
+    # Build the config dict from the request body, excluding meta fields.
+    new_config = body.model_dump(exclude={"type", "enabled"})
+
+    # If the client sent the mask token back, preserve the stored secret.
+    if body.type == "sftp" and new_config.get("password") == _MASK:
+        if existing and existing.type == "sftp":
+            try:
+                old = decrypt_credentials(existing.config_encrypted)
+                new_config["password"] = old.get("password", "")
+            except Exception:
+                pass
+        if not new_config.get("password") or new_config["password"] == _MASK:
+            raise HTTPException(status_code=422, detail="SFTP password is required")
+
+    if body.type == "s3" and new_config.get("secret_access_key") == _MASK:
+        if existing and existing.type == "s3":
+            try:
+                old = decrypt_credentials(existing.config_encrypted)
+                new_config["secret_access_key"] = old.get("secret_access_key", "")
+            except Exception:
+                pass
+        if not new_config.get("secret_access_key") or new_config["secret_access_key"] == _MASK:
+            raise HTTPException(status_code=422, detail="S3 secret access key is required")
+
+    encrypted = encrypt_credentials(new_config)
+
+    if existing:
+        existing.type = body.type
+        existing.config_encrypted = encrypted
+        existing.enabled = body.enabled
+        db.commit()
+        db.refresh(existing)
+        logger.info("AUDIT delivery_target_updated schedule=%s type=%s org=%s", schedule_id, body.type, org_id)
+        return _fmt_target(existing)
+
+    target = DeliveryTarget(
+        schedule_id=schedule_id,
+        type=body.type,
+        config_encrypted=encrypted,
+        enabled=body.enabled,
+    )
+    db.add(target)
+    db.commit()
+    db.refresh(target)
+    logger.info("AUDIT delivery_target_created schedule=%s type=%s org=%s", schedule_id, body.type, org_id)
+    return _fmt_target(target)
+
+
+@router.delete("/{schedule_id}/delivery-target", status_code=status.HTTP_204_NO_CONTENT)
+def delete_delivery_target(schedule_id: str, ctx: OrgCtx, db: DB):
+    org_id = str(ctx.organization_id)
+    _get_or_404(schedule_id, org_id, db)
+    target = (
+        db.query(DeliveryTarget)
+        .filter(DeliveryTarget.schedule_id == schedule_id)
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="No delivery target configured")
+    db.delete(target)
+    db.commit()
+    logger.info("AUDIT delivery_target_deleted schedule=%s org=%s", schedule_id, org_id)
