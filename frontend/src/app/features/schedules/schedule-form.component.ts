@@ -254,7 +254,7 @@ function requireNonEmpty(control: AbstractControl) {
               </mat-form-field>
               <div class="host-key-help">
                 <div class="host-key-help-header" (click)="hostKeyHelpOpen = !hostKeyHelpOpen">
-                  <mat-icon class="host-key-help-icon">info_outline</mat-icon>
+                  <mat-icon class="host-key-help-icon">info</mat-icon>
                   <span>How to obtain the host key</span>
                   <mat-icon class="host-key-chevron">{{ hostKeyHelpOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
                 </div>
