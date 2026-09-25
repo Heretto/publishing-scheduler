@@ -25,6 +25,7 @@ from routes import dashboard as dashboard_router
 from routes import settings as settings_router
 from services import scheduler as sched
 from services import status_cache
+from services.delivery_poller import DeliveryPollerService
 from services.job_executor import JobExecutorService
 from settings import get_settings
 
@@ -132,6 +133,7 @@ app: FastAPI = create_hop_app(
     version="2.0.0",
     description="Scheduled publishing jobs for Heretto content, with SSO and multi-tenancy.",
     include_credentials_router=True,
+    include_agents_router=False,
 )
 
 setup_limiter(app)
@@ -285,6 +287,7 @@ async def _lifespan(app: FastAPI):
         asyncio.create_task(_prune_old_jobs())
         asyncio.create_task(_load_status_cache())
         asyncio.create_task(_refresh_status_cache())
+        asyncio.create_task(DeliveryPollerService().run(get_session_factory()))
         logger.info("Publishing Scheduler started")
         yield
         sched.shutdown(wait=True)

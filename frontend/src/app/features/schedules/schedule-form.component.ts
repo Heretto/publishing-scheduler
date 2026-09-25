@@ -10,7 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { ScheduleService, Schedule } from '../../core/services/schedule.service';
+import { ScheduleService, Schedule, DeliveryTarget, SFTPConfig, S3Config } from '../../core/services/schedule.service';
 import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale, CcmsResource } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
@@ -205,6 +205,103 @@ function requireNonEmpty(control: AbstractControl) {
           <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
         </div>
 
+        <!-- PUBLISH DELIVERY section -->
+        <div class="form-section-header">
+          <span class="form-section-title">Publish Delivery</span>
+        </div>
+        <div class="form-section-body" formGroupName="delivery">
+          <mat-checkbox formControlName="enabled">Deliver publish bundles after each job completes</mat-checkbox>
+
+          <div class="delivery-config" *ngIf="deliveryEnabled">
+            <mat-form-field appearance="outline" class="full-width" style="margin-top:14px">
+              <mat-label>Target Type</mat-label>
+              <mat-select formControlName="type">
+                <mat-option value="sftp">SFTP</mat-option>
+                <mat-option value="s3">Amazon S3</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- SFTP fields -->
+            <ng-container *ngIf="deliveryType === 'sftp'">
+              <div class="delivery-row-two">
+                <mat-form-field appearance="outline" class="delivery-host">
+                  <mat-label>Host</mat-label>
+                  <input matInput formControlName="sftp_host" placeholder="sftp.example.com">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="delivery-port">
+                  <mat-label>Port</mat-label>
+                  <input matInput type="number" formControlName="sftp_port">
+                </mat-form-field>
+              </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Username</mat-label>
+                <input matInput formControlName="sftp_username" autocomplete="off">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Password</mat-label>
+                <input matInput type="password" formControlName="sftp_password" autocomplete="new-password">
+                <mat-hint *ngIf="deliveryTargetExists">Leave unchanged to keep stored password</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Remote Path</mat-label>
+                <input matInput formControlName="sftp_remote_path" placeholder="/">
+                <mat-hint>Directory on the SFTP server where ZIPs will be placed</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Host Key</mat-label>
+                <textarea matInput formControlName="sftp_host_key" rows="3"
+                  placeholder="ssh-ed25519 AAAA..." autocomplete="off"></textarea>
+              </mat-form-field>
+              <div class="host-key-help">
+                <div class="host-key-help-header" (click)="hostKeyHelpOpen = !hostKeyHelpOpen">
+                  <mat-icon class="host-key-help-icon">info</mat-icon>
+                  <span>How to obtain the host key</span>
+                  <mat-icon class="host-key-chevron">{{ hostKeyHelpOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </div>
+                <div class="host-key-help-body" *ngIf="hostKeyHelpOpen">
+                  <p>The host key verifies the server's identity and prevents man-in-the-middle attacks over the internet.</p>
+                  <ol>
+                    <li>Run the following command in a terminal, replacing the port and hostname:
+                      <pre class="host-key-cmd">ssh-keyscan -p 22 sftp.example.com</pre>
+                    </li>
+                    <li>The output contains one line per key type. Prefer <code>ssh-ed25519</code> if present, otherwise use <code>ecdsa-sha2-*</code> or <code>ssh-rsa</code>.</li>
+                    <li>Paste the full line (e.g. <code>ssh-ed25519 AAAA…</code>) into the Host Key field above.</li>
+                  </ol>
+                  <p class="host-key-providers"><strong>Managed providers:</strong> AWS Transfer Family exposes the host key under the server's <em>Host key</em> tab in the console. For other providers, run <code>ssh-keyscan</code> against the public hostname.</p>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- S3 fields -->
+            <ng-container *ngIf="deliveryType === 's3'">
+              <div class="delivery-row-two">
+                <mat-form-field appearance="outline" class="delivery-host">
+                  <mat-label>Bucket</mat-label>
+                  <input matInput formControlName="s3_bucket">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="delivery-port">
+                  <mat-label>Region</mat-label>
+                  <input matInput formControlName="s3_region" placeholder="us-east-1">
+                </mat-form-field>
+              </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Access Key ID</mat-label>
+                <input matInput formControlName="s3_access_key_id" autocomplete="off">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Secret Access Key</mat-label>
+                <input matInput type="password" formControlName="s3_secret_access_key" autocomplete="new-password">
+                <mat-hint *ngIf="deliveryTargetExists">Leave unchanged to keep stored secret</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Key Prefix (optional)</mat-label>
+                <input matInput formControlName="s3_prefix" placeholder="deliveries/">
+                <mat-hint>Files placed at prefix/filename.zip inside the bucket</mat-hint>
+              </mat-form-field>
+            </ng-container>
+          </div>
+        </div>
+
         <div class="form-footer">
           <button mat-stroked-button type="button" class="btn-cancel" routerLink="/schedules">Cancel</button>
           <button mat-flat-button type="submit" class="btn-save" [disabled]="form.invalid || submitting">
@@ -357,16 +454,78 @@ function requireNonEmpty(control: AbstractControl) {
       margin-top: 4px;
     }
     .parameter-row { margin-bottom: 8px; }
+
+    /* ── Delivery section ────────────────────────────────────── */
+    .delivery-config { margin-bottom: 8px; }
+    .delivery-row-two {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 0;
+    }
+    .delivery-host { flex: 3; margin-bottom: 8px; }
+    .delivery-port { flex: 1; margin-bottom: 8px; }
+
+    .host-key-help {
+      border: 1px solid var(--hop-border, #e0e0e0);
+      border-radius: 6px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .host-key-help-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--hop-surface-subtle, #f5f8ff);
+      user-select: none;
+    }
+    .host-key-help-header:hover { background: var(--hop-surface-hover, #eef2ff); }
+    .host-key-help-icon { font-size: 18px; width: 18px; height: 18px; color: #3b6fd4; }
+    .host-key-chevron { font-size: 18px; width: 18px; height: 18px; margin-left: auto; opacity: 0.6; }
+    .host-key-help-body {
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      border-top: 1px solid var(--hop-border, #e0e0e0);
+    }
+    .host-key-help-body p { margin: 0 0 8px; }
+    .host-key-help-body ol { margin: 0 0 8px; padding-left: 20px; }
+    .host-key-help-body li { margin-bottom: 6px; }
+    .host-key-cmd {
+      display: block;
+      margin: 6px 0 2px;
+      padding: 6px 10px;
+      background: var(--hop-code-bg, #1e1e2e);
+      color: var(--hop-code-fg, #cdd6f4);
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .host-key-providers { margin-top: 8px !important; }
+    code {
+      font-family: monospace;
+      font-size: 12px;
+      background: var(--hop-code-inline-bg, rgba(0,0,0,0.07));
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
   `]
 })
 export class ScheduleFormComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
+
+  readonly MASK = '***';
 
   form: FormGroup;
   isEdit = false;
   scheduleId = '';
   scheduleName = '';
   submitting = false;
+  deliveryTargetExists = false;
+  hostKeyHelpOpen = false;
   deployments: Deployment[] = [];
   scenarios: Scenario[] = [];
   branches: CcmsBranch[] = [];
@@ -383,6 +542,14 @@ export class ScheduleFormComponent implements OnInit {
 
   get selectedScenarioCount(): number {
     return (this.form.get('scenario_ids')?.value as string[] | null)?.length ?? 0;
+  }
+
+  get deliveryEnabled(): boolean {
+    return !!this.form.get('delivery')?.get('enabled')?.value;
+  }
+
+  get deliveryType(): string {
+    return this.form.get('delivery')?.get('type')?.value || 'sftp';
   }
 
   constructor(
@@ -404,6 +571,21 @@ export class ScheduleFormComponent implements OnInit {
       branch: ['master'],
       locales: [{ value: [], disabled: true }],
       enabled: [true],
+      delivery: this.fb.group({
+        enabled: [false],
+        type: ['sftp'],
+        sftp_host: [''],
+        sftp_port: [22],
+        sftp_username: [''],
+        sftp_password: [''],
+        sftp_remote_path: ['/'],
+        sftp_host_key: [''],
+        s3_bucket: [''],
+        s3_region: [''],
+        s3_access_key_id: [''],
+        s3_secret_access_key: [''],
+        s3_prefix: [''],
+      }),
     });
   }
 
@@ -471,6 +653,34 @@ export class ScheduleFormComponent implements OnInit {
               this.loadScenarioParameters(s.scenario_ids[0]);
             }
           },
+        });
+
+      this.scheduleService.getDeliveryTarget(this.scheduleId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (target: DeliveryTarget) => {
+            this.deliveryTargetExists = true;
+            const dg = this.form.get('delivery')!;
+            dg.patchValue({ enabled: target.enabled, type: target.type });
+            if (target.type === 'sftp') {
+              const c = target.config as SFTPConfig;
+              dg.patchValue({
+                sftp_host: c.host, sftp_port: c.port,
+                sftp_username: c.username, sftp_password: c.password,
+                sftp_remote_path: c.remote_path,
+                sftp_host_key: c.host_key,
+              });
+            } else if (target.type === 's3') {
+              const c = target.config as S3Config;
+              dg.patchValue({
+                s3_bucket: c.bucket, s3_region: c.region,
+                s3_access_key_id: c.access_key_id,
+                s3_secret_access_key: c.secret_access_key,
+                s3_prefix: c.prefix,
+              });
+            }
+          },
+          error: () => { /* 404 = no delivery target configured, ignore */ },
         });
     }
   }
@@ -693,11 +903,60 @@ export class ScheduleFormComponent implements OnInit {
 
     obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (schedule) => {
-        this.notifications.success(`Schedule ${this.isEdit ? 'updated' : 'created'}`);
-        this.router.navigate(['/schedules', schedule.id]);
+        this.saveDeliveryTarget(schedule.id, () => {
+          this.notifications.success(`Schedule ${this.isEdit ? 'updated' : 'created'}`);
+          this.router.navigate(['/schedules', schedule.id]);
+        });
       },
       error: (err: unknown) => { console.error('Schedule save error:', err); this.submitting = false; },
     });
+  }
+
+  private saveDeliveryTarget(scheduleId: string, onComplete: () => void): void {
+    const dv = this.form.get('delivery')!.value;
+
+    if (!dv.enabled) {
+      if (this.deliveryTargetExists) {
+        this.scheduleService.deleteDeliveryTarget(scheduleId)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({ next: onComplete, error: () => onComplete() });
+      } else {
+        onComplete();
+      }
+      return;
+    }
+
+    const body = dv.type === 'sftp'
+      ? {
+          type: 'sftp' as const,
+          host: dv.sftp_host,
+          port: dv.sftp_port || 22,
+          username: dv.sftp_username,
+          password: dv.sftp_password,
+          remote_path: dv.sftp_remote_path || '/',
+          host_key: dv.sftp_host_key,
+          enabled: true,
+        }
+      : {
+          type: 's3' as const,
+          bucket: dv.s3_bucket,
+          region: dv.s3_region,
+          access_key_id: dv.s3_access_key_id,
+          secret_access_key: dv.s3_secret_access_key,
+          prefix: dv.s3_prefix || '',
+          enabled: true,
+        };
+
+    this.scheduleService.upsertDeliveryTarget(scheduleId, body)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => onComplete(),
+        error: (err: unknown) => {
+          console.error('Delivery target save failed:', err);
+          this.notifications.success(`Schedule saved — delivery target could not be configured`);
+          onComplete();
+        },
+      });
   }
 
   private parseDocumentIds(): string[] {

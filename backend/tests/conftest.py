@@ -28,6 +28,8 @@ def _make_mock_settings():
     s.scheduler_max_consecutive_failures = 5
     s.job_timeout_seconds = 300
     s.job_retention_days = 90
+    s.delivery_poll_interval_seconds = 60
+    s.delivery_max_poll_attempts = 60
     return s
 
 
@@ -35,14 +37,9 @@ def _make_mock_settings():
 def mock_settings():
     """Patch get_settings everywhere so tests never need a real .env file."""
     s = _make_mock_settings()
-    targets = [
-        "settings.get_settings",
-        "clients.heretto.get_settings",
-        "clients.heretto_ccms.get_settings",
-        "services.job_executor.get_settings",
-    ]
     with patch("settings.get_settings", return_value=s), \
          patch("clients.heretto.get_settings", return_value=s), \
          patch("clients.heretto_ccms.get_settings", return_value=s), \
-         patch("services.job_executor.get_settings", return_value=s):
+         patch("services.job_executor.get_settings", return_value=s), \
+         patch("services.delivery_poller.get_settings", return_value=s):
         yield s
