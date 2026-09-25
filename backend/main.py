@@ -133,6 +133,7 @@ app: FastAPI = create_hop_app(
     version="2.0.0",
     description="Scheduled publishing jobs for Heretto content, with SSO and multi-tenancy.",
     include_credentials_router=True,
+    include_agents_router=False,
 )
 
 setup_limiter(app)
