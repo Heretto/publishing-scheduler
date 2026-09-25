@@ -202,7 +202,7 @@ function requireNonEmpty(control: AbstractControl) {
           <span class="form-section-title">Options</span>
         </div>
         <div class="form-section-body">
-          <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
+          <mat-checkbox formControlName="enabled">Enable schedule</mat-checkbox>
         </div>
 
         <div class="form-footer">
