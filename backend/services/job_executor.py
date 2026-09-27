@@ -138,6 +138,41 @@ class JobExecutorService:
             locales_list = [""]
 
         source_doc_ids = await self._resolve_source_docs(source_doc_ids, folder_ids)
+
+        required_status = getattr(schedule, "required_status", None)
+        if required_status and source_doc_ids:
+            from services import status_cache as _sc
+            qualified = []
+            for doc_id in source_doc_ids:
+                cached = _sc.get(doc_id)
+                doc_status = cached if cached is not None else await HerettoCcmsClient().get_document_status(doc_id)
+                if doc_status == required_status:
+                    qualified.append(doc_id)
+            skipped = len(source_doc_ids) - len(qualified)
+            if skipped:
+                logger.info(
+                    "Status filter: %d/%d docs qualify (status=%r, skipped=%d) for schedule=%s",
+                    len(qualified), len(source_doc_ids), required_status, skipped, schedule_id,
+                )
+            if not qualified:
+                job = JobHistory(
+                    schedule_id=schedule_id,
+                    trigger_type=trigger_type,
+                    status="skipped",
+                    request_payload=json.dumps({"reason": f"No documents have required status '{required_status}'"}),
+                    response_payload="{}",
+                    completed_at=datetime.now(timezone.utc),
+                )
+                db.add(job)
+                schedule.last_run_at = datetime.now(timezone.utc)
+                schedule.last_run_status = "skipped"
+                db.commit()
+                db.refresh(job)
+                logger.info("Job skipped (schedule=%s): no docs with status %r", schedule_id, required_status)
+                self._running.discard(schedule_id)
+                return self._format_job(job)
+            source_doc_ids = qualified
+
         scenario_name_map, document_name_map = await self._fetch_name_maps(scenario_ids, source_doc_ids)
         locale_doc_map = await self._build_locale_doc_map(source_doc_ids, locales_list)
 
@@ -207,6 +242,20 @@ class JobExecutorService:
             job.heretto_job_id = ",".join(r["id"] for r in all_results if r.get("id"))
             job.response_payload = json.dumps({"results": all_results, "errors": errors})
 
+            publish_jobs_data = [
+                {
+                    "fileId": r["fileId"],
+                    "publishId": r["id"],
+                    "documentName": document_name_map.get(r["fileId"], r["fileId"]),
+                }
+                for r in all_results
+                if r.get("id") and r.get("fileId")
+            ]
+            job.publish_jobs = json.dumps(publish_jobs_data)
+
+            if job.status == "completed":
+                _create_pending_deliveries(schedule, job, publish_jobs_data, db)
+
             schedule.last_run_at = datetime.now(timezone.utc)
             schedule.last_run_status = job.status
             if job.status == "completed":
@@ -256,6 +305,31 @@ class JobExecutorService:
             "response_payload": json.loads(job.response_payload or "{}"),
             "error": job.error,
         }
+
+
+def _create_pending_deliveries(
+    schedule,
+    job,
+    publish_jobs_data: list[dict],
+    db,
+) -> None:
+    """Create PendingDelivery rows if the schedule has an active delivery target."""
+    from models import PendingDelivery
+    target = schedule.delivery_target
+    if not target or not target.enabled or not publish_jobs_data:
+        return
+    for pj in publish_jobs_data:
+        db.add(PendingDelivery(
+            job_history_id=job.id,
+            file_id=pj["fileId"],
+            publish_id=pj["publishId"],
+            document_name=pj["documentName"],
+            status="pending",
+        ))
+    logger.info(
+        "Created %d pending delivery row(s) for job %s (target type=%s)",
+        len(publish_jobs_data), job.id, target.type,
+    )
 
 
 def _make_publish_fn(client: HerettoClient, scenario_id: str, deployment_id: str,

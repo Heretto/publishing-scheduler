@@ -33,13 +33,21 @@ generate_secret() {
   fi
 }
 
+generate_fernet_key() {
+  if command -v python3 &>/dev/null; then
+    python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  else
+    die "python3 is required to generate ENCRYPTION_KEY"
+  fi
+}
+
 # Sets $key in .env only when it has no value. Returns 0 if it generated one.
 ensure_key() {
-  local key="$1" value
+  local key="$1" generator="${2:-generate_secret}" value
   if grep -qE "^${key}=.+" "$ENV_FILE"; then
     return 1
   fi
-  value="$(generate_secret)"
+  value="$($generator)"
   if grep -qE "^${key}=[[:space:]]*$" "$ENV_FILE"; then
     # Fill the existing empty assignment, keeping its place in the file.
     awk -v k="$key" -v v="$value" '
@@ -62,11 +70,14 @@ fi
 
 # ── Fill in required secrets ──────────────────────────────────────────────────
 GENERATED=()
-for key in APP_SECRET_KEY JWT_SECRET_KEY ENCRYPTION_KEY; do
-  if ensure_key "$key"; then
+for key in APP_SECRET_KEY JWT_SECRET_KEY; do
+  if ensure_key "$key" generate_secret; then
     GENERATED+=("$key")
   fi
 done
+if ensure_key "ENCRYPTION_KEY" generate_fernet_key; then
+  GENERATED+=("ENCRYPTION_KEY")
+fi
 
 if [ ${#GENERATED[@]} -gt 0 ]; then
   info "Generated ${#GENERATED[@]} secret(s) in .env: ${GENERATED[*]}"

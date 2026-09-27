@@ -2,6 +2,51 @@ import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
 import { Observable } from 'rxjs';
 
+export interface SFTPConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  remote_path: string;
+  host_key: string;
+}
+
+export interface S3Config {
+  bucket: string;
+  prefix: string;
+  region: string;
+  access_key_id: string;
+  secret_access_key: string;
+}
+
+export interface DeliveryTarget {
+  id: string;
+  schedule_id: string;
+  type: 'sftp' | 's3';
+  config: SFTPConfig | S3Config;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpsertDeliveryTargetInput {
+  type: 'sftp' | 's3';
+  enabled: boolean;
+  // SFTP
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  remote_path?: string;
+  host_key?: string;
+  // S3
+  bucket?: string;
+  prefix?: string;
+  region?: string;
+  access_key_id?: string;
+  secret_access_key?: string;
+}
+
 export interface Schedule {
   id: string;
   name: string;
@@ -69,5 +114,17 @@ export class ScheduleService {
 
   trigger(id: string): Observable<unknown> {
     return this.api.post(`/schedules/${id}/trigger`, {});
+  }
+
+  getDeliveryTarget(scheduleId: string): Observable<DeliveryTarget> {
+    return this.api.get<DeliveryTarget>(`/schedules/${scheduleId}/delivery-target`);
+  }
+
+  upsertDeliveryTarget(scheduleId: string, input: UpsertDeliveryTargetInput): Observable<DeliveryTarget> {
+    return this.api.put<DeliveryTarget>(`/schedules/${scheduleId}/delivery-target`, input);
+  }
+
+  deleteDeliveryTarget(scheduleId: string): Observable<void> {
+    return this.api.delete(`/schedules/${scheduleId}/delivery-target`);
   }
 }

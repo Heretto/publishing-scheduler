@@ -110,6 +110,14 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         </div>
         <div class="record-field-divider"></div>
         <div class="record-field">
+          <div class="field-label">Required Status</div>
+          <div class="field-value">
+            <span *ngIf="schedule.required_status" class="required-status-chip">{{ schedule.required_status }}</span>
+            <span *ngIf="!schedule.required_status">—</span>
+          </div>
+        </div>
+        <div class="record-field-divider"></div>
+        <div class="record-field">
           <div class="field-label">Created</div>
           <div class="field-value">{{ schedule.created_at | date:'MMM d, y' }}</div>
         </div>
@@ -623,6 +631,15 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
       border-radius: 3px;
     }
     .locale-code-icon { font-size: 12px; width: 12px; height: 12px; color: #5e6e82; }
+    .required-status-chip {
+      display: inline-block;
+      background: #e8f4fd;
+      color: #0066cc;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
 
     .locale-grid {
       display: flex;
