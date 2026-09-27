@@ -64,6 +64,7 @@ class Schedule(Base):
     branch = Column(String(255), default="master")
     locale = Column(String(50), default="")
     publish_parameters = Column(Text, default="[]") # JSON array
+    required_status = Column(String(100), nullable=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     last_run_status = Column(String(50), nullable=True)
     consecutive_failures = Column(Integer, default=0)

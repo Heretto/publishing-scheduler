@@ -138,6 +138,41 @@ class JobExecutorService:
             locales_list = [""]
 
         source_doc_ids = await self._resolve_source_docs(source_doc_ids, folder_ids)
+
+        required_status = getattr(schedule, "required_status", None)
+        if required_status and source_doc_ids:
+            from services import status_cache as _sc
+            qualified = []
+            for doc_id in source_doc_ids:
+                cached = _sc.get(doc_id)
+                doc_status = cached if cached is not None else await HerettoCcmsClient().get_document_status(doc_id)
+                if doc_status == required_status:
+                    qualified.append(doc_id)
+            skipped = len(source_doc_ids) - len(qualified)
+            if skipped:
+                logger.info(
+                    "Status filter: %d/%d docs qualify (status=%r, skipped=%d) for schedule=%s",
+                    len(qualified), len(source_doc_ids), required_status, skipped, schedule_id,
+                )
+            if not qualified:
+                job = JobHistory(
+                    schedule_id=schedule_id,
+                    trigger_type=trigger_type,
+                    status="skipped",
+                    request_payload=json.dumps({"reason": f"No documents have required status '{required_status}'"}),
+                    response_payload="{}",
+                    completed_at=datetime.now(timezone.utc),
+                )
+                db.add(job)
+                schedule.last_run_at = datetime.now(timezone.utc)
+                schedule.last_run_status = "skipped"
+                db.commit()
+                db.refresh(job)
+                logger.info("Job skipped (schedule=%s): no docs with status %r", schedule_id, required_status)
+                self._running.discard(schedule_id)
+                return self._format_job(job)
+            source_doc_ids = qualified
+
         scenario_name_map, document_name_map = await self._fetch_name_maps(scenario_ids, source_doc_ids)
         locale_doc_map = await self._build_locale_doc_map(source_doc_ids, locales_list)
 

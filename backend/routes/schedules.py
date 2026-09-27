@@ -50,6 +50,7 @@ class ScheduleCreate(BaseModel):
     branch: str = Field("master", max_length=255)
     locales: list[str] = Field([], max_length=50)
     publish_parameters: list[dict] = Field([], max_length=50)
+    required_status: str | None = Field(None, max_length=100)
 
     @field_validator("document_ids", "folder_ids", "locales", mode="after")
     @classmethod
@@ -80,6 +81,7 @@ class ScheduleUpdate(BaseModel):
     branch: str | None = Field(None, max_length=255)
     locales: list[str] | None = Field(None, max_length=50)
     publish_parameters: list[dict] | None = Field(None, max_length=50)
+    required_status: str | None = Field(None, max_length=100)
 
     @field_validator("document_ids", "folder_ids", "locales", mode="after")
     @classmethod
@@ -112,6 +114,7 @@ def _fmt(s: Schedule) -> dict:
         "branch": s.branch,
         "locales": parse_ids(s.locale),
         "publish_parameters": json.loads(s.publish_parameters or "[]"),
+        "required_status": s.required_status,
         "last_run_at": s.last_run_at.isoformat() + "+00:00" if s.last_run_at else None,
         "last_run_status": s.last_run_status,
         "consecutive_failures": s.consecutive_failures,
@@ -191,6 +194,7 @@ def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
         branch=body.branch,
         locale=json.dumps(body.locales),
         publish_parameters=json.dumps(body.publish_parameters),
+        required_status=body.required_status,
     )
     db.add(s)
     db.commit()
@@ -232,6 +236,8 @@ def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB)
         s.locale = json.dumps(body.locales)
     if body.publish_parameters is not None:
         s.publish_parameters = json.dumps(body.publish_parameters)
+    if "required_status" in body.model_fields_set:
+        s.required_status = body.required_status
 
     db.commit()
     db.refresh(s)

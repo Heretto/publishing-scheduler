@@ -203,6 +203,14 @@ function requireNonEmpty(control: AbstractControl) {
         </div>
         <div class="form-section-body">
           <mat-checkbox formControlName="enabled">Enable schedule</mat-checkbox>
+          <mat-form-field appearance="outline" class="full-width" style="margin-top:14px">
+            <mat-label>Required file status (optional)</mat-label>
+            <mat-select formControlName="required_status">
+              <mat-option [value]="null">— No requirement —</mat-option>
+              <mat-option *ngFor="let v of availableStatusValues" [value]="v">{{ v }}</mat-option>
+            </mat-select>
+            <mat-hint>If set, only documents with this status will be published each run. Others are skipped.</mat-hint>
+          </mat-form-field>
         </div>
 
         <!-- PUBLISH DELIVERY section -->
@@ -538,6 +546,7 @@ export class ScheduleFormComponent implements OnInit {
   documentReleases: Record<string, { id: string; name: string }> = {};
   localeOptions: CcmsLocale[] = [];
   localeLoading = false;
+  availableStatusValues: string[] = [];
   localeHint = '';
 
   get selectedScenarioCount(): number {
@@ -571,6 +580,7 @@ export class ScheduleFormComponent implements OnInit {
       branch: ['master'],
       locales: [{ value: [], disabled: true }],
       enabled: [true],
+      required_status: [null],
       delivery: this.fb.group({
         enabled: [false],
         type: ['sftp'],
@@ -601,6 +611,10 @@ export class ScheduleFormComponent implements OnInit {
     this.herettoService.getBranches()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: b => this.branches = b, error: () => {} });
+
+    this.herettoService.getStatusValues()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: v => this.availableStatusValues = v, error: () => {} });
 
     this.scheduleId = this.route.snapshot.params['id'];
     if (this.scheduleId) {
@@ -895,6 +909,7 @@ export class ScheduleFormComponent implements OnInit {
       locales: value.locales || [],
       publish_parameters: publishParameters,
       enabled: value.enabled,
+      required_status: value.required_status || null,
     };
 
     const obs = this.isEdit
