@@ -18,6 +18,7 @@ describe('ScheduleService', () => {
     folder_ids: [],
     document_releases: {},
     enabled: true,
+    required_status: null,
     branch: 'master',
     locales: ['fr-fr'],
     publish_parameters: [],

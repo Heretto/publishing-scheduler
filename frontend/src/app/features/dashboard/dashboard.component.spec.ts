@@ -20,6 +20,7 @@ const mockSchedule: Schedule = {
   folder_ids: [],
   document_releases: {},
   enabled: true,
+  required_status: null,
   branch: 'master',
   locales: ['en-us'],
   publish_parameters: [],
