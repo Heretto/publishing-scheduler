@@ -17,6 +17,7 @@ def _make_schedule(
     publish_parameters="[]",
     enabled=True,
     consecutive_failures=0,
+    required_status=None,
 ):
     s = MagicMock()
     s.id = schedule_id
@@ -29,6 +30,7 @@ def _make_schedule(
     s.publish_parameters = publish_parameters
     s.enabled = enabled
     s.consecutive_failures = consecutive_failures
+    s.required_status = required_status
     s.last_run_at = None
     s.last_run_status = None
     return s
@@ -535,3 +537,76 @@ class TestReleasePinning:
         raw = MockJobHistory.call_args.kwargs["request_payload"]
         payload = json.loads(raw)
         assert payload["documentReleases"] == {"map-1": "snapshot-uuid-1"}
+
+
+def _status_ccms(statuses):
+    """Mock CCMS client whose get_document_status returns statuses[doc_id]."""
+    ccms = MagicMock()
+    ccms.get_document_status = AsyncMock(side_effect=lambda doc_id: statuses[doc_id])
+    ccms.get_document_info = AsyncMock(return_value={})
+    return ccms
+
+
+@pytest.mark.asyncio
+class TestRequiredStatus:
+    async def test_only_docs_with_required_status_are_published(self, executor):
+        svc, mock_client = executor
+        schedule = _make_schedule(document_ids='["doc-1", "doc-2"]', required_status="Approved")
+        db, job = _make_db(schedule)
+        ccms = _status_ccms({"doc-1": "Approved", "doc-2": "Draft"})
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=ccms), \
+             patch("services.status_cache.get", return_value=None):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        called_ids = mock_client.trigger_publishing_job.call_args.kwargs["document_ids"]
+        assert called_ids == ["doc-1"]
+
+    async def test_cached_status_skips_live_lookup(self, executor):
+        svc, mock_client = executor
+        schedule = _make_schedule(required_status="Approved")
+        db, job = _make_db(schedule)
+        ccms = _status_ccms({})
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=ccms), \
+             patch("services.status_cache.get", return_value="Approved"):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        ccms.get_document_status.assert_not_awaited()
+        mock_client.trigger_publishing_job.assert_awaited_once()
+
+    async def test_job_skipped_when_no_docs_qualify(self, executor):
+        svc, mock_client = executor
+        schedule = _make_schedule(required_status="Approved")
+        db, job = _make_db(schedule)
+        ccms = _status_ccms({"doc-1": "Draft"})
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=ccms), \
+             patch("services.status_cache.get", return_value=None):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        assert MockJobHistory.call_args.kwargs["status"] == "skipped"
+        assert schedule.last_run_status == "skipped"
+        mock_client.trigger_publishing_job.assert_not_awaited()
+        assert not svc.is_running("sched-1")
+
+    async def test_running_set_cleared_when_status_lookup_fails(self, executor):
+        """A failed lookup used to leave the schedule stuck as 'already running'."""
+        svc, mock_client = executor
+        schedule = _make_schedule(required_status="Approved")
+        db, job = _make_db(schedule)
+        ccms = MagicMock()
+        ccms.get_document_status = AsyncMock(side_effect=httpx.ConnectError("CCMS unreachable"))
+
+        with patch("services.job_executor.HerettoCcmsClient", return_value=ccms), \
+             patch("services.status_cache.get", return_value=None):
+            with pytest.raises(httpx.ConnectError):
+                await svc.execute("sched-1", db)
+
+        assert not svc.is_running("sched-1")

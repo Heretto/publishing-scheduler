@@ -125,6 +125,20 @@ class JobExecutorService:
             raise ValueError(f"Schedule {schedule_id} not found")
 
         self._running.add(schedule_id)
+        # Clear the flag however the run ends; an exception before the job record
+        # exists (e.g. a failed status lookup) used to leave it set until restart.
+        try:
+            return await self._run(schedule, schedule_id, db, trigger_type)
+        finally:
+            self._running.discard(schedule_id)
+
+    async def _run(
+        self,
+        schedule: Schedule,
+        schedule_id: str,
+        db: Session,
+        trigger_type: str,
+    ) -> dict:
         s = get_settings()
 
         source_doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
@@ -169,7 +183,6 @@ class JobExecutorService:
                 db.commit()
                 db.refresh(job)
                 logger.info("Job skipped (schedule=%s): no docs with status %r", schedule_id, required_status)
-                self._running.discard(schedule_id)
                 return self._format_job(job)
             source_doc_ids = qualified
 
@@ -287,9 +300,6 @@ class JobExecutorService:
             db.commit()
             logger.error("Job failed: %s (schedule=%s): %s", job.id, schedule_id, error_msg)
             return self._format_job(job)
-
-        finally:
-            self._running.discard(schedule_id)
 
     @staticmethod
     def _format_job(job: JobHistory) -> dict:
