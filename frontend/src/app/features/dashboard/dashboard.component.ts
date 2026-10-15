@@ -1,6 +1,6 @@
 import { Component, OnInit, DestroyRef, inject, Inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-
+import { DatePipe } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { forkJoin, take } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -40,6 +40,7 @@ class MapsDialogComponent {
 @Component({
     selector: 'app-dashboard',
     imports: [
+    DatePipe,
     RouterModule,
     MatButtonModule,
     MatIconModule,
