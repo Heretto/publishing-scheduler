@@ -287,7 +287,7 @@ interface BreadcrumbItem {
 
     /* ── Tabs ────────────────────────────────────────────────── */
     .picker-tabs {
-      --mdc-tab-indicator-active-indicator-color: #79ECDD;
+      --mat-tab-active-indicator-color: #79ECDD;
     }
 
     /* ── Content area ───────────────────────────────────────── */
