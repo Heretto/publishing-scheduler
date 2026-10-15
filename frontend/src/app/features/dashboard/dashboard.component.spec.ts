@@ -199,6 +199,42 @@ describe('DashboardComponent', () => {
 
   // ── staleSchedules ─────────────────────────────────────────────────────────
 
+  it('activeScheduleList excludes disabled schedules', () => {
+    component.schedules = [
+      { ...mockSchedule, id: '1', enabled: true },
+      { ...mockSchedule, id: '2', enabled: false },
+    ];
+    expect(component.activeScheduleList.map(s => s.id)).toEqual(['1']);
+    expect(component.activeSchedules).toBe(1);
+  });
+
+  it('Active Schedules table shows only enabled schedules', () => {
+    fixture.detectChanges();
+    flushInitRequests(httpMock, [
+      { ...mockSchedule, id: '1', name: 'Nightly', enabled: true },
+      { ...mockSchedule, id: '2', name: 'Paused one', enabled: false },
+    ]);
+    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    fixture.detectChanges();
+
+    const table: HTMLElement = fixture.nativeElement.querySelector('table[aria-label="Active schedules"]');
+    expect(table.querySelectorAll('tr.mat-mdc-row').length).toBe(1);
+    expect(table.textContent).toContain('Nightly');
+    expect(table.textContent).not.toContain('Paused one');
+  });
+
+  it('says "No active schedules" when every schedule is disabled', () => {
+    fixture.detectChanges();
+    flushInitRequests(httpMock, [{ ...mockSchedule, enabled: false }]);
+    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('table[aria-label="Active schedules"]')).toBeNull();
+    expect(el.textContent).toContain('No active schedules');
+    expect(el.textContent).not.toContain('No schedules yet');
+  });
+
   it('staleSchedules excludes disabled schedules', () => {
     component.schedules = [{ ...mockSchedule, enabled: false, last_run_at: null }];
     expect(component.staleSchedules.length).toBe(0);
