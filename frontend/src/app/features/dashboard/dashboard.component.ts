@@ -12,6 +12,7 @@ import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/d
 import { ScheduleService, Schedule } from '../../core/services/schedule.service';
 import { JobService, Job } from '../../core/services/job.service';
 import { DashboardService, DailyVolume, DashboardSummary, LocaleStat } from '../../core/services/dashboard.service';
+import { HerettoService } from '../../core/services/heretto.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
 
@@ -792,6 +793,7 @@ export class DashboardComponent implements OnInit {
     private scheduleService: ScheduleService,
     private jobService: JobService,
     private dashboardService: DashboardService,
+    private herettoService: HerettoService,
   ) {}
 
   ngOnInit() {
@@ -812,6 +814,7 @@ export class DashboardComponent implements OnInit {
               this.scheduleLatestJobCache[job.schedule_id] = job;
             }
           }
+          this.resolveMissingDocNames();
           this.loading = false;
         },
         error: () => {
@@ -819,6 +822,21 @@ export class DashboardComponent implements OnInit {
           this.errorMessage = 'Failed to load dashboard';
         },
       });
+  }
+
+  // Job payloads only carry titles for maps that have been published, so look up
+  // the rest (e.g. schedules that have never run) directly from Heretto.
+  private resolveMissingDocNames() {
+    const ids = new Set(this.schedules.flatMap(s => s.document_ids ?? []));
+    for (const id of ids) {
+      if (this.documentNameCache[id]) continue;
+      this.herettoService.getDocumentInfo(id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: r => { if (r.title) this.documentNameCache[id] = r.title; },
+          error: () => {},
+        });
+    }
   }
 
   triggerNow(s: Schedule) {
