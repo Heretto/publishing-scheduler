@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, Inject, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { FormsModule } from '@angular/forms';
@@ -341,6 +341,7 @@ interface BreadcrumbItem {
       </button>
     </mat-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
     /* ── Dialog header ──────────────────────────────────────── */
     .picker-header {

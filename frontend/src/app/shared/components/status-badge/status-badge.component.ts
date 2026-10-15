@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -13,6 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
       {{ status | titlecase }}
     </span>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
     .status-badge {
       display: inline-flex;

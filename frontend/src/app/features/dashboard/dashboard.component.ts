@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject, Inject } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -31,6 +31,7 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
       <button mat-button mat-dialog-close>Close</button>
     </mat-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`.maps-list { margin: 8px 0 0; padding-left: 20px; } li { padding: 4px 0; font-size: 0.9rem; }`]
 })
 class MapsDialogComponent {
@@ -415,9 +416,9 @@ class MapsDialogComponent {
             </svg>
             <!-- Date labels -->
             <div class="sparkline-labels">
-              <span>{{ summary!.daily_volumes[0]?.date | date:'M/d' }}</span>
-              <span>{{ summary!.daily_volumes[6]?.date | date:'M/d' }}</span>
-              <span>{{ summary!.daily_volumes[13]?.date | date:'M/d' }}</span>
+              <span>{{ $safeNavigationMigration(summary!.daily_volumes[0]?.date) | date:'M/d' }}</span>
+              <span>{{ $safeNavigationMigration(summary!.daily_volumes[6]?.date) | date:'M/d' }}</span>
+              <span>{{ $safeNavigationMigration(summary!.daily_volumes[13]?.date) | date:'M/d' }}</span>
             </div>
             <!-- Legend -->
             <div class="chart-legend">
@@ -439,6 +440,7 @@ class MapsDialogComponent {
       </div>
     }
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
     /* ── Banner ─────────────────────────────────────────────── */
     .page-banner {
