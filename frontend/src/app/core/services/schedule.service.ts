@@ -65,6 +65,7 @@ export interface Schedule {
   last_run_status: string | null;
   consecutive_failures: number | null;
   next_run_time: string | null;
+  required_status: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -5,7 +5,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { DashboardComponent } from './dashboard.component';
 import { Schedule } from '../../core/services/schedule.service';
 import { DashboardSummary, LocaleStat } from '../../core/services/dashboard.service';
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 
 // ── shared test data ───────────────────────────────────────────────────────────
 
@@ -20,6 +20,7 @@ const mockSchedule: Schedule = {
   folder_ids: [],
   document_releases: {},
   enabled: true,
+  required_status: null,
   branch: 'master',
   locales: ['en-us'],
   publish_parameters: [],
@@ -78,7 +79,7 @@ describe('DashboardComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
     imports: [DashboardComponent, NoopAnimationsModule, RouterTestingModule],
-    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi()), provideHttpClientTesting()]
 }).compileComponents();
 
     fixture = TestBed.createComponent(DashboardComponent);
@@ -113,6 +114,29 @@ describe('DashboardComponent', () => {
     expect(component.totalJobs).toBe(1);
     expect(component.summary).toEqual(mockSummary);
     expect(component.loading).toBe(false);
+
+    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+  });
+
+  it('looks up map titles for schedules that have never run', () => {
+    fixture.detectChanges();
+    flushInitRequests(httpMock, [mockSchedule], { ...mockJobsResponse, data: [], total: 0 });
+
+    expect(component.scheduleDocNames(mockSchedule)).toBe('doc-1');
+    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    expect(component.scheduleDocNames(mockSchedule)).toBe('User Guide');
+  });
+
+  it('skips the title lookup when a job payload already names the map', () => {
+    fixture.detectChanges();
+    const jobs = {
+      ...mockJobsResponse,
+      data: [{ ...mockJobsResponse.data[0], request_payload: { documentNames: { 'doc-1': 'User Guide' } } }],
+    };
+    flushInitRequests(httpMock, [mockSchedule], jobs as typeof mockJobsResponse);
+
+    httpMock.expectNone('/api/v1/heretto/ccms/documents/doc-1');
+    expect(component.scheduleDocNames(mockSchedule)).toBe('User Guide');
   });
 
   it('shows error and clears loading when any init request fails', () => {

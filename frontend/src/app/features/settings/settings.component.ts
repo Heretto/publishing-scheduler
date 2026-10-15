@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -37,13 +37,15 @@ import { ApiService } from '../../core/services/api.service';
         <span class="banner-subtitle">Manage API connections, environment configuration, and publishing preferences.</span>
       </div>
     </div>
-
+    
     <!-- API Connection Status -->
     <div class="sn-card" style="margin-top: 20px;">
       <div class="sn-card-header">
         <span class="section-title">API Connection Status</span>
         <div class="header-right">
-          <span *ngIf="lastChecked" class="last-checked">Checked {{ lastChecked | date:'h:mm:ss a' }}</span>
+          @if (lastChecked) {
+            <span class="last-checked">Checked {{ lastChecked | date:'h:mm:ss a' }}</span>
+          }
           <button mat-icon-button class="refresh-btn" (click)="checkConnections()"
             [disabled]="checking" matTooltip="Refresh" aria-label="Refresh connection status">
             <mat-icon [class.spinning]="checking">refresh</mat-icon>
@@ -51,13 +53,13 @@ import { ApiService } from '../../core/services/api.service';
         </div>
       </div>
       <div class="sn-card-body status-body">
-        <ng-container *ngIf="checking && !lastChecked">
+        @if (checking && !lastChecked) {
           <div class="status-checking">
             <mat-spinner diameter="20"></mat-spinner>
             <span>Checking connections…</span>
           </div>
-        </ng-container>
-        <ng-container *ngIf="!checking || lastChecked">
+        }
+        @if (!checking || lastChecked) {
           <div class="status-row">
             <span class="status-name">Backend API</span>
             <span class="status-badge" [class.badge-ok]="backendOk" [class.badge-err]="!backendOk">
@@ -72,10 +74,10 @@ import { ApiService } from '../../core/services/api.service';
               {{ herettoOk ? 'Connected' : herettoError }}
             </span>
           </div>
-        </ng-container>
+        }
       </div>
     </div>
-
+    
     <!-- Configuration -->
     <div class="sn-card">
       <div class="sn-card-header">
@@ -99,7 +101,7 @@ import { ApiService } from '../../core/services/api.service';
         </div>
       </div>
     </div>
-
+    
     <!-- Status Value Exclusions -->
     <div class="sn-card">
       <div class="sn-card-header">
@@ -107,18 +109,25 @@ import { ApiService } from '../../core/services/api.service';
         <span class="section-sub">Values checked below will not appear in the schedule status dropdown</span>
       </div>
       <div class="sn-card-body">
-        <mat-spinner *ngIf="valuesLoading" diameter="24"></mat-spinner>
-        <ng-container *ngIf="!valuesLoading">
-          <p *ngIf="allValues.length === 0" class="empty-hint">No status values found.</p>
-          <div *ngFor="let v of allValues" class="value-row">
-            <mat-checkbox [checked]="excludedSet.has(v)" (change)="toggleExclusion(v, $event.checked)">
-              {{ v }}
-            </mat-checkbox>
-          </div>
-        </ng-container>
+        @if (valuesLoading) {
+          <mat-spinner diameter="24"></mat-spinner>
+        }
+        @if (!valuesLoading) {
+          @if (allValues.length === 0) {
+            <p class="empty-hint">No status values found.</p>
+          }
+          @for (v of allValues; track v) {
+            <div class="value-row">
+              <mat-checkbox [checked]="excludedSet.has(v)" (change)="toggleExclusion(v, $event.checked)">
+                {{ v }}
+              </mat-checkbox>
+            </div>
+          }
+        }
       </div>
     </div>
-  `,
+    `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
     /* ── Banner ─────────────────────────────────────────────── */
     .page-banner {

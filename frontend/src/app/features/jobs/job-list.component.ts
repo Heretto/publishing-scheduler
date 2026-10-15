@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -28,63 +28,74 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         <h1 class="banner-title">Job History</h1>
       </div>
     </div>
-
-    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;" aria-label="Loading jobs"></mat-spinner>
-
-    <div class="sn-card" *ngIf="!loading" style="margin-top: 20px;">
-      <div class="sn-card-header">
-        <span class="section-title">All Jobs</span>
-        <span class="job-count" *ngIf="totalJobs">{{ totalJobs | number }} total</span>
+    
+    @if (loading) {
+      <mat-spinner diameter="40" style="margin-top: 32px;" aria-label="Loading jobs"></mat-spinner>
+    }
+    
+    @if (!loading) {
+      <div class="sn-card" style="margin-top: 20px;">
+        <div class="sn-card-header">
+          <span class="section-title">All Jobs</span>
+          @if (totalJobs) {
+            <span class="job-count">{{ totalJobs | number }} total</span>
+          }
+        </div>
+        @if (jobs.length > 0) {
+          <table mat-table [dataSource]="jobs" aria-label="Job history" class="jobs-table">
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
+            </ng-container>
+            <ng-container matColumnDef="schedule">
+              <th mat-header-cell *matHeaderCellDef>Schedule</th>
+              <td mat-cell *matCellDef="let j">
+                <a [routerLink]="['/schedules', j.schedule_id]" class="schedule-link">
+                  {{ j.schedule_name || j.schedule_id }}
+                </a>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="trigger">
+              <th mat-header-cell *matHeaderCellDef>Trigger</th>
+              <td mat-cell *matCellDef="let j">
+                <span class="trigger-badge" [class.trigger-manual]="j.trigger_type === 'manual'" [class.trigger-schedule]="j.trigger_type !== 'manual'">
+                  <mat-icon class="trigger-icon" aria-hidden="true">{{ j.trigger_type === 'manual' ? 'touch_app' : 'schedule' }}</mat-icon>
+                  {{ j.trigger_type }}
+                </span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="startedAt">
+              <th mat-header-cell *matHeaderCellDef>Started</th>
+              <td mat-cell *matCellDef="let j">{{ j.started_at | date:'medium' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="completedAt">
+              <th mat-header-cell *matHeaderCellDef>Completed</th>
+              <td mat-cell *matCellDef="let j">{{ j.completed_at ? (j.completed_at | date:'medium') : '—' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let j">
+                <a mat-button [routerLink]="[j.id]" [attr.aria-label]="'View details for job ' + j.id" class="details-btn">Details</a>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="job-row"></tr>
+          </table>
+        }
+        @if (jobs.length === 0) {
+          <p class="empty-state">No jobs yet.</p>
+        }
+        <mat-paginator
+          [length]="totalJobs"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 50]"
+          (page)="onPage($event)"
+          aria-label="Job list pagination">
+        </mat-paginator>
       </div>
-      <table mat-table [dataSource]="jobs" *ngIf="jobs.length > 0" aria-label="Job history" class="jobs-table">
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let j"><app-status-badge [status]="j.status"></app-status-badge></td>
-        </ng-container>
-        <ng-container matColumnDef="schedule">
-          <th mat-header-cell *matHeaderCellDef>Schedule</th>
-          <td mat-cell *matCellDef="let j">
-            <a [routerLink]="['/schedules', j.schedule_id]" class="schedule-link">
-              {{ j.schedule_name || j.schedule_id }}
-            </a>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="trigger">
-          <th mat-header-cell *matHeaderCellDef>Trigger</th>
-          <td mat-cell *matCellDef="let j">
-            <span class="trigger-badge" [class.trigger-manual]="j.trigger_type === 'manual'" [class.trigger-schedule]="j.trigger_type !== 'manual'">
-              <mat-icon class="trigger-icon" aria-hidden="true">{{ j.trigger_type === 'manual' ? 'touch_app' : 'schedule' }}</mat-icon>
-              {{ j.trigger_type }}
-            </span>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="startedAt">
-          <th mat-header-cell *matHeaderCellDef>Started</th>
-          <td mat-cell *matCellDef="let j">{{ j.started_at | date:'medium' }}</td>
-        </ng-container>
-        <ng-container matColumnDef="completedAt">
-          <th mat-header-cell *matHeaderCellDef>Completed</th>
-          <td mat-cell *matCellDef="let j">{{ j.completed_at ? (j.completed_at | date:'medium') : '—' }}</td>
-        </ng-container>
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let j">
-            <a mat-button [routerLink]="[j.id]" [attr.aria-label]="'View details for job ' + j.id" class="details-btn">Details</a>
-          </td>
-        </ng-container>
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns" class="job-row"></tr>
-      </table>
-      <p *ngIf="jobs.length === 0" class="empty-state">No jobs yet.</p>
-      <mat-paginator
-        [length]="totalJobs"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="[10, 20, 50]"
-        (page)="onPage($event)"
-        aria-label="Job list pagination">
-      </mat-paginator>
-    </div>
-  `,
+    }
+    `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
     /* ── Banner ─────────────────────────────────────────────── */
     .page-banner {
