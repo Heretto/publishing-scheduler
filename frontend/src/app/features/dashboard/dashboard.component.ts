@@ -151,16 +151,16 @@ class MapsDialogComponent {
         <div class="sn-section-header">
           <span class="section-title">Active Schedules</span>
           <div class="header-right">
-            @if (schedules.length > 0) {
+            @if (activeScheduleList.length > 0) {
               <span class="row-count">
-                1–{{ schedules.slice(0,10).length }} of {{ schedules.length }}
+                1–{{ activeScheduleList.slice(0,10).length }} of {{ activeScheduleList.length }}
               </span>
             }
             <a routerLink="/schedules" class="see-all-link">See All</a>
           </div>
         </div>
-        @if (schedules.length > 0) {
-          <table mat-table [dataSource]="schedules.slice(0, 10)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
+        @if (activeScheduleList.length > 0) {
+          <table mat-table [dataSource]="activeScheduleList.slice(0, 10)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
               <td mat-cell *matCellDef="let s" class="col-truncate">
@@ -256,7 +256,11 @@ class MapsDialogComponent {
           </table>
         } @else {
           <div class="empty-state">
-            <p>No schedules yet. <a routerLink="/schedules/new">Create one</a></p>
+            @if (schedules.length > 0) {
+              <p>No active schedules. <a routerLink="/schedules">View all schedules</a></p>
+            } @else {
+              <p>No schedules yet. <a routerLink="/schedules/new">Create one</a></p>
+            }
           </div>
         }
       </div>
@@ -626,7 +630,8 @@ export class DashboardComponent implements OnInit {
 
   readonly scheduleColumns = ['name', 'mapName', 'locales', 'lastRun', 'nextRun', 'cron', 'scheduleActions'];
 
-  get activeSchedules() { return this.schedules.filter(s => s.enabled).length; }
+  get activeScheduleList() { return this.schedules.filter(s => s.enabled); }
+  get activeSchedules() { return this.activeScheduleList.length; }
   get totalSchedules() { return this.schedules.length; }
 
   get successRate(): number {
