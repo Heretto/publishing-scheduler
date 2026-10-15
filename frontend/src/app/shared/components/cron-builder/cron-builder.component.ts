@@ -200,6 +200,9 @@ export class CronBuilderComponent implements OnInit, OnDestroy, ControlValueAcce
 
   registerOnChange(fn: (value: string) => void): void {
     this.onChange = fn;
+    // ngOnInit runs before formControlName registers this callback, so the
+    // default expression built there never reached the form control. Push it now.
+    if (this.currentExpression) fn(this.currentExpression);
   }
 
   registerOnTouched(fn: () => void): void {
