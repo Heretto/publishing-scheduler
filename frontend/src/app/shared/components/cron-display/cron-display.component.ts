@@ -1,9 +1,10 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { Component, Input, OnChanges, ChangeDetectionStrategy } from '@angular/core';
 import cronstrue from 'cronstrue';
 
 @Component({
   selector: 'app-cron-display',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<span [title]="expression">{{ humanReadable }}</span>`,
 })
 export class CronDisplayComponent implements OnChanges {

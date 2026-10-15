@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ScheduleService, Schedule, CreateScheduleInput } from './schedule.service';
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 
 describe('ScheduleService', () => {
   let service: ScheduleService;
@@ -18,6 +18,7 @@ describe('ScheduleService', () => {
     folder_ids: [],
     document_releases: {},
     enabled: true,
+    required_status: null,
     branch: 'master',
     locales: ['fr-fr'],
     publish_parameters: [],
@@ -32,7 +33,7 @@ describe('ScheduleService', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
     imports: [],
-    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+    providers: [provideHttpClient(withXhr(), withInterceptorsFromDi()), provideHttpClientTesting()]
 });
     service = TestBed.inject(ScheduleService);
     httpMock = TestBed.inject(HttpTestingController);

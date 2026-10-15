@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,7 +43,7 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         </div>
       </div>
     </div>
-
+    
     <!-- KPI metrics -->
     <div class="metrics-bar">
       <div class="metric-tile">
@@ -75,7 +75,7 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
       </div>
       <div class="metric-tile" [class.metric-tile-alert]="needsAttentionCount > 0">
         <div class="metric-icon-wrap" [class.metric-icon-alert]="needsAttentionCount > 0"
-             [class.metric-icon-ok]="needsAttentionCount === 0">
+          [class.metric-icon-ok]="needsAttentionCount === 0">
           <mat-icon>{{ needsAttentionCount > 0 ? 'warning' : 'verified' }}</mat-icon>
         </div>
         <div class="metric-body">
@@ -86,7 +86,7 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         </div>
       </div>
     </div>
-
+    
     <!-- Filter toolbar -->
     <div class="filter-bar">
       <div class="search-wrap">
@@ -97,24 +97,26 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
           placeholder="Search schedules..."
           [(ngModel)]="searchQuery"
           aria-label="Search schedules">
-        <button *ngIf="searchQuery" class="search-clear" (click)="searchQuery = ''" aria-label="Clear search">
-          <mat-icon>close</mat-icon>
-        </button>
+        @if (searchQuery) {
+          <button class="search-clear" (click)="searchQuery = ''" aria-label="Clear search">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
       </div>
       <div class="filter-tabs" role="tablist">
         <button role="tab" class="filter-tab" [class.filter-tab-active]="activeFilter === 'all'"
-                [attr.aria-selected]="activeFilter === 'all'"
-                (click)="activeFilter = 'all'" aria-label="Show all schedules">
+          [attr.aria-selected]="activeFilter === 'all'"
+          (click)="activeFilter = 'all'" aria-label="Show all schedules">
           All <span class="tab-count">{{ schedules.length }}</span>
         </button>
         <button role="tab" class="filter-tab" [class.filter-tab-active]="activeFilter === 'active'"
-                [attr.aria-selected]="activeFilter === 'active'"
-                (click)="activeFilter = 'active'" aria-label="Show active schedules">
+          [attr.aria-selected]="activeFilter === 'active'"
+          (click)="activeFilter = 'active'" aria-label="Show active schedules">
           Active <span class="tab-count">{{ activeCount }}</span>
         </button>
         <button role="tab" class="filter-tab" [class.filter-tab-active]="activeFilter === 'paused'"
-                [attr.aria-selected]="activeFilter === 'paused'"
-                (click)="activeFilter = 'paused'" aria-label="Show paused schedules">
+          [attr.aria-selected]="activeFilter === 'paused'"
+          (click)="activeFilter = 'paused'" aria-label="Show paused schedules">
           Paused <span class="tab-count">{{ pausedCount }}</span>
         </button>
       </div>
@@ -122,126 +124,148 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         <span class="results-count">{{ filteredSchedules.length }} record{{ filteredSchedules.length !== 1 ? 's' : '' }}</span>
       </div>
     </div>
-
+    
     <!-- Loading state -->
-    <div *ngIf="loading" class="loading-center">
-      <mat-spinner diameter="36" aria-label="Loading schedules"></mat-spinner>
-    </div>
-
+    @if (loading) {
+      <div class="loading-center">
+        <mat-spinner diameter="36" aria-label="Loading schedules"></mat-spinner>
+      </div>
+    }
+    
     <!-- Empty state -->
-    <div *ngIf="!loading && schedules.length === 0" class="empty-state">
-      <div class="empty-icon-wrap">
-        <mat-icon>event_repeat</mat-icon>
-      </div>
-      <h2>No schedules configured</h2>
-      <p>Create your first publishing schedule to start automating deployments.</p>
-      <a mat-flat-button color="primary" routerLink="new">
-        <mat-icon>add</mat-icon> Create a Schedule
-      </a>
-    </div>
-
-    <!-- No results (filtered) -->
-    <div *ngIf="!loading && schedules.length > 0 && filteredSchedules.length === 0" class="empty-state">
-      <div class="empty-icon-wrap">
-        <mat-icon>search_off</mat-icon>
-      </div>
-      <h2>No matching schedules</h2>
-      <p>Try adjusting your search or filter.</p>
-      <button mat-stroked-button (click)="clearFilters()">Clear filters</button>
-    </div>
-
-    <!-- Card grid -->
-    <div *ngIf="!loading && filteredSchedules.length > 0" class="card-grid">
-      <article class="sched-card" *ngFor="let s of filteredSchedules"
-               (click)="openDetail(s)" role="button" tabindex="0"
-               (keydown.enter)="openDetail(s)" (keydown.space)="openDetail(s)"
-               [attr.aria-label]="'Open schedule: ' + s.name">
-
-        <!-- Status accent bar -->
-        <div class="card-status-bar"
-             [class.bar-active]="s.enabled && !hasFailures(s)"
-             [class.bar-paused]="!s.enabled"
-             [class.bar-alert]="hasFailures(s)">
+    @if (!loading && schedules.length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-wrap">
+          <mat-icon>event_repeat</mat-icon>
         </div>
-
-        <div class="card-inner">
-          <!-- Card header -->
-          <div class="card-header">
-            <div class="card-status-dot"
-                 [class.dot-active]="s.enabled && !hasFailures(s)"
-                 [class.dot-paused]="!s.enabled"
-                 [class.dot-alert]="hasFailures(s)"
-                 [matTooltip]="hasFailures(s) ? (s.consecutive_failures + ' consecutive failure(s)') : (s.enabled ? 'Active' : 'Paused')">
+        <h2>No schedules configured</h2>
+        <p>Create your first publishing schedule to start automating deployments.</p>
+        <a mat-flat-button color="primary" routerLink="new">
+          <mat-icon>add</mat-icon> Create a Schedule
+        </a>
+      </div>
+    }
+    
+    <!-- No results (filtered) -->
+    @if (!loading && schedules.length > 0 && filteredSchedules.length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-wrap">
+          <mat-icon>search_off</mat-icon>
+        </div>
+        <h2>No matching schedules</h2>
+        <p>Try adjusting your search or filter.</p>
+        <button mat-stroked-button (click)="clearFilters()">Clear filters</button>
+      </div>
+    }
+    
+    <!-- Card grid -->
+    @if (!loading && filteredSchedules.length > 0) {
+      <div class="card-grid">
+        @for (s of filteredSchedules; track s) {
+          <article class="sched-card"
+            (click)="openDetail(s)" role="button" tabindex="0"
+            (keydown.enter)="openDetail(s)" (keydown.space)="openDetail(s)"
+            [attr.aria-label]="'Open schedule: ' + s.name">
+            <!-- Status accent bar -->
+            <div class="card-status-bar"
+              [class.bar-active]="s.enabled && !hasFailures(s)"
+              [class.bar-paused]="!s.enabled"
+              [class.bar-alert]="hasFailures(s)">
             </div>
-            <div class="card-name-wrap">
-              <h3 class="card-name" [title]="s.name">{{ s.name }}</h3>
-              <span *ngIf="s.description" class="card-desc" [title]="s.description">{{ s.description }}</span>
-            </div>
-            <span class="card-status-pill"
+            <div class="card-inner">
+              <!-- Card header -->
+              <div class="card-header">
+                <div class="card-status-dot"
+                  [class.dot-active]="s.enabled && !hasFailures(s)"
+                  [class.dot-paused]="!s.enabled"
+                  [class.dot-alert]="hasFailures(s)"
+                  [matTooltip]="hasFailures(s) ? (s.consecutive_failures + ' consecutive failure(s)') : (s.enabled ? 'Active' : 'Paused')">
+                </div>
+                <div class="card-name-wrap">
+                  <h3 class="card-name" [title]="s.name">{{ s.name }}</h3>
+                  @if (s.description) {
+                    <span class="card-desc" [title]="s.description">{{ s.description }}</span>
+                  }
+                </div>
+                <span class="card-status-pill"
                   [class.pill-active]="s.enabled && !hasFailures(s)"
                   [class.pill-paused]="!s.enabled"
                   [class.pill-alert]="hasFailures(s)">
-              {{ hasFailures(s) ? 'Alert' : (s.enabled ? 'Active' : 'Paused') }}
-            </span>
-          </div>
-
-          <!-- Schedule info -->
-          <div class="card-cron-row">
-            <mat-icon class="card-field-icon">schedule</mat-icon>
-            <app-cron-display [expression]="s.cron_expression"></app-cron-display>
-          </div>
-
-          <!-- Metadata tags -->
-          <div class="card-tags">
-            <span *ngIf="s.branch" class="tag tag-branch">
-              <mat-icon aria-hidden="true">alt_route</mat-icon> {{ s.branch }}
-            </span>
-            <span *ngIf="s.locales?.length" class="tag tag-locale">
-              <mat-icon aria-hidden="true">language</mat-icon>
-              {{ localeDisplay(s.locales) }}
-            </span>
-            <span *ngIf="sourceCount(s) > 0" class="tag tag-source">
-              <mat-icon aria-hidden="true">description</mat-icon>
-              {{ sourceCount(s) }} source{{ sourceCount(s) !== 1 ? 's' : '' }}
-            </span>
-          </div>
-
-          <!-- Card footer -->
-          <div class="card-footer">
-            <div class="card-run-info">
-              <div class="run-row" *ngIf="s.last_run_status">
-                <span class="run-label">Last run:</span>
-                <app-status-badge [status]="s.last_run_status"></app-status-badge>
-                <span *ngIf="s.last_run_at" class="run-time">{{ s.last_run_at | date:'MMM d, h:mm a' }}</span>
+                  {{ hasFailures(s) ? 'Alert' : (s.enabled ? 'Active' : 'Paused') }}
+                </span>
               </div>
-              <div class="run-row" *ngIf="!s.last_run_status">
-                <span class="run-label">Never run</span>
+              <!-- Schedule info -->
+              <div class="card-cron-row">
+                <mat-icon class="card-field-icon">schedule</mat-icon>
+                <app-cron-display [expression]="s.cron_expression"></app-cron-display>
               </div>
-              <div class="run-row next-run-row" *ngIf="s.next_run_time">
-                <span class="run-label">Next:</span>
-                <span class="next-run-val">{{ s.next_run_time | date:'MMM d, h:mm a' }}</span>
+              <!-- Metadata tags -->
+              <div class="card-tags">
+                @if (s.branch) {
+                  <span class="tag tag-branch">
+                    <mat-icon aria-hidden="true">alt_route</mat-icon> {{ s.branch }}
+                  </span>
+                }
+                @if (s.locales?.length) {
+                  <span class="tag tag-locale">
+                    <mat-icon aria-hidden="true">language</mat-icon>
+                    {{ localeDisplay(s.locales) }}
+                  </span>
+                }
+                @if (sourceCount(s) > 0) {
+                  <span class="tag tag-source">
+                    <mat-icon aria-hidden="true">description</mat-icon>
+                    {{ sourceCount(s) }} source{{ sourceCount(s) !== 1 ? 's' : '' }}
+                  </span>
+                }
+              </div>
+              <!-- Card footer -->
+              <div class="card-footer">
+                <div class="card-run-info">
+                  @if (s.last_run_status) {
+                    <div class="run-row">
+                      <span class="run-label">Last run:</span>
+                      <app-status-badge [status]="s.last_run_status"></app-status-badge>
+                      @if (s.last_run_at) {
+                        <span class="run-time">{{ s.last_run_at | date:'MMM d, h:mm a' }}</span>
+                      }
+                    </div>
+                  }
+                  @if (!s.last_run_status) {
+                    <div class="run-row">
+                      <span class="run-label">Never run</span>
+                    </div>
+                  }
+                  @if (s.next_run_time) {
+                    <div class="run-row next-run-row">
+                      <span class="run-label">Next:</span>
+                      <span class="next-run-val">{{ s.next_run_time | date:'MMM d, h:mm a' }}</span>
+                    </div>
+                  }
+                </div>
+                <div class="card-actions" (click)="$event.stopPropagation()">
+                  <button mat-icon-button class="action-btn" (click)="triggerNow(s)"
+                    matTooltip="Run now" [attr.aria-label]="'Run ' + s.name + ' now'">
+                    <mat-icon>play_arrow</mat-icon>
+                  </button>
+                  <a mat-icon-button class="action-btn" [routerLink]="[s.id, 'edit']"
+                    matTooltip="Edit" [attr.aria-label]="'Edit ' + s.name"
+                    (click)="$event.stopPropagation()">
+                    <mat-icon>edit</mat-icon>
+                  </a>
+                  <button mat-icon-button class="action-btn action-btn-danger" (click)="deleteSchedule(s)"
+                    matTooltip="Delete" [attr.aria-label]="'Delete ' + s.name">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="card-actions" (click)="$event.stopPropagation()">
-              <button mat-icon-button class="action-btn" (click)="triggerNow(s)"
-                      matTooltip="Run now" [attr.aria-label]="'Run ' + s.name + ' now'">
-                <mat-icon>play_arrow</mat-icon>
-              </button>
-              <a mat-icon-button class="action-btn" [routerLink]="[s.id, 'edit']"
-                 matTooltip="Edit" [attr.aria-label]="'Edit ' + s.name"
-                 (click)="$event.stopPropagation()">
-                <mat-icon>edit</mat-icon>
-              </a>
-              <button mat-icon-button class="action-btn action-btn-danger" (click)="deleteSchedule(s)"
-                      matTooltip="Delete" [attr.aria-label]="'Delete ' + s.name">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-  `,
+          </article>
+        }
+      </div>
+    }
+    `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [`
     /* ── Page banner ─────────────────────────────────────────── */
     .page-banner {
