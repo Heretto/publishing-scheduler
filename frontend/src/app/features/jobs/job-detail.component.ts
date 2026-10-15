@@ -17,15 +17,19 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         StatusBadgeComponent,
     ],
     template: `
-    <div class="loading-wrap" *ngIf="loading">
-      <mat-spinner diameter="40" aria-label="Loading job details"></mat-spinner>
-    </div>
-
-    <div class="sn-card not-found-card" *ngIf="!loading && !job">
-      <p>Job not found.</p>
-    </div>
-
-    <ng-container *ngIf="job">
+    @if (loading) {
+      <div class="loading-wrap">
+        <mat-spinner diameter="40" aria-label="Loading job details"></mat-spinner>
+      </div>
+    }
+    
+    @if (!loading && !job) {
+      <div class="sn-card not-found-card">
+        <p>Job not found.</p>
+      </div>
+    }
+    
+    @if (job) {
       <!-- Page banner -->
       <div class="page-banner">
         <div class="banner-breadcrumb">
@@ -41,23 +45,28 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
             &nbsp;·&nbsp; {{ job.started_at | date:'medium' }}
           </span>
           <div class="banner-actions">
-            <a mat-stroked-button [routerLink]="['/schedules', job.schedule_id]" *ngIf="job.schedule_id" class="banner-btn-outline">
-              <mat-icon>schedule</mat-icon>
-              {{ job.schedule_name || 'Schedule' }}
-            </a>
+            @if (job.schedule_id) {
+              <a mat-stroked-button [routerLink]="['/schedules', job.schedule_id]" class="banner-btn-outline">
+                <mat-icon>schedule</mat-icon>
+                {{ job.schedule_name || 'Schedule' }}
+              </a>
+            }
           </div>
         </div>
       </div>
-
       <!-- Record header field strip -->
       <div class="record-header">
         <div class="record-field">
           <div class="record-label">Schedule</div>
           <div class="record-value">
-            <a [routerLink]="['/schedules', job.schedule_id]" *ngIf="job.schedule_id" class="record-link">
-              {{ job.schedule_name || job.schedule_id }}
-            </a>
-            <span *ngIf="!job.schedule_id">—</span>
+            @if (job.schedule_id) {
+              <a [routerLink]="['/schedules', job.schedule_id]" class="record-link">
+                {{ job.schedule_name || job.schedule_id }}
+              </a>
+            }
+            @if (!job.schedule_id) {
+              <span>—</span>
+            }
           </div>
         </div>
         <div class="record-divider"></div>
@@ -81,74 +90,78 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           <div class="record-value"><app-status-badge [status]="job.status"></app-status-badge></div>
         </div>
       </div>
-
       <div class="content-area">
         <!-- error banner -->
-        <div class="sn-card error-card" *ngIf="job.error">
-          <div class="sn-card-header error-header-bar">
-            <div class="error-header-inner">
-              <mat-icon>error</mat-icon>
-              <span>Job Failed</span>
+        @if (job.error) {
+          <div class="sn-card error-card">
+            <div class="sn-card-header error-header-bar">
+              <div class="error-header-inner">
+                <mat-icon>error</mat-icon>
+                <span>Job Failed</span>
+              </div>
+            </div>
+            <div class="sn-card-body">
+              <pre class="error-text">{{ job.error }}</pre>
             </div>
           </div>
-          <div class="sn-card-body">
-            <pre class="error-text">{{ job.error }}</pre>
-          </div>
-        </div>
-
+        }
         <!-- publish results table -->
-        <div class="sn-card" *ngIf="publishResults.length > 0">
-          <div class="sn-card-header">
-            <span class="section-title">Publish Results</span>
-            <span class="section-count">{{ publishResults.length }} operation{{ publishResults.length !== 1 ? 's' : '' }}</span>
+        @if (publishResults.length > 0) {
+          <div class="sn-card">
+            <div class="sn-card-header">
+              <span class="section-title">Publish Results</span>
+              <span class="section-count">{{ publishResults.length }} operation{{ publishResults.length !== 1 ? 's' : '' }}</span>
+            </div>
+            <table mat-table [dataSource]="publishResults" class="results-table">
+              <ng-container matColumnDef="scenario">
+                <th mat-header-cell *matHeaderCellDef>Scenario</th>
+                <td mat-cell *matCellDef="let r">{{ scenarioDisplay(r._scenario) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="locale">
+                <th mat-header-cell *matHeaderCellDef>Locale</th>
+                <td mat-cell *matCellDef="let r">
+                  <span class="locale-chip" [class.source]="r._locale === 'source'">
+                    {{ r._locale === 'source' ? 'Source' : r._locale }}
+                  </span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="document">
+                <th mat-header-cell *matHeaderCellDef>Document</th>
+                <td mat-cell *matCellDef="let r" class="mono small">{{ documentDisplay(r.fileId) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="herettoJobId">
+                <th mat-header-cell *matHeaderCellDef>Heretto Job ID</th>
+                <td mat-cell *matCellDef="let r" class="mono small">{{ r.id || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>Status</th>
+                <td mat-cell *matCellDef="let r">
+                  <app-status-badge [status]="r.status"></app-status-badge>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="resultColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: resultColumns"></tr>
+            </table>
           </div>
-          <table mat-table [dataSource]="publishResults" class="results-table">
-            <ng-container matColumnDef="scenario">
-              <th mat-header-cell *matHeaderCellDef>Scenario</th>
-              <td mat-cell *matCellDef="let r">{{ scenarioDisplay(r._scenario) }}</td>
-            </ng-container>
-            <ng-container matColumnDef="locale">
-              <th mat-header-cell *matHeaderCellDef>Locale</th>
-              <td mat-cell *matCellDef="let r">
-                <span class="locale-chip" [class.source]="r._locale === 'source'">
-                  {{ r._locale === 'source' ? 'Source' : r._locale }}
-                </span>
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="document">
-              <th mat-header-cell *matHeaderCellDef>Document</th>
-              <td mat-cell *matCellDef="let r" class="mono small">{{ documentDisplay(r.fileId) }}</td>
-            </ng-container>
-            <ng-container matColumnDef="herettoJobId">
-              <th mat-header-cell *matHeaderCellDef>Heretto Job ID</th>
-              <td mat-cell *matCellDef="let r" class="mono small">{{ r.id || '—' }}</td>
-            </ng-container>
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let r">
-                <app-status-badge [status]="r.status"></app-status-badge>
-              </td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="resultColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: resultColumns"></tr>
-          </table>
-        </div>
-
+        }
         <!-- partial failures -->
-        <div class="sn-card warn-card" *ngIf="partialErrors.length > 0">
-          <div class="sn-card-header warn-header-bar">
-            <div class="warn-header-inner">
-              <mat-icon>warning_amber</mat-icon>
-              <span class="section-title" style="color: #e65100;">Partial Failures</span>
+        @if (partialErrors.length > 0) {
+          <div class="sn-card warn-card">
+            <div class="sn-card-header warn-header-bar">
+              <div class="warn-header-inner">
+                <mat-icon>warning_amber</mat-icon>
+                <span class="section-title" style="color: #e65100;">Partial Failures</span>
+              </div>
+            </div>
+            <div class="sn-card-body">
+              <ul class="error-list">
+                @for (e of partialErrors; track e) {
+                  <li>{{ e }}</li>
+                }
+              </ul>
             </div>
           </div>
-          <div class="sn-card-body">
-            <ul class="error-list">
-              <li *ngFor="let e of partialErrors">{{ e }}</li>
-            </ul>
-          </div>
-        </div>
-
+        }
         <!-- request details -->
         <div class="sn-card">
           <div class="sn-card-header">
@@ -158,36 +171,50 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
             <dl class="detail-grid">
               <dt>Scenarios</dt>
               <dd>
-                <span class="chip" *ngFor="let s of requestScenarios">{{ scenarioDisplay(s) }}</span>
-                <span *ngIf="requestScenarios.length === 0" class="muted">—</span>
+                @for (s of requestScenarios; track s) {
+                  <span class="chip">{{ scenarioDisplay(s) }}</span>
+                }
+                @if (requestScenarios.length === 0) {
+                  <span class="muted">—</span>
+                }
               </dd>
               <dt>Locales</dt>
               <dd>
-                <span class="chip" *ngFor="let l of requestLocales">
-                  {{ l === '' ? 'Source' : l }}
-                </span>
-                <span *ngIf="requestLocales.length === 0" class="muted">—</span>
+                @for (l of requestLocales; track l) {
+                  <span class="chip">
+                    {{ l === '' ? 'Source' : l }}
+                  </span>
+                }
+                @if (requestLocales.length === 0) {
+                  <span class="muted">—</span>
+                }
               </dd>
               <dt>Documents</dt>
               <dd class="doc-list">
-                <span class="mono small" *ngFor="let d of requestDocuments">{{ documentDisplay(d) }}</span>
-                <span *ngIf="requestDocuments.length === 0" class="muted">—</span>
+                @for (d of requestDocuments; track d) {
+                  <span class="mono small">{{ documentDisplay(d) }}</span>
+                }
+                @if (requestDocuments.length === 0) {
+                  <span class="muted">—</span>
+                }
               </dd>
-              <ng-container *ngIf="requestParameters.length > 0">
+              @if (requestParameters.length > 0) {
                 <dt>Parameters</dt>
                 <dd>
-                  <div *ngFor="let p of requestParameters" class="param-row">
-                    <span class="param-name">{{ p['name'] }}:</span>
-                    <span class="param-value">{{ p['value'] }}</span>
-                  </div>
+                  @for (p of requestParameters; track p) {
+                    <div class="param-row">
+                      <span class="param-name">{{ p['name'] }}:</span>
+                      <span class="param-value">{{ p['value'] }}</span>
+                    </div>
+                  }
                 </dd>
-              </ng-container>
+              }
             </dl>
           </div>
         </div>
       </div>
-    </ng-container>
-  `,
+    }
+    `,
     styles: [`
     .loading-wrap { display: flex; justify-content: center; padding: 48px; }
 

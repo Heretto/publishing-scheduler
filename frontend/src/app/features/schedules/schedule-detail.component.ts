@@ -26,12 +26,13 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         MatTooltipModule, StatusBadgeComponent, CronDisplayComponent,
     ],
     template: `
-    <div *ngIf="loading" class="loading-center">
-      <mat-spinner diameter="36" aria-label="Loading schedule"></mat-spinner>
-    </div>
-
-    <ng-container *ngIf="!loading && schedule">
-
+    @if (loading) {
+      <div class="loading-center">
+        <mat-spinner diameter="36" aria-label="Loading schedule"></mat-spinner>
+      </div>
+    }
+    
+    @if (!loading && schedule) {
       <!-- Page banner -->
       <div class="page-banner">
         <div class="banner-inner">
@@ -45,19 +46,21 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
             </nav>
             <div class="banner-title-row">
               <div class="record-status-dot"
-                   [class.dot-active]="schedule.enabled && !hasFailures"
-                   [class.dot-paused]="!schedule.enabled"
-                   [class.dot-alert]="hasFailures">
+                [class.dot-active]="schedule.enabled && !hasFailures"
+                [class.dot-paused]="!schedule.enabled"
+                [class.dot-alert]="hasFailures">
               </div>
               <h1 class="banner-title">{{ schedule.name }}</h1>
               <span class="record-status-badge"
-                    [class.badge-active]="schedule.enabled && !hasFailures"
-                    [class.badge-paused]="!schedule.enabled"
-                    [class.badge-alert]="hasFailures">
+                [class.badge-active]="schedule.enabled && !hasFailures"
+                [class.badge-paused]="!schedule.enabled"
+                [class.badge-alert]="hasFailures">
                 {{ hasFailures ? 'Needs Attention' : (schedule.enabled ? 'Active' : 'Paused') }}
               </span>
             </div>
-            <p *ngIf="schedule.description" class="banner-subtitle">{{ schedule.description }}</p>
+            @if (schedule.description) {
+              <p class="banner-subtitle">{{ schedule.description }}</p>
+            }
           </div>
           <div class="banner-actions">
             <button mat-stroked-button class="banner-btn" (click)="triggerNow()" aria-label="Run now">
@@ -67,7 +70,7 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
               <mat-icon>edit</mat-icon> Edit
             </a>
             <button mat-stroked-button class="banner-btn" (click)="toggleEnabled()"
-                    [attr.aria-label]="schedule.enabled ? 'Pause' : 'Enable'">
+              [attr.aria-label]="schedule.enabled ? 'Pause' : 'Enable'">
               <mat-icon>{{ schedule.enabled ? 'pause_circle' : 'play_circle' }}</mat-icon>
               {{ schedule.enabled ? 'Pause' : 'Enable' }}
             </button>
@@ -77,7 +80,6 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
           </div>
         </div>
       </div>
-
       <!-- Record header fields -->
       <div class="record-header-card">
         <div class="record-field">
@@ -95,12 +97,18 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         <div class="record-field">
           <div class="field-label">Locales</div>
           <div class="field-value">
-            <div *ngIf="schedule.locales?.length" class="locale-code-list">
-              <span class="locale-code-chip" *ngFor="let l of schedule.locales">
-                <mat-icon class="locale-code-icon" aria-hidden="true">translate</mat-icon>{{ l || 'Source' }}
-              </span>
-            </div>
-            <span *ngIf="!schedule.locales?.length">—</span>
+            @if (schedule.locales?.length) {
+              <div class="locale-code-list">
+                @for (l of schedule.locales; track l) {
+                  <span class="locale-code-chip">
+                    <mat-icon class="locale-code-icon" aria-hidden="true">translate</mat-icon>{{ l || 'Source' }}
+                  </span>
+                }
+              </div>
+            }
+            @if (!schedule.locales?.length) {
+              <span>—</span>
+            }
           </div>
         </div>
         <div class="record-field-divider"></div>
@@ -112,8 +120,12 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
         <div class="record-field">
           <div class="field-label">Required Status</div>
           <div class="field-value">
-            <span *ngIf="schedule.required_status" class="required-status-chip">{{ schedule.required_status }}</span>
-            <span *ngIf="!schedule.required_status">—</span>
+            @if (schedule.required_status) {
+              <span class="required-status-chip">{{ schedule.required_status }}</span>
+            }
+            @if (!schedule.required_status) {
+              <span>—</span>
+            }
           </div>
         </div>
         <div class="record-field-divider"></div>
@@ -127,233 +139,261 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
           <div class="field-value">{{ schedule.updated_at | date:'MMM d, y' }}</div>
         </div>
       </div>
-
       <!-- Tab bar -->
       <div class="tab-bar" role="tablist">
         <button class="tab-btn" [class.tab-active]="activeTab === 'overview'"
-                (click)="activeTab = 'overview'" role="tab" aria-label="Overview"
-                [attr.aria-selected]="activeTab === 'overview'"
-                aria-controls="tab-panel-overview">
+          (click)="activeTab = 'overview'" role="tab" aria-label="Overview"
+          [attr.aria-selected]="activeTab === 'overview'"
+          aria-controls="tab-panel-overview">
           <mat-icon aria-hidden="true">dashboard</mat-icon> Overview
         </button>
         <button class="tab-btn" [class.tab-active]="activeTab === 'jobs'"
-                (click)="switchToJobs()" role="tab" aria-label="Job History"
-                [attr.aria-selected]="activeTab === 'jobs'"
-                aria-controls="tab-panel-jobs">
+          (click)="switchToJobs()" role="tab" aria-label="Job History"
+          [attr.aria-selected]="activeTab === 'jobs'"
+          aria-controls="tab-panel-jobs">
           <mat-icon aria-hidden="true">history</mat-icon> Job History
-          <span *ngIf="jobs.length > 0" class="tab-badge">{{ jobs.length }}</span>
+          @if (jobs.length > 0) {
+            <span class="tab-badge">{{ jobs.length }}</span>
+          }
         </button>
       </div>
-
       <!-- Tab content -->
       <div class="tab-content">
-
         <!-- Overview tab -->
-        <ng-container *ngIf="activeTab === 'overview'">
+        @if (activeTab === 'overview') {
           <div id="tab-panel-overview" role="tabpanel" aria-label="Overview">
-
-          <!-- KPI cards -->
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-header">
-                <div class="kpi-icon-wrap kpi-icon-run">
-                  <mat-icon>play_circle</mat-icon>
-                </div>
-                <div class="kpi-label">Last Run Status</div>
-              </div>
-              <div class="kpi-value-area">
-                <app-status-badge *ngIf="schedule.last_run_status" [status]="schedule.last_run_status"></app-status-badge>
-                <span *ngIf="!schedule.last_run_status" class="kpi-empty">Never run</span>
-              </div>
-              <div *ngIf="schedule.last_run_at" class="kpi-sub">{{ schedule.last_run_at | date:'MMM d, y · h:mm a' }}</div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-header">
-                <div class="kpi-icon-wrap kpi-icon-next">
-                  <mat-icon>schedule</mat-icon>
-                </div>
-                <div class="kpi-label">Next Run</div>
-              </div>
-              <div class="kpi-value-area">
-                <span *ngIf="schedule.next_run_time" class="kpi-value">{{ schedule.next_run_time | date:'MMM d' }}</span>
-                <span *ngIf="!schedule.next_run_time" class="kpi-empty">—</span>
-              </div>
-              <div *ngIf="schedule.next_run_time" class="kpi-sub">{{ schedule.next_run_time | date:'h:mm a' }}</div>
-            </div>
-
-            <div class="kpi-card" [class.kpi-card-alert]="hasFailures">
-              <div class="kpi-header">
-                <div class="kpi-icon-wrap" [class.kpi-icon-fail]="hasFailures" [class.kpi-icon-ok]="!hasFailures">
-                  <mat-icon>{{ hasFailures ? 'warning' : 'check_circle' }}</mat-icon>
-                </div>
-                <div class="kpi-label">Consecutive Failures</div>
-              </div>
-              <div class="kpi-value-area">
-                <span class="kpi-value" [class.kpi-value-alert]="hasFailures">
-                  {{ schedule.consecutive_failures ?? 0 }}
-                </span>
-              </div>
-              <div class="kpi-sub">{{ hasFailures ? 'Requires attention' : 'All clear' }}</div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-header">
-                <div class="kpi-icon-wrap kpi-icon-sources">
-                  <mat-icon>description</mat-icon>
-                </div>
-                <div class="kpi-label">Sources</div>
-              </div>
-              <div class="kpi-value-area">
-                <span class="kpi-value">{{ sourceCount }}</span>
-              </div>
-              <div class="kpi-sub">
-                {{ schedule.document_ids?.length ?? 0 }} doc{{ (schedule.document_ids?.length ?? 0) !== 1 ? 's' : '' }},
-                {{ schedule.folder_ids?.length ?? 0 }} folder{{ (schedule.folder_ids?.length ?? 0) !== 1 ? 's' : '' }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Detail sections -->
-          <div class="detail-sections">
-            <!-- Locales section -->
-            <div class="detail-section" *ngIf="schedule.locales?.length">
-              <div class="section-header">
-                <mat-icon class="section-icon" aria-hidden="true">language</mat-icon>
-                <span class="section-title">Locales</span>
-                <span class="section-count">{{ schedule.locales.length }}</span>
-              </div>
-              <div class="locale-grid">
-                <div class="locale-item" *ngFor="let l of schedule.locales">
-                  <mat-icon class="locale-icon">translate</mat-icon>
-                  <span>{{ l || 'Source' }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sources section -->
-            <div class="detail-section" *ngIf="sourceCount > 0">
-              <div class="section-header">
-                <mat-icon class="section-icon" aria-hidden="true">description</mat-icon>
-                <span class="section-title">Sources</span>
-                <span class="section-count">{{ sourceCount }}</span>
-              </div>
-              <div *ngIf="sourcesLoading" class="sources-loading">
-                <mat-spinner diameter="18" aria-label="Loading sources"></mat-spinner>
-                <span>Resolving source names…</span>
-              </div>
-              <div *ngIf="!sourcesLoading" class="source-list">
-                <ng-container *ngFor="let src of sourceItems">
-                  <div class="source-item">
-                    <mat-icon class="source-icon-item">{{ src.type === 'folder' ? 'folder' : 'article' }}</mat-icon>
-                    <div class="source-info">
-                      <span class="source-name">{{ src.name }}</span>
-                      <span class="source-type-badge source-type-{{ src.type }}">{{ src.type }}</span>
-                    </div>
+            <!-- KPI cards -->
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <div class="kpi-icon-wrap kpi-icon-run">
+                    <mat-icon>play_circle</mat-icon>
                   </div>
-                  <div class="source-children" *ngIf="src.children?.length">
-                    <div class="source-child" *ngFor="let child of src.children">
-                      <mat-icon class="source-child-icon">article</mat-icon>
-                      <span class="source-child-name">{{ child.name }}</span>
-                    </div>
+                  <div class="kpi-label">Last Run Status</div>
+                </div>
+                <div class="kpi-value-area">
+                  @if (schedule.last_run_status) {
+                    <app-status-badge [status]="schedule.last_run_status"></app-status-badge>
+                  }
+                  @if (!schedule.last_run_status) {
+                    <span class="kpi-empty">Never run</span>
+                  }
+                </div>
+                @if (schedule.last_run_at) {
+                  <div class="kpi-sub">{{ schedule.last_run_at | date:'MMM d, y · h:mm a' }}</div>
+                }
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <div class="kpi-icon-wrap kpi-icon-next">
+                    <mat-icon>schedule</mat-icon>
                   </div>
-                </ng-container>
+                  <div class="kpi-label">Next Run</div>
+                </div>
+                <div class="kpi-value-area">
+                  @if (schedule.next_run_time) {
+                    <span class="kpi-value">{{ schedule.next_run_time | date:'MMM d' }}</span>
+                  }
+                  @if (!schedule.next_run_time) {
+                    <span class="kpi-empty">—</span>
+                  }
+                </div>
+                @if (schedule.next_run_time) {
+                  <div class="kpi-sub">{{ schedule.next_run_time | date:'h:mm a' }}</div>
+                }
+              </div>
+              <div class="kpi-card" [class.kpi-card-alert]="hasFailures">
+                <div class="kpi-header">
+                  <div class="kpi-icon-wrap" [class.kpi-icon-fail]="hasFailures" [class.kpi-icon-ok]="!hasFailures">
+                    <mat-icon>{{ hasFailures ? 'warning' : 'check_circle' }}</mat-icon>
+                  </div>
+                  <div class="kpi-label">Consecutive Failures</div>
+                </div>
+                <div class="kpi-value-area">
+                  <span class="kpi-value" [class.kpi-value-alert]="hasFailures">
+                    {{ schedule.consecutive_failures ?? 0 }}
+                  </span>
+                </div>
+                <div class="kpi-sub">{{ hasFailures ? 'Requires attention' : 'All clear' }}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <div class="kpi-icon-wrap kpi-icon-sources">
+                    <mat-icon>description</mat-icon>
+                  </div>
+                  <div class="kpi-label">Sources</div>
+                </div>
+                <div class="kpi-value-area">
+                  <span class="kpi-value">{{ sourceCount }}</span>
+                </div>
+                <div class="kpi-sub">
+                  {{ schedule.document_ids?.length ?? 0 }} doc{{ (schedule.document_ids?.length ?? 0) !== 1 ? 's' : '' }},
+                  {{ schedule.folder_ids?.length ?? 0 }} folder{{ (schedule.folder_ids?.length ?? 0) !== 1 ? 's' : '' }}
+                </div>
               </div>
             </div>
-
-            <!-- Alerts section -->
-            <div class="detail-section detail-section-alert" *ngIf="hasFailures">
-              <div class="section-header">
-                <mat-icon class="section-icon section-icon-alert">warning</mat-icon>
-                <span class="section-title">Alert</span>
+            <!-- Detail sections -->
+            <div class="detail-sections">
+              <!-- Locales section -->
+              @if (schedule.locales?.length) {
+                <div class="detail-section">
+                  <div class="section-header">
+                    <mat-icon class="section-icon" aria-hidden="true">language</mat-icon>
+                    <span class="section-title">Locales</span>
+                    <span class="section-count">{{ schedule.locales.length }}</span>
+                  </div>
+                  <div class="locale-grid">
+                    @for (l of schedule.locales; track l) {
+                      <div class="locale-item">
+                        <mat-icon class="locale-icon">translate</mat-icon>
+                        <span>{{ l || 'Source' }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+              <!-- Sources section -->
+              @if (sourceCount > 0) {
+                <div class="detail-section">
+                  <div class="section-header">
+                    <mat-icon class="section-icon" aria-hidden="true">description</mat-icon>
+                    <span class="section-title">Sources</span>
+                    <span class="section-count">{{ sourceCount }}</span>
+                  </div>
+                  @if (sourcesLoading) {
+                    <div class="sources-loading">
+                      <mat-spinner diameter="18" aria-label="Loading sources"></mat-spinner>
+                      <span>Resolving source names…</span>
+                    </div>
+                  }
+                  @if (!sourcesLoading) {
+                    <div class="source-list">
+                      @for (src of sourceItems; track src) {
+                        <div class="source-item">
+                          <mat-icon class="source-icon-item">{{ src.type === 'folder' ? 'folder' : 'article' }}</mat-icon>
+                          <div class="source-info">
+                            <span class="source-name">{{ src.name }}</span>
+                            <span class="source-type-badge source-type-{{ src.type }}">{{ src.type }}</span>
+                          </div>
+                        </div>
+                        @if (src.children?.length) {
+                          <div class="source-children">
+                            @for (child of src.children; track child) {
+                              <div class="source-child">
+                                <mat-icon class="source-child-icon">article</mat-icon>
+                                <span class="source-child-name">{{ child.name }}</span>
+                              </div>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+              }
+              <!-- Alerts section -->
+              @if (hasFailures) {
+                <div class="detail-section detail-section-alert">
+                  <div class="section-header">
+                    <mat-icon class="section-icon section-icon-alert">warning</mat-icon>
+                    <span class="section-title">Alert</span>
+                  </div>
+                  <div class="alert-body">
+                    <p class="alert-text">
+                      This schedule has experienced <strong>{{ schedule.consecutive_failures }}</strong>
+                      consecutive failure{{ schedule.consecutive_failures !== 1 ? 's' : '' }}.
+                      Review the job history or check your Heretto configuration.
+                    </p>
+                    <button mat-stroked-button class="alert-action-btn" (click)="switchToJobs()">
+                      <mat-icon>history</mat-icon> View Job History
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div><!-- /tab-panel-overview -->
+        }
+        <!-- Job History tab -->
+        @if (activeTab === 'jobs') {
+          <div id="tab-panel-jobs" role="tabpanel" aria-label="Job History">
+            @if (jobsLoading) {
+              <div class="loading-center">
+                <mat-spinner diameter="32" aria-label="Loading job history"></mat-spinner>
               </div>
-              <div class="alert-body">
-                <p class="alert-text">
-                  This schedule has experienced <strong>{{ schedule.consecutive_failures }}</strong>
-                  consecutive failure{{ schedule.consecutive_failures !== 1 ? 's' : '' }}.
-                  Review the job history or check your Heretto configuration.
-                </p>
-                <button mat-stroked-button class="alert-action-btn" (click)="switchToJobs()">
-                  <mat-icon>history</mat-icon> View Job History
+            }
+            @if (!jobsLoading && jobs.length > 0) {
+              <div class="jobs-table-wrap">
+                <table mat-table [dataSource]="jobs" class="jobs-table" aria-label="Job history">
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>Status</th>
+                    <td mat-cell *matCellDef="let j">
+                      <app-status-badge [status]="j.status"></app-status-badge>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="trigger">
+                    <th mat-header-cell *matHeaderCellDef>Trigger</th>
+                    <td mat-cell *matCellDef="let j">
+                      <span class="trigger-badge" [class.trigger-manual]="j.trigger_type === 'manual'"
+                        [class.trigger-scheduled]="j.trigger_type === 'scheduled'">
+                        <mat-icon>{{ j.trigger_type === 'manual' ? 'touch_app' : 'event' }}</mat-icon>
+                        {{ j.trigger_type }}
+                      </span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="started">
+                    <th mat-header-cell *matHeaderCellDef>Started</th>
+                    <td mat-cell *matCellDef="let j" class="col-mono">{{ j.started_at | date:'MMM d, y · h:mm a' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="completed">
+                    <th mat-header-cell *matHeaderCellDef>Completed</th>
+                    <td mat-cell *matCellDef="let j" class="col-mono">
+                      @if (j.completed_at) {
+                        <span>{{ j.completed_at | date:'h:mm a' }}</span>
+                      }
+                      @if (!j.completed_at) {
+                        <span class="in-progress-badge">
+                          <mat-icon>sync</mat-icon> In progress
+                        </span>
+                      }
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="link">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let j">
+                      <a mat-icon-button [routerLink]="['/jobs', j.id]" matTooltip="View job details" aria-label="View job details" class="view-link">
+                        <mat-icon>open_in_new</mat-icon>
+                      </a>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="jobColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: jobColumns" class="job-row"></tr>
+                </table>
+                @if (jobs.length >= 50) {
+                  <div class="table-footer">
+                    <mat-icon>info</mat-icon>
+                    Showing the 50 most recent jobs.
+                    <a routerLink="/jobs" [queryParams]="{ schedule_id: schedule.id }" class="view-all-link">View all in Job History</a>
+                  </div>
+                }
+              </div>
+            }
+            @if (!jobsLoading && jobs.length === 0) {
+              <div class="empty-state">
+                <div class="empty-icon-wrap">
+                  <mat-icon>history_toggle_off</mat-icon>
+                </div>
+                <h2>No jobs yet</h2>
+                <p>This schedule hasn't run yet. Trigger it manually or wait for the next scheduled run.</p>
+                <button mat-stroked-button (click)="triggerNow()">
+                  <mat-icon>play_arrow</mat-icon> Run Now
                 </button>
               </div>
-            </div>
-          </div>
-          </div><!-- /tab-panel-overview -->
-        </ng-container>
-
-        <!-- Job History tab -->
-        <ng-container *ngIf="activeTab === 'jobs'">
-          <div id="tab-panel-jobs" role="tabpanel" aria-label="Job History">
-          <div *ngIf="jobsLoading" class="loading-center">
-            <mat-spinner diameter="32" aria-label="Loading job history"></mat-spinner>
-          </div>
-
-          <div *ngIf="!jobsLoading && jobs.length > 0" class="jobs-table-wrap">
-            <table mat-table [dataSource]="jobs" class="jobs-table" aria-label="Job history">
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
-                <td mat-cell *matCellDef="let j">
-                  <app-status-badge [status]="j.status"></app-status-badge>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="trigger">
-                <th mat-header-cell *matHeaderCellDef>Trigger</th>
-                <td mat-cell *matCellDef="let j">
-                  <span class="trigger-badge" [class.trigger-manual]="j.trigger_type === 'manual'"
-                        [class.trigger-scheduled]="j.trigger_type === 'scheduled'">
-                    <mat-icon>{{ j.trigger_type === 'manual' ? 'touch_app' : 'event' }}</mat-icon>
-                    {{ j.trigger_type }}
-                  </span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="started">
-                <th mat-header-cell *matHeaderCellDef>Started</th>
-                <td mat-cell *matCellDef="let j" class="col-mono">{{ j.started_at | date:'MMM d, y · h:mm a' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="completed">
-                <th mat-header-cell *matHeaderCellDef>Completed</th>
-                <td mat-cell *matCellDef="let j" class="col-mono">
-                  <span *ngIf="j.completed_at">{{ j.completed_at | date:'h:mm a' }}</span>
-                  <span *ngIf="!j.completed_at" class="in-progress-badge">
-                    <mat-icon>sync</mat-icon> In progress
-                  </span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="link">
-                <th mat-header-cell *matHeaderCellDef></th>
-                <td mat-cell *matCellDef="let j">
-                  <a mat-icon-button [routerLink]="['/jobs', j.id]" matTooltip="View job details" aria-label="View job details" class="view-link">
-                    <mat-icon>open_in_new</mat-icon>
-                  </a>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="jobColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: jobColumns" class="job-row"></tr>
-            </table>
-            <div class="table-footer" *ngIf="jobs.length >= 50">
-              <mat-icon>info</mat-icon>
-              Showing the 50 most recent jobs.
-              <a routerLink="/jobs" [queryParams]="{ schedule_id: schedule.id }" class="view-all-link">View all in Job History</a>
-            </div>
-          </div>
-
-          <div *ngIf="!jobsLoading && jobs.length === 0" class="empty-state">
-            <div class="empty-icon-wrap">
-              <mat-icon>history_toggle_off</mat-icon>
-            </div>
-            <h2>No jobs yet</h2>
-            <p>This schedule hasn't run yet. Trigger it manually or wait for the next scheduled run.</p>
-            <button mat-stroked-button (click)="triggerNow()">
-              <mat-icon>play_arrow</mat-icon> Run Now
-            </button>
-          </div>
+            }
           </div><!-- /tab-panel-jobs -->
-        </ng-container>
-
+        }
       </div>
-    </ng-container>
-  `,
+    }
+    `,
     styles: [`
     .loading-center { display: flex; justify-content: center; padding: 60px; }
 

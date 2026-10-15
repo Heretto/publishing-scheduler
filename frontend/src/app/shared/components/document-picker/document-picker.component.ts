@@ -1,6 +1,6 @@
 import { Component, Inject, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,10 +34,19 @@ interface BreadcrumbItem {
 @Component({
     selector: 'app-document-picker',
     imports: [
-        CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-        MatInputModule, MatFormFieldModule, MatTabsModule, MatListModule,
-        MatCheckboxModule, MatProgressSpinnerModule, MatSelectModule, MatSlideToggleModule,
-    ],
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatTabsModule,
+    MatListModule,
+    MatCheckboxModule,
+    MatProgressSpinnerModule,
+    MatSelectModule,
+    MatSlideToggleModule
+],
     template: `
     <div mat-dialog-title class="picker-header">
       <div class="picker-header-text">
@@ -49,61 +58,87 @@ interface BreadcrumbItem {
       </button>
     </div>
     <mat-dialog-content class="picker-content">
-      <div class="filter-bar" *ngIf="!data?.allowAllTypes">
-        <mat-slide-toggle
-          [checked]="ditamapOnly"
-          (change)="onDitamapOnlyChange($event.checked)"
-          color="primary">
-          DITA maps only
-        </mat-slide-toggle>
-        <mat-form-field appearance="outline" class="status-filter-field">
-          <mat-label>Status</mat-label>
-          <mat-select [(ngModel)]="selectedStatusFilter"
-                      (openedChange)="$event && onStatusSelectFocus()"
-                      (selectionChange)="onStatusFilterChange()">
-            <mat-option value="">Any status</mat-option>
-            <mat-option *ngIf="statusValuesLoading" disabled value="">Loading…</mat-option>
-            <mat-option *ngFor="let s of statusValues" [value]="s">{{ s }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
+      @if (!data?.allowAllTypes) {
+        <div class="filter-bar">
+          <mat-slide-toggle
+            [checked]="ditamapOnly"
+            (change)="onDitamapOnlyChange($event.checked)"
+            color="primary">
+            DITA maps only
+          </mat-slide-toggle>
+          <mat-form-field appearance="outline" class="status-filter-field">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="selectedStatusFilter"
+              (openedChange)="$event && onStatusSelectFocus()"
+              (selectionChange)="onStatusFilterChange()">
+              <mat-option value="">Any status</mat-option>
+              @if (statusValuesLoading) {
+                <mat-option disabled value="">Loading…</mat-option>
+              }
+              @for (s of statusValues; track s) {
+                <mat-option [value]="s">{{ s }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      }
       <mat-tab-group class="picker-tabs">
         <mat-tab label="Browse">
-          <div class="breadcrumbs" *ngIf="breadcrumbs.length > 0">
-            <span *ngFor="let crumb of breadcrumbs; let last = last">
-              <a (click)="navigateToFolder(crumb.id)" *ngIf="!last">{{ crumb.title }}</a>
-              <span *ngIf="last">{{ crumb.title }}</span>
-              <span *ngIf="!last"> / </span>
-            </span>
-          </div>
-          <div class="loading" *ngIf="browseLoading">
-            <mat-spinner diameter="32"></mat-spinner>
-          </div>
-          <mat-list *ngIf="currentFolder && !browseLoading">
-            <mat-list-item *ngFor="let item of filteredChildren" class="item-row"
-              [class.status-mismatch]="selectedStatusFilter && item.type !== 'folder' && !matchesStatusFilter(item)">
-              <mat-checkbox
-                [checked]="item.type === 'folder' ? isFolderSelected(item.id) : isSelected(item.id)"
-                [disabled]="!!(selectedStatusFilter && item.type !== 'folder' && !matchesStatusFilter(item))"
-                (change)="item.type === 'folder' ? toggleFolderSelection(item) : toggleSelection(item)"
-              ></mat-checkbox>
-              <mat-icon class="item-icon" [class.loading-icon]="statusLoadingIds.has(item.id)">
-                {{ item.type === 'folder' ? 'folder' : (statusLoadingIds.has(item.id) ? 'hourglass_empty' : 'description') }}
-              </mat-icon>
-              <span class="item-text-group">
-                <span class="item-title"
-                  [class.clickable]="item.type === 'folder'"
-                  (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
-                  {{ item.title || item.id }}
+          @if (breadcrumbs.length > 0) {
+            <div class="breadcrumbs">
+              @for (crumb of breadcrumbs; track crumb; let last = $last) {
+                <span>
+                  @if (!last) {
+                    <a (click)="navigateToFolder(crumb.id)">{{ crumb.title }}</a>
+                  }
+                  @if (last) {
+                    <span>{{ crumb.title }}</span>
+                  }
+                  @if (!last) {
+                    <span> / </span>
+                  }
                 </span>
-                <span class="item-type">{{ item['name'] || formatType(item) }}</span>
-              </span>
-            </mat-list-item>
-            <mat-list-item *ngIf="filteredChildren.length === 0">
-              <span class="empty-message">{{ ditamapOnly ? 'No DITA maps in this folder' : 'This folder is empty' }}</span>
-            </mat-list-item>
-          </mat-list>
-          <div class="browse-error" *ngIf="browseError">{{ browseError }}</div>
+              }
+            </div>
+          }
+          @if (browseLoading) {
+            <div class="loading">
+              <mat-spinner diameter="32"></mat-spinner>
+            </div>
+          }
+          @if (currentFolder && !browseLoading) {
+            <mat-list>
+              @for (item of filteredChildren; track item) {
+                <mat-list-item class="item-row"
+                  [class.status-mismatch]="selectedStatusFilter && item.type !== 'folder' && !matchesStatusFilter(item)">
+                  <mat-checkbox
+                    [checked]="item.type === 'folder' ? isFolderSelected(item.id) : isSelected(item.id)"
+                    [disabled]="!!(selectedStatusFilter && item.type !== 'folder' && !matchesStatusFilter(item))"
+                    (change)="item.type === 'folder' ? toggleFolderSelection(item) : toggleSelection(item)"
+                  ></mat-checkbox>
+                  <mat-icon class="item-icon" [class.loading-icon]="statusLoadingIds.has(item.id)">
+                    {{ item.type === 'folder' ? 'folder' : (statusLoadingIds.has(item.id) ? 'hourglass_empty' : 'description') }}
+                  </mat-icon>
+                  <span class="item-text-group">
+                    <span class="item-title"
+                      [class.clickable]="item.type === 'folder'"
+                      (click)="item.type === 'folder' ? navigateToFolder(item.id) : null">
+                      {{ item.title || item.id }}
+                    </span>
+                    <span class="item-type">{{ item['name'] || formatType(item) }}</span>
+                  </span>
+                </mat-list-item>
+              }
+              @if (filteredChildren.length === 0) {
+                <mat-list-item>
+                  <span class="empty-message">{{ ditamapOnly ? 'No DITA maps in this folder' : 'This folder is empty' }}</span>
+                </mat-list-item>
+              }
+            </mat-list>
+          }
+          @if (browseError) {
+            <div class="browse-error">{{ browseError }}</div>
+          }
         </mat-tab>
         <mat-tab label="Search">
           <div class="search-section">
@@ -111,141 +146,193 @@ interface BreadcrumbItem {
               <mat-label>Search documents</mat-label>
               <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearchInput($event)" placeholder="Type to search...">
             </mat-form-field>
-            <div class="loading" *ngIf="searchLoading">
-              <mat-spinner diameter="32"></mat-spinner>
-            </div>
-            <mat-list *ngIf="filteredSearchResults.length > 0 && !searchLoading">
-              <mat-list-item *ngFor="let item of filteredSearchResults" class="item-row">
-                <mat-checkbox
-                  [checked]="isSelected(item.id)"
-                  (change)="toggleSelection(item)"
-                ></mat-checkbox>
-                <mat-icon class="item-icon">description</mat-icon>
-                <span class="item-text-group">
-                  <span class="item-title">{{ item.title || item.id }}</span>
-                  <span class="item-type">{{ item['name'] || formatType(item) }}</span>
-                </span>
-              </mat-list-item>
-            </mat-list>
-            <div class="empty-message" *ngIf="searchQuery.length >= 2 && filteredSearchResults.length === 0 && !searchLoading && !searchError">
-              {{ searchResults.length > 0 && ditamapOnly ? 'No DITA maps match your search' : 'No results found' }}
-            </div>
-            <div class="browse-error" *ngIf="searchError">{{ searchError }}</div>
+            @if (searchLoading) {
+              <div class="loading">
+                <mat-spinner diameter="32"></mat-spinner>
+              </div>
+            }
+            @if (filteredSearchResults.length > 0 && !searchLoading) {
+              <mat-list>
+                @for (item of filteredSearchResults; track item) {
+                  <mat-list-item class="item-row">
+                    <mat-checkbox
+                      [checked]="isSelected(item.id)"
+                      (change)="toggleSelection(item)"
+                    ></mat-checkbox>
+                    <mat-icon class="item-icon">description</mat-icon>
+                    <span class="item-text-group">
+                      <span class="item-title">{{ item.title || item.id }}</span>
+                      <span class="item-type">{{ item['name'] || formatType(item) }}</span>
+                    </span>
+                  </mat-list-item>
+                }
+              </mat-list>
+            }
+            @if (searchQuery.length >= 2 && filteredSearchResults.length === 0 && !searchLoading && !searchError) {
+              <div class="empty-message">
+                {{ searchResults.length > 0 && ditamapOnly ? 'No DITA maps match your search' : 'No results found' }}
+              </div>
+            }
+            @if (searchError) {
+              <div class="browse-error">{{ searchError }}</div>
+            }
           </div>
         </mat-tab>
       </mat-tab-group>
-      <div class="selection-summary" *ngIf="selectedItems.size > 0 || selectedFolders.size > 0">
-        <div *ngIf="selectedFolders.size > 0">
-          <strong>{{ selectedFolders.size }} folder(s) selected</strong>
-          <div class="folder-entries">
-            <div class="folder-entry" *ngFor="let item of selectedFoldersList">
-              <div class="folder-chip-row">
-                <span class="chip folder-chip">
-                  <mat-icon class="chip-folder-icon">folder</mat-icon>
-                  {{ item.title || item.id }}
-                  <mat-icon class="chip-remove" (click)="removeFolderSelection(item.id)">close</mat-icon>
-                </span>
-              </div>
-              <div class="folder-maps-preview">
-                <ng-container *ngIf="folderMaps.get(item.id) as state">
-                  <span class="maps-loading" *ngIf="state.loading">Loading maps&hellip;</span>
-                  <ng-container *ngIf="!state.loading">
-                    <span class="maps-empty" *ngIf="state.maps.length === 0">No DITA maps in this folder</span>
-                    <ng-container *ngIf="state.maps.length > 0">
-                      <ng-container *ngIf="filteredFolderMaps(state.maps) as filtered">
-                        <span class="maps-empty" *ngIf="filtered.length === 0">No maps match the selected status filter</span>
-                        <div class="maps-list" *ngIf="filtered.length > 0">
-                          <span class="maps-label">{{ filtered.length }} map{{ filtered.length === 1 ? '' : 's' }}:</span>
-                          <div class="folder-map-entries">
-                            <div class="doc-entry" *ngFor="let map of filtered">
-                              <div class="doc-chip-row">
-                                <span class="chip">
-                                  <mat-icon class="chip-doc-icon">description</mat-icon>
-                                  {{ map.title || map.id }}
-                                  <button class="release-btn" (click)="toggleReleaseMenu(map.id)">
-                                    {{ getReleaseName(map.id) }}<mat-icon class="release-arrow">arrow_drop_down</mat-icon>
-                                  </button>
-                                </span>
+      @if (selectedItems.size > 0 || selectedFolders.size > 0) {
+        <div class="selection-summary">
+          @if (selectedFolders.size > 0) {
+            <div>
+              <strong>{{ selectedFolders.size }} folder(s) selected</strong>
+              <div class="folder-entries">
+                @for (item of selectedFoldersList; track item) {
+                  <div class="folder-entry">
+                    <div class="folder-chip-row">
+                      <span class="chip folder-chip">
+                        <mat-icon class="chip-folder-icon">folder</mat-icon>
+                        {{ item.title || item.id }}
+                        <mat-icon class="chip-remove" (click)="removeFolderSelection(item.id)">close</mat-icon>
+                      </span>
+                    </div>
+                    <div class="folder-maps-preview">
+                      @if (folderMaps.get(item.id); as state) {
+                        @if (state.loading) {
+                          <span class="maps-loading">Loading maps&hellip;</span>
+                        }
+                        @if (!state.loading) {
+                          @if (state.maps.length === 0) {
+                            <span class="maps-empty">No DITA maps in this folder</span>
+                          }
+                          @if (state.maps.length > 0) {
+                            @if (filteredFolderMaps(state.maps); as filtered) {
+                              @if (filtered.length === 0) {
+                                <span class="maps-empty">No maps match the selected status filter</span>
+                              }
+                              @if (filtered.length > 0) {
+                                <div class="maps-list">
+                                  <span class="maps-label">{{ filtered.length }} map{{ filtered.length === 1 ? '' : 's' }}:</span>
+                                  <div class="folder-map-entries">
+                                    @for (map of filtered; track map) {
+                                      <div class="doc-entry">
+                                        <div class="doc-chip-row">
+                                          <span class="chip">
+                                            <mat-icon class="chip-doc-icon">description</mat-icon>
+                                            {{ map.title || map.id }}
+                                            <button class="release-btn" (click)="toggleReleaseMenu(map.id)">
+                                              {{ getReleaseName(map.id) }}<mat-icon class="release-arrow">arrow_drop_down</mat-icon>
+                                            </button>
+                                          </span>
+                                        </div>
+                                        @if (releaseMenuOpenId === map.id) {
+                                          <div class="release-panel">
+                                            @if (releaseOptions.get(map.id)?.loading) {
+                                              <div class="release-loading">Loading releases&hellip;</div>
+                                            }
+                                            @if (!releaseOptions.get(map.id)?.loading) {
+                                              <div class="release-option" role="button" tabindex="0"
+                                                [class.release-selected]="!selectedReleases.has(map.id)"
+                                                (click)="clearRelease(map.id)"
+                                                (keydown.enter)="clearRelease(map.id)"
+                                                (keydown.space)="$event.preventDefault(); clearRelease(map.id)">
+                                                Latest (always current)
+                                              </div>
+                                              @for (rel of releaseOptions.get(map.id)?.releases; track rel) {
+                                                <div class="release-option" role="button" tabindex="0"
+                                                  [class.release-selected]="selectedReleases.get(map.id)?.id === rel.id"
+                                                  (click)="selectRelease(map.id, rel)"
+                                                  (keydown.enter)="selectRelease(map.id, rel)"
+                                                  (keydown.space)="$event.preventDefault(); selectRelease(map.id, rel)">
+                                                  {{ rel.name }}@if (rel.completedDateTime) {
+                                                  <span class="release-meta"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
+                                                }
+                                                @if (rel.branchOfOriginName) {
+                                                  <span class="release-branch"> ({{ rel.branchOfOriginName }})</span>
+                                                }
+                                              </div>
+                                            }
+                                            @if (releaseOptions.get(map.id)?.releases?.length === 0) {
+                                              <div class="release-empty">
+                                                No releases available
+                                              </div>
+                                            }
+                                          }
+                                        </div>
+                                      }
+                                    </div>
+                                  }
+                                </div>
                               </div>
-                              <div class="release-panel" *ngIf="releaseMenuOpenId === map.id">
-                                <div class="release-loading" *ngIf="releaseOptions.get(map.id)?.loading">Loading releases&hellip;</div>
-                                <ng-container *ngIf="!releaseOptions.get(map.id)?.loading">
-                                  <div class="release-option" role="button" tabindex="0"
-                                       [class.release-selected]="!selectedReleases.has(map.id)"
-                                       (click)="clearRelease(map.id)"
-                                       (keydown.enter)="clearRelease(map.id)"
-                                       (keydown.space)="$event.preventDefault(); clearRelease(map.id)">
-                                    Latest (always current)
-                                  </div>
-                                  <div class="release-option" role="button" tabindex="0"
-                                       *ngFor="let rel of releaseOptions.get(map.id)?.releases"
-                                       [class.release-selected]="selectedReleases.get(map.id)?.id === rel.id"
-                                       (click)="selectRelease(map.id, rel)"
-                                       (keydown.enter)="selectRelease(map.id, rel)"
-                                       (keydown.space)="$event.preventDefault(); selectRelease(map.id, rel)">
-                                    {{ rel.name }}<span class="release-meta" *ngIf="rel.completedDateTime"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
-                                    <span class="release-branch" *ngIf="rel.branchOfOriginName"> ({{ rel.branchOfOriginName }})</span>
-                                  </div>
-                                  <div class="release-empty" *ngIf="releaseOptions.get(map.id)?.releases?.length === 0">
-                                    No releases available
-                                  </div>
-                                </ng-container>
-                              </div>
-                            </div>
-                          </div>
+                            }
+                          }
+                        }
+                      }
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        @if (selectedItems.size > 0) {
+          <div [style.margin-top]="selectedFolders.size > 0 ? '8px' : '0'">
+            <strong>{{ selectedItems.size }} document(s) selected</strong>
+            <div class="selected-docs">
+              @for (item of selectedItemsList; track item) {
+                <div class="doc-entry">
+                  <div class="doc-chip-row">
+                    <span class="chip" [class.status-mismatch]="selectedStatusFilter && !matchesStatusFilter(item)">
+                      <mat-icon class="chip-doc-icon">description</mat-icon>
+                      {{ item.title || item.id }}
+                      @if (isDitamap(item)) {
+                        <button class="release-btn" (click)="toggleReleaseMenu(item.id)">
+                          {{ getReleaseName(item.id) }}<mat-icon class="release-arrow">arrow_drop_down</mat-icon>
+                        </button>
+                      }
+                      <mat-icon class="chip-remove" (click)="removeSelection(item.id)">close</mat-icon>
+                    </span>
+                  </div>
+                  @if (releaseMenuOpenId === item.id) {
+                    <div class="release-panel">
+                      @if (releaseOptions.get(item.id)?.loading) {
+                        <div class="release-loading">Loading releases&hellip;</div>
+                      }
+                      @if (!releaseOptions.get(item.id)?.loading) {
+                        <div class="release-option" role="button" tabindex="0"
+                          [class.release-selected]="!selectedReleases.has(item.id)"
+                          (click)="clearRelease(item.id)"
+                          (keydown.enter)="clearRelease(item.id)"
+                          (keydown.space)="$event.preventDefault(); clearRelease(item.id)">
+                          Latest (always current)
                         </div>
-                      </ng-container>
-                    </ng-container>
-                  </ng-container>
-                </ng-container>
+                        @for (rel of releaseOptions.get(item.id)?.releases; track rel) {
+                          <div class="release-option" role="button" tabindex="0"
+                            [class.release-selected]="selectedReleases.get(item.id)?.id === rel.id"
+                            (click)="selectRelease(item.id, rel)"
+                            (keydown.enter)="selectRelease(item.id, rel)"
+                            (keydown.space)="$event.preventDefault(); selectRelease(item.id, rel)">
+                            {{ rel.name }}@if (rel.completedDateTime) {
+                            <span class="release-meta"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
+                          }
+                          @if (rel.branchOfOriginName) {
+                            <span class="release-branch"> ({{ rel.branchOfOriginName }})</span>
+                          }
+                        </div>
+                      }
+                      @if (releaseOptions.get(item.id)?.releases?.length === 0) {
+                        <div class="release-empty">
+                          No releases available
+                        </div>
+                      }
+                    }
+                  </div>
+                }
               </div>
-            </div>
+            }
           </div>
         </div>
-        <div *ngIf="selectedItems.size > 0" [style.margin-top]="selectedFolders.size > 0 ? '8px' : '0'">
-          <strong>{{ selectedItems.size }} document(s) selected</strong>
-          <div class="selected-docs">
-            <div class="doc-entry" *ngFor="let item of selectedItemsList">
-              <div class="doc-chip-row">
-                <span class="chip" [class.status-mismatch]="selectedStatusFilter && !matchesStatusFilter(item)">
-                  <mat-icon class="chip-doc-icon">description</mat-icon>
-                  {{ item.title || item.id }}
-                  <ng-container *ngIf="isDitamap(item)">
-                    <button class="release-btn" (click)="toggleReleaseMenu(item.id)">
-                      {{ getReleaseName(item.id) }}<mat-icon class="release-arrow">arrow_drop_down</mat-icon>
-                    </button>
-                  </ng-container>
-                  <mat-icon class="chip-remove" (click)="removeSelection(item.id)">close</mat-icon>
-                </span>
-              </div>
-              <div class="release-panel" *ngIf="releaseMenuOpenId === item.id">
-                <div class="release-loading" *ngIf="releaseOptions.get(item.id)?.loading">Loading releases&hellip;</div>
-                <ng-container *ngIf="!releaseOptions.get(item.id)?.loading">
-                  <div class="release-option" role="button" tabindex="0"
-                       [class.release-selected]="!selectedReleases.has(item.id)"
-                       (click)="clearRelease(item.id)"
-                       (keydown.enter)="clearRelease(item.id)"
-                       (keydown.space)="$event.preventDefault(); clearRelease(item.id)">
-                    Latest (always current)
-                  </div>
-                  <div class="release-option" role="button" tabindex="0"
-                       *ngFor="let rel of releaseOptions.get(item.id)?.releases"
-                       [class.release-selected]="selectedReleases.get(item.id)?.id === rel.id"
-                       (click)="selectRelease(item.id, rel)"
-                       (keydown.enter)="selectRelease(item.id, rel)"
-                       (keydown.space)="$event.preventDefault(); selectRelease(item.id, rel)">
-                    {{ rel.name }}<span class="release-meta" *ngIf="rel.completedDateTime"> &mdash; {{ formatReleaseDate(rel.completedDateTime) }}</span>
-                    <span class="release-branch" *ngIf="rel.branchOfOriginName"> ({{ rel.branchOfOriginName }})</span>
-                  </div>
-                  <div class="release-empty" *ngIf="releaseOptions.get(item.id)?.releases?.length === 0">
-                    No releases available
-                  </div>
-                </ng-container>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      }
+    </div>
+    }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-stroked-button class="picker-btn-cancel" mat-dialog-close>Cancel</button>
@@ -253,7 +340,7 @@ interface BreadcrumbItem {
         Select ({{ selectedItems.size + selectedFolders.size }})
       </button>
     </mat-dialog-actions>
-  `,
+    `,
     styles: [`
     /* ── Dialog header ──────────────────────────────────────── */
     .picker-header {

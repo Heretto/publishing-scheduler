@@ -1,6 +1,6 @@
 import { Component, OnInit, DestroyRef, inject, Inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { forkJoin, take } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -17,18 +17,20 @@ import { CronDisplayComponent } from '../../shared/components/cron-display/cron-
 
 @Component({
     selector: 'app-maps-dialog',
-    imports: [CommonModule, MatDialogModule, MatButtonModule],
+    imports: [MatDialogModule, MatButtonModule],
     template: `
     <h2 mat-dialog-title>Maps — {{ data.scheduleName }}</h2>
     <mat-dialog-content>
       <ul class="maps-list">
-        <li *ngFor="let name of data.maps">{{ name }}</li>
+        @for (name of data.maps; track name) {
+          <li>{{ name }}</li>
+        }
       </ul>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Close</button>
     </mat-dialog-actions>
-  `,
+    `,
     styles: [`.maps-list { margin: 8px 0 0; padding-left: 20px; } li { padding: 4px 0; font-size: 0.9rem; }`]
 })
 class MapsDialogComponent {
@@ -38,10 +40,16 @@ class MapsDialogComponent {
 @Component({
     selector: 'app-dashboard',
     imports: [
-        CommonModule, RouterModule, MatButtonModule, MatIconModule,
-        MatTableModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
-        StatusBadgeComponent, CronDisplayComponent,
-    ],
+    RouterModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTableModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatDialogModule,
+    StatusBadgeComponent,
+    CronDisplayComponent
+],
     template: `
     <!-- Page banner -->
     <div class="page-banner">
@@ -59,7 +67,7 @@ class MapsDialogComponent {
         </div>
       </div>
     </div>
-
+    
     <!-- KPI metrics strip -->
     <div class="metrics-bar" role="region" aria-label="Statistics">
       <div class="metric-tile">
@@ -84,56 +92,71 @@ class MapsDialogComponent {
         <span class="metric-label">Success Rate</span>
       </div>
     </div>
-
-    <mat-spinner *ngIf="loading" diameter="40" style="margin-top: 32px;" aria-label="Loading dashboard"></mat-spinner>
-
-    <ng-container *ngIf="!loading">
-
+    
+    @if (loading) {
+      <mat-spinner diameter="40" style="margin-top: 32px;" aria-label="Loading dashboard"></mat-spinner>
+    }
+    
+    @if (!loading) {
       <!-- Needs Attention -->
-      <div class="alert-card attention-card" *ngIf="needsAttentionSchedules.length">
-        <div class="alert-left"></div>
-        <div class="alert-body">
-          <div class="alert-header">
-            <mat-icon class="attention-icon" aria-hidden="true">warning</mat-icon>
-            <span class="alert-title">Needs Attention</span>
-          </div>
-          <div *ngFor="let s of needsAttentionSchedules" class="alert-row">
-            <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
-            <span class="failure-count">{{ s.consecutive_failures ?? 0 }} consecutive failure{{ (s.consecutive_failures ?? 0) !== 1 ? 's' : '' }}</span>
-            <span *ngIf="!s.enabled" class="badge-disabled">Auto-disabled</span>
+      @if (needsAttentionSchedules.length) {
+        <div class="alert-card attention-card">
+          <div class="alert-left"></div>
+          <div class="alert-body">
+            <div class="alert-header">
+              <mat-icon class="attention-icon" aria-hidden="true">warning</mat-icon>
+              <span class="alert-title">Needs Attention</span>
+            </div>
+            @for (s of needsAttentionSchedules; track s) {
+              <div class="alert-row">
+                <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
+                <span class="failure-count">{{ s.consecutive_failures ?? 0 }} consecutive failure{{ (s.consecutive_failures ?? 0) !== 1 ? 's' : '' }}</span>
+                @if (!s.enabled) {
+                  <span class="badge-disabled">Auto-disabled</span>
+                }
+              </div>
+            }
           </div>
         </div>
-      </div>
-
+      }
       <!-- Stale Schedules -->
-      <div class="alert-card stale-card" *ngIf="staleSchedules.length">
-        <div class="alert-left"></div>
-        <div class="alert-body">
-          <div class="alert-header">
-            <mat-icon class="stale-icon" aria-hidden="true">schedule</mat-icon>
-            <span class="alert-title">Stale Schedules</span>
-          </div>
-          <p class="stale-note">These enabled schedules haven't run recently. Check their cron configuration.</p>
-          <div *ngFor="let s of staleSchedules" class="alert-row">
-            <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
-            <span *ngIf="s.last_run_at" class="muted-text">Last run: {{ s.last_run_at | date:'short' }}</span>
-            <span *ngIf="!s.last_run_at" class="muted-text">Never run</span>
+      @if (staleSchedules.length) {
+        <div class="alert-card stale-card">
+          <div class="alert-left"></div>
+          <div class="alert-body">
+            <div class="alert-header">
+              <mat-icon class="stale-icon" aria-hidden="true">schedule</mat-icon>
+              <span class="alert-title">Stale Schedules</span>
+            </div>
+            <p class="stale-note">These enabled schedules haven't run recently. Check their cron configuration.</p>
+            @for (s of staleSchedules; track s) {
+              <div class="alert-row">
+                <a [routerLink]="['/schedules', s.id]" class="table-link">{{ s.name }}</a>
+                @if (s.last_run_at) {
+                  <span class="muted-text">Last run: {{ s.last_run_at | date:'short' }}</span>
+                }
+                @if (!s.last_run_at) {
+                  <span class="muted-text">Never run</span>
+                }
+              </div>
+            }
           </div>
         </div>
-      </div>
-
+      }
       <!-- Active Schedules -->
       <div class="sn-section">
         <div class="sn-section-header">
           <span class="section-title">Active Schedules</span>
           <div class="header-right">
-            <span class="row-count" *ngIf="schedules.length > 0">
-              1–{{ schedules.slice(0,10).length }} of {{ schedules.length }}
-            </span>
+            @if (schedules.length > 0) {
+              <span class="row-count">
+                1–{{ schedules.slice(0,10).length }} of {{ schedules.length }}
+              </span>
+            }
             <a routerLink="/schedules" class="see-all-link">See All</a>
           </div>
         </div>
-        <ng-container *ngIf="schedules.length > 0; else noSchedules">
+        @if (schedules.length > 0) {
           <table mat-table [dataSource]="schedules.slice(0, 10)" aria-label="Active schedules" style="table-layout: fixed; width: 100%">
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Name</th>
@@ -150,12 +173,14 @@ class MapsDialogComponent {
               <td mat-cell *matCellDef="let s">
                 <div class="map-cell">
                   <span class="map-cell-name">{{ scheduleDocNames(s) }}</span>
-                  <button *ngIf="scheduleAllDocNames(s).length > 1"
-                    class="map-more-btn"
-                    matTooltip="Click to view all maps"
-                    (click)="openMapsDialog(s); $event.stopPropagation()">
-                    +{{ scheduleAllDocNames(s).length - 1 }} more
-                  </button>
+                  @if (scheduleAllDocNames(s).length > 1) {
+                    <button
+                      class="map-more-btn"
+                      matTooltip="Click to view all maps"
+                      (click)="openMapsDialog(s); $event.stopPropagation()">
+                      +{{ scheduleAllDocNames(s).length - 1 }} more
+                    </button>
+                  }
                 </div>
               </td>
             </ng-container>
@@ -172,29 +197,38 @@ class MapsDialogComponent {
             <ng-container matColumnDef="lastRun">
               <th mat-header-cell *matHeaderCellDef style="width: 15%">Last Run</th>
               <td mat-cell *matCellDef="let s">
-                <app-status-badge *ngIf="s.last_run_status" [status]="s.last_run_status"></app-status-badge>
-                <span *ngIf="!s.last_run_status">Never</span>
+                @if (s.last_run_status) {
+                  <app-status-badge [status]="s.last_run_status"></app-status-badge>
+                }
+                @if (!s.last_run_status) {
+                  <span>Never</span>
+                }
               </td>
             </ng-container>
             <ng-container matColumnDef="nextRun">
               <th mat-header-cell *matHeaderCellDef style="width: 15%">Next Run</th>
               <td mat-cell *matCellDef="let s">
-                <span *ngIf="s.next_run_time">{{ s.next_run_time | date:'short' }}</span>
-                <span *ngIf="!s.next_run_time">—</span>
+                @if (s.next_run_time) {
+                  <span>{{ s.next_run_time | date:'short' }}</span>
+                }
+                @if (!s.next_run_time) {
+                  <span>—</span>
+                }
               </td>
             </ng-container>
             <ng-container matColumnDef="successRate">
               <th mat-header-cell *matHeaderCellDef>Success %</th>
               <td mat-cell *matCellDef="let s">
-                <ng-container *ngIf="scheduleSuccessRate(s.id) !== null; else noRate">
+                @if (scheduleSuccessRate(s.id) !== null) {
                   <span class="rate-badge"
                     [class.rate-good]="scheduleSuccessRate(s.id)! >= 80"
                     [class.rate-warn]="scheduleSuccessRate(s.id)! >= 50 && scheduleSuccessRate(s.id)! < 80"
                     [class.rate-bad]="scheduleSuccessRate(s.id)! < 50">
                     {{ scheduleSuccessRate(s.id) }}%
                   </span>
-                </ng-container>
-                <ng-template #noRate><span class="muted-text">—</span></ng-template>
+                } @else {
+                  <span class="muted-text">—</span>
+                }
               </td>
             </ng-container>
             <ng-container matColumnDef="scheduleActions">
@@ -205,42 +239,48 @@ class MapsDialogComponent {
                   (click)="triggerNow(s)"
                   matTooltip="Run Now"
                   aria-label="Run now">
-                  <mat-spinner *ngIf="triggeringId === s.id" diameter="20"></mat-spinner>
-                  <mat-icon *ngIf="triggeringId !== s.id">play_arrow</mat-icon>
+                  @if (triggeringId === s.id) {
+                    <mat-spinner diameter="20"></mat-spinner>
+                  }
+                  @if (triggeringId !== s.id) {
+                    <mat-icon>play_arrow</mat-icon>
+                  }
                 </button>
               </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="scheduleColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: scheduleColumns"></tr>
           </table>
-        </ng-container>
-        <ng-template #noSchedules>
+        } @else {
           <div class="empty-state">
             <p>No schedules yet. <a routerLink="/schedules/new">Create one</a></p>
           </div>
-        </ng-template>
+        }
       </div>
-
       <!-- Recent Jobs -->
       <div class="sn-section">
         <div class="sn-section-header">
           <div class="section-title-row">
             <span class="section-title">Recent Jobs</span>
-            <span *ngIf="selectedDate" class="date-filter-chip">
-              {{ selectedDate | date:'mediumDate' }}
-              <button mat-icon-button class="chip-clear" (click)="selectedDate = null" aria-label="Clear date filter">
-                <mat-icon>close</mat-icon>
-              </button>
-            </span>
+            @if (selectedDate) {
+              <span class="date-filter-chip">
+                {{ selectedDate | date:'mediumDate' }}
+                <button mat-icon-button class="chip-clear" (click)="selectedDate = null" aria-label="Clear date filter">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </span>
+            }
           </div>
           <div class="header-right">
-            <span class="row-count" *ngIf="filteredJobs.length > 0">
-              1–{{ filteredJobs.slice(0,10).length }} of {{ filteredJobs.length }}
-            </span>
+            @if (filteredJobs.length > 0) {
+              <span class="row-count">
+                1–{{ filteredJobs.slice(0,10).length }} of {{ filteredJobs.length }}
+              </span>
+            }
             <a routerLink="/jobs" class="see-all-link">See All</a>
           </div>
         </div>
-        <ng-container *ngIf="filteredJobs.length > 0; else noJobs">
+        @if (filteredJobs.length > 0) {
           <table mat-table [dataSource]="filteredJobs.slice(0, 10)" aria-label="Recent jobs" style="table-layout: fixed; width: 100%">
             <ng-container matColumnDef="schedule">
               <th mat-header-cell *matHeaderCellDef style="width: 18%">Schedule</th>
@@ -255,12 +295,14 @@ class MapsDialogComponent {
               <td mat-cell *matCellDef="let j">
                 <div class="map-cell">
                   <span class="map-cell-name">{{ jobDocNames(j) }}</span>
-                  <button *ngIf="jobDocNamesCount(j) > 1"
-                    class="map-more-btn"
-                    matTooltip="Click to view all maps"
-                    (click)="openJobMapsDialog(j); $event.stopPropagation()">
-                    +{{ jobDocNamesCount(j) - 1 }} more
-                  </button>
+                  @if (jobDocNamesCount(j) > 1) {
+                    <button
+                      class="map-more-btn"
+                      matTooltip="Click to view all maps"
+                      (click)="openJobMapsDialog(j); $event.stopPropagation()">
+                      +{{ jobDocNamesCount(j) - 1 }} more
+                    </button>
+                  }
                 </div>
               </td>
             </ng-container>
@@ -289,20 +331,22 @@ class MapsDialogComponent {
             <tr mat-header-row *matHeaderRowDef="['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
             <tr mat-row *matRowDef="let row; columns: ['schedule', 'mapName', 'locales', 'status', 'startedAt', 'trigger', 'jobActions']"></tr>
           </table>
-        </ng-container>
-        <ng-template #noJobs>
+        } @else {
           <div class="empty-state">
-            <p *ngIf="selectedDate">
-              No recent jobs found for {{ selectedDate | date:'mediumDate' }}.
-              <a style="cursor:pointer;color:inherit" (click)="selectedDate = null">Clear filter</a>
-            </p>
-            <p *ngIf="!selectedDate">No jobs have run yet.</p>
+            @if (selectedDate) {
+              <p>
+                No recent jobs found for {{ selectedDate | date:'mediumDate' }}.
+                <a style="cursor:pointer;color:inherit" (click)="selectedDate = null">Clear filter</a>
+              </p>
+            }
+            @if (!selectedDate) {
+              <p>No jobs have run yet.</p>
+            }
           </div>
-        </ng-template>
+        }
       </div>
-
       <!-- Daily Activity Sparkline -->
-      <ng-container *ngIf="summary?.daily_volumes?.length">
+      @if (summary?.daily_volumes?.length) {
         <div class="sn-section">
           <div class="sn-section-header">
             <span class="section-title">Daily Activity</span>
@@ -314,8 +358,8 @@ class MapsDialogComponent {
               <span class="sparkline-summary-total">{{ periodTotalJobs }} jobs</span>
               <span class="sparkline-summary-sep">·</span>
               <span [class.rate-good]="(periodSuccessRate ?? 0) >= 80"
-                    [class.rate-warn]="(periodSuccessRate ?? 0) >= 50 && (periodSuccessRate ?? 0) < 80"
-                    [class.rate-bad]="(periodSuccessRate ?? 0) < 50">
+                [class.rate-warn]="(periodSuccessRate ?? 0) >= 50 && (periodSuccessRate ?? 0) < 80"
+                [class.rate-bad]="(periodSuccessRate ?? 0) < 50">
                 {{ periodSuccessRate !== null ? periodSuccessRate + '% success' : '—' }}
               </span>
               <span class="sparkline-summary-sep">·</span>
@@ -325,40 +369,48 @@ class MapsDialogComponent {
             <svg width="100%" height="60" viewBox="0 0 420 60" preserveAspectRatio="none" role="img" aria-label="Daily activity bar chart for the last 14 days">
               <!-- 50% reference line -->
               <line x1="0" y1="35" x2="420" y2="35" stroke="#e8e8e8" stroke-width="0.75"></line>
-              <ng-container *ngFor="let d of summary!.daily_volumes; let i = index">
-                <!-- Weekend tint -->
-                <rect *ngIf="isWeekend(d.date)"
-                  [attr.x]="i * 30" y="0" width="30" height="60" fill="#f5f5f5"></rect>
-                <!-- Succeeded bar (green, bottom portion) -->
-                <rect
-                  [attr.x]="i * 30 + 2"
-                  [attr.y]="58 - barHeightSucceeded(d)"
-                  width="26"
-                  [attr.height]="barHeightSucceeded(d)"
-                  fill="#43a047">
-                </rect>
-                <!-- Failed bar (red, stacked above succeeded) -->
-                <rect *ngIf="d.failed > 0"
-                  [attr.x]="i * 30 + 2"
-                  [attr.y]="58 - barHeightTotal(d)"
-                  width="26"
-                  [attr.height]="barHeightTotal(d) - barHeightSucceeded(d)"
-                  fill="#e53935">
-                </rect>
-                <!-- Selected-day outline -->
-                <rect *ngIf="selectedDate === d.date"
-                  [attr.x]="i * 30 + 1" y="1" width="28" height="57"
-                  fill="none" stroke="#1976d2" stroke-width="1.5" rx="2">
-                </rect>
-                <!-- Invisible clickable overlay with tooltip -->
-                <rect
-                  [attr.x]="i * 30" y="0" width="30" height="60"
-                  fill="transparent"
-                  class="sparkline-col-hit"
-                  (click)="selectDay(d.date)"
-                  [matTooltip]="d.date + ': ' + d.total + ' jobs · ' + d.succeeded + ' succeeded · ' + d.failed + ' failed'">
-                </rect>
-              </ng-container>
+              @for (d of summary!.daily_volumes; track d; let i = $index) {
+                <ng-container>
+                  <!-- Weekend tint -->
+                  @if (isWeekend(d.date)) {
+                    <rect
+                    [attr.x]="i * 30" y="0" width="30" height="60" fill="#f5f5f5"></rect>
+                  }
+                  <!-- Succeeded bar (green, bottom portion) -->
+                  <rect
+                    [attr.x]="i * 30 + 2"
+                    [attr.y]="58 - barHeightSucceeded(d)"
+                    width="26"
+                    [attr.height]="barHeightSucceeded(d)"
+                    fill="#43a047">
+                  </rect>
+                  <!-- Failed bar (red, stacked above succeeded) -->
+                  @if (d.failed > 0) {
+                    <rect
+                      [attr.x]="i * 30 + 2"
+                      [attr.y]="58 - barHeightTotal(d)"
+                      width="26"
+                      [attr.height]="barHeightTotal(d) - barHeightSucceeded(d)"
+                      fill="#e53935">
+                    </rect>
+                  }
+                  <!-- Selected-day outline -->
+                  @if (selectedDate === d.date) {
+                    <rect
+                      [attr.x]="i * 30 + 1" y="1" width="28" height="57"
+                      fill="none" stroke="#1976d2" stroke-width="1.5" rx="2">
+                    </rect>
+                  }
+                  <!-- Invisible clickable overlay with tooltip -->
+                  <rect
+                    [attr.x]="i * 30" y="0" width="30" height="60"
+                    fill="transparent"
+                    class="sparkline-col-hit"
+                    (click)="selectDay(d.date)"
+                    [matTooltip]="d.date + ': ' + d.total + ' jobs · ' + d.succeeded + ' succeeded · ' + d.failed + ' failed'">
+                  </rect>
+                </ng-container>
+              }
             </svg>
             <!-- Date labels -->
             <div class="sparkline-labels">
@@ -374,17 +426,18 @@ class MapsDialogComponent {
             </div>
           </div>
         </div>
-      </ng-container>
-
-    </ng-container>
-
+      }
+    }
+    
     <!-- Error state -->
-    <div class="sn-card error-card" *ngIf="errorMessage" style="margin-top: 20px;">
-      <div class="sn-card-body">
-        <mat-icon>warning</mat-icon> {{ errorMessage }}
+    @if (errorMessage) {
+      <div class="sn-card error-card" style="margin-top: 20px;">
+        <div class="sn-card-body">
+          <mat-icon>warning</mat-icon> {{ errorMessage }}
+        </div>
       </div>
-    </div>
-  `,
+    }
+    `,
     styles: [`
     /* ── Banner ─────────────────────────────────────────────── */
     .page-banner {

@@ -1,6 +1,6 @@
 import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CommonModule } from '@angular/common';
+
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -23,20 +23,26 @@ function requireNonEmpty(control: AbstractControl) {
 @Component({
     selector: 'app-schedule-form',
     imports: [
-        CommonModule, ReactiveFormsModule, RouterModule,
-        MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-        MatCheckboxModule, MatIconModule, MatDialogModule,
-        CronBuilderComponent,
-    ],
+    ReactiveFormsModule,
+    RouterModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatIconModule,
+    MatDialogModule,
+    CronBuilderComponent
+],
     template: `
     <!-- Page banner -->
     <div class="page-banner">
       <div class="banner-breadcrumb">
         <a routerLink="/schedules" class="bc-link">Schedules</a>
-        <ng-container *ngIf="isEdit && scheduleName">
+        @if (isEdit && scheduleName) {
           <mat-icon class="bc-sep">chevron_right</mat-icon>
           <a [routerLink]="['/schedules', scheduleId]" class="bc-link">{{ scheduleName }}</a>
-        </ng-container>
+        }
         <mat-icon class="bc-sep">chevron_right</mat-icon>
         <span class="bc-current">{{ isEdit ? 'Edit Schedule' : 'New Schedule' }}</span>
       </div>
@@ -47,11 +53,11 @@ function requireNonEmpty(control: AbstractControl) {
         </div>
       </div>
     </div>
-
+    
     <!-- Form card -->
     <div class="sn-card sn-form-card" style="margin-top: 20px;">
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
-
+    
         <!-- GENERAL section -->
         <div class="form-section-header">
           <span class="form-section-title">General</span>
@@ -60,14 +66,16 @@ function requireNonEmpty(control: AbstractControl) {
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Name</mat-label>
             <input matInput formControlName="name">
-            <mat-error *ngIf="form.get('name')?.hasError('required')">Name is required</mat-error>
+            @if (form.get('name')?.hasError('required')) {
+              <mat-error>Name is required</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Description</mat-label>
             <textarea matInput formControlName="description" rows="2"></textarea>
           </mat-form-field>
         </div>
-
+    
         <!-- SCHEDULE section -->
         <div class="form-section-header">
           <span class="form-section-title">Schedule</span>
@@ -76,24 +84,30 @@ function requireNonEmpty(control: AbstractControl) {
           <div class="full-width cron-section">
             <label class="cron-label">Recurrence</label>
             <app-cron-builder formControlName="cron_expression"></app-cron-builder>
-            <div class="mat-error cron-error" *ngIf="form.get('cron_expression')?.touched && form.get('cron_expression')?.hasError('required')">
-              Schedule is required
-            </div>
+            @if (form.get('cron_expression')?.touched && form.get('cron_expression')?.hasError('required')) {
+              <div class="mat-error cron-error">
+                Schedule is required
+              </div>
+            }
           </div>
         </div>
-
+    
         <!-- CONTENT section -->
         <div class="form-section-header">
           <span class="form-section-title">Content</span>
         </div>
         <div class="form-section-body">
-          <mat-form-field appearance="outline" class="full-width" *ngIf="branches.length > 0">
-            <mat-label>Branch</mat-label>
-            <mat-select formControlName="branch">
-              <mat-option *ngFor="let b of branches" [value]="b.name">{{ b.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
+          @if (branches.length > 0) {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Branch</mat-label>
+              <mat-select formControlName="branch">
+                @for (b of branches; track b) {
+                  <mat-option [value]="b.name">{{ b.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+    
           <div class="document-ids-section">
             <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
               <mat-label>Documents</mat-label>
@@ -105,82 +119,108 @@ function requireNonEmpty(control: AbstractControl) {
               Browse
             </button>
           </div>
-
+    
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Locale(s)</mat-label>
             <mat-select formControlName="locales" multiple>
               <mat-option value="">Source (original language)</mat-option>
-              <mat-option *ngFor="let l of localeOptions" [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
+              @for (l of localeOptions; track l) {
+                <mat-option [value]="l.code">{{ getLanguageName(l.code) }} ({{ l.code }})</mat-option>
+              }
             </mat-select>
             <mat-hint>{{ localeFieldHint }}</mat-hint>
           </mat-form-field>
         </div>
-
+    
         <!-- PUBLISHING section -->
         <div class="form-section-header">
           <span class="form-section-title">Publishing</span>
         </div>
         <div class="form-section-body">
-          <mat-form-field appearance="outline" class="full-width" *ngIf="scenarios.length > 0">
-            <mat-label>Publishing Scenario(s)</mat-label>
-            <mat-select formControlName="scenario_ids" multiple (selectionChange)="onScenarioChange($event.value)">
-              <mat-option *ngFor="let s of scenarios" [value]="s.id">{{ s.name }}</mat-option>
-            </mat-select>
-            <mat-hint *ngIf="selectedScenarioCount > 1">Output formats shown for first selected scenario</mat-hint>
-            <mat-error *ngIf="form.get('scenario_ids')?.hasError('required')">At least one publishing scenario is required</mat-error>
-          </mat-form-field>
-
-          <ng-container *ngIf="scenarioParameters.length > 0">
+          @if (scenarios.length > 0) {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Publishing Scenario(s)</mat-label>
+              <mat-select formControlName="scenario_ids" multiple (selectionChange)="onScenarioChange($event.value)">
+                @for (s of scenarios; track s) {
+                  <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                }
+              </mat-select>
+              @if (selectedScenarioCount > 1) {
+                <mat-hint>Output formats shown for first selected scenario</mat-hint>
+              }
+              @if (form.get('scenario_ids')?.hasError('required')) {
+                <mat-error>At least one publishing scenario is required</mat-error>
+              }
+            </mat-form-field>
+          }
+    
+          @if (scenarioParameters.length > 0) {
             <div class="param-section-label">Output Format(s)</div>
-            <div *ngFor="let param of scenarioParameters" class="parameter-row">
-              <ng-container [ngSwitch]="param.type">
-                <div *ngSwitchCase="'file_picker'" class="file-picker-param">
-                  <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-                    <mat-label>{{ param.displayName || param.name }}</mat-label>
-                    <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
-                  </mat-form-field>
-                  <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
-                    <mat-icon>folder_open</mat-icon>
-                    Browse
-                  </button>
-                </div>
-                <div *ngSwitchCase="'file_uuid_picker'" class="file-picker-param">
-                  <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-                    <mat-label>{{ param.displayName || param.name }}</mat-label>
-                    <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
-                  </mat-form-field>
-                  <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
-                    <mat-icon>folder_open</mat-icon>
-                    Browse
-                  </button>
-                </div>
-                <mat-form-field *ngSwitchCase="'option'" appearance="outline" class="full-width">
-                  <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <mat-select multiple [value]="getOptionParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
-                    <mat-option *ngFor="let opt of param.options" [value]="opt.value">{{ opt.displayName || opt.value }}</mat-option>
-                  </mat-select>
-                </mat-form-field>
-                <mat-form-field *ngSwitchCase="'ref'" appearance="outline" class="full-width">
-                  <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <input matInput [value]="getParameterDisplayValue(param.name)" readonly>
-                </mat-form-field>
-                <mat-checkbox *ngSwitchCase="'boolean'"
-                  [checked]="getParameterValue(param.name) === true || getParameterValue(param.name) === 'true'"
-                  [disabled]="scenarioParametersReadOnly"
-                  (change)="!scenarioParametersReadOnly && setParameterValue(param.name, $event.checked)">
-                  {{ param.displayName || param.name }}
-                </mat-checkbox>
-                <mat-form-field *ngSwitchDefault appearance="outline" class="full-width">
-                  <mat-label>{{ param.displayName || param.name }}</mat-label>
-                  <input matInput
-                    [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''"
-                    [readonly]="scenarioParametersReadOnly"
-                    (input)="!scenarioParametersReadOnly && setParameterValue(param.name, $any($event.target).value)">
-                </mat-form-field>
-              </ng-container>
-            </div>
-          </ng-container>
-
+            @for (param of scenarioParameters; track param) {
+              <div class="parameter-row">
+                @switch (param.type) {
+                  @case ('file_picker') {
+                    <div class="file-picker-param">
+                      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                        <mat-label>{{ param.displayName || param.name }}</mat-label>
+                        <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
+                      </mat-form-field>
+                      <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
+                        <mat-icon>folder_open</mat-icon>
+                        Browse
+                      </button>
+                    </div>
+                  }
+                  @case ('file_uuid_picker') {
+                    <div class="file-picker-param">
+                      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
+                        <mat-label>{{ param.displayName || param.name }}</mat-label>
+                        <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
+                      </mat-form-field>
+                      <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
+                        <mat-icon>folder_open</mat-icon>
+                        Browse
+                      </button>
+                    </div>
+                  }
+                  @case ('option') {
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>{{ param.displayName || param.name }}</mat-label>
+                      <mat-select multiple [value]="getOptionParameterValue(param.name)" (selectionChange)="setParameterValue(param.name, $event.value)">
+                        @for (opt of param.options; track opt) {
+                          <mat-option [value]="opt.value">{{ opt.displayName || opt.value }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  }
+                  @case ('ref') {
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>{{ param.displayName || param.name }}</mat-label>
+                      <input matInput [value]="getParameterDisplayValue(param.name)" readonly>
+                    </mat-form-field>
+                  }
+                  @case ('boolean') {
+                    <mat-checkbox
+                      [checked]="getParameterValue(param.name) === true || getParameterValue(param.name) === 'true'"
+                      [disabled]="scenarioParametersReadOnly"
+                      (change)="!scenarioParametersReadOnly && setParameterValue(param.name, $event.checked)">
+                      {{ param.displayName || param.name }}
+                    </mat-checkbox>
+                  }
+                  @default {
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>{{ param.displayName || param.name }}</mat-label>
+                      <input matInput
+                        [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''"
+                        [readonly]="scenarioParametersReadOnly"
+                        (input)="!scenarioParametersReadOnly && setParameterValue(param.name, $any($event.target).value)">
+                    </mat-form-field>
+                  }
+                }
+              </div>
+            }
+          }
+    
           <!-- Deployment UI hidden — no API endpoint to trigger deployment publish yet
           <mat-form-field appearance="outline" class="full-width" *ngIf="deployments.length > 0">
             <mat-label>Deployment</mat-label>
@@ -196,7 +236,7 @@ function requireNonEmpty(control: AbstractControl) {
           </mat-form-field>
           -->
         </div>
-
+    
         <!-- OPTIONS section -->
         <div class="form-section-header">
           <span class="form-section-title">Options</span>
@@ -207,109 +247,117 @@ function requireNonEmpty(control: AbstractControl) {
             <mat-label>Required file status (optional)</mat-label>
             <mat-select formControlName="required_status">
               <mat-option [value]="null">— No requirement —</mat-option>
-              <mat-option *ngFor="let v of availableStatusValues" [value]="v">{{ v }}</mat-option>
+              @for (v of availableStatusValues; track v) {
+                <mat-option [value]="v">{{ v }}</mat-option>
+              }
             </mat-select>
             <mat-hint>If set, only documents with this status will be published each run. Others are skipped.</mat-hint>
           </mat-form-field>
         </div>
-
+    
         <!-- PUBLISH DELIVERY section -->
         <div class="form-section-header">
           <span class="form-section-title">Publish Delivery</span>
         </div>
         <div class="form-section-body" formGroupName="delivery">
           <mat-checkbox formControlName="enabled">Deliver publish bundles after each job completes</mat-checkbox>
-
-          <div class="delivery-config" *ngIf="deliveryEnabled">
-            <mat-form-field appearance="outline" class="full-width" style="margin-top:14px">
-              <mat-label>Target Type</mat-label>
-              <mat-select formControlName="type">
-                <mat-option value="sftp">SFTP</mat-option>
-                <mat-option value="s3">Amazon S3</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <!-- SFTP fields -->
-            <ng-container *ngIf="deliveryType === 'sftp'">
-              <div class="delivery-row-two">
-                <mat-form-field appearance="outline" class="delivery-host">
-                  <mat-label>Host</mat-label>
-                  <input matInput formControlName="sftp_host" placeholder="sftp.example.com">
+    
+          @if (deliveryEnabled) {
+            <div class="delivery-config">
+              <mat-form-field appearance="outline" class="full-width" style="margin-top:14px">
+                <mat-label>Target Type</mat-label>
+                <mat-select formControlName="type">
+                  <mat-option value="sftp">SFTP</mat-option>
+                  <mat-option value="s3">Amazon S3</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <!-- SFTP fields -->
+              @if (deliveryType === 'sftp') {
+                <div class="delivery-row-two">
+                  <mat-form-field appearance="outline" class="delivery-host">
+                    <mat-label>Host</mat-label>
+                    <input matInput formControlName="sftp_host" placeholder="sftp.example.com">
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="delivery-port">
+                    <mat-label>Port</mat-label>
+                    <input matInput type="number" formControlName="sftp_port">
+                  </mat-form-field>
+                </div>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Username</mat-label>
+                  <input matInput formControlName="sftp_username" autocomplete="off">
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="delivery-port">
-                  <mat-label>Port</mat-label>
-                  <input matInput type="number" formControlName="sftp_port">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Password</mat-label>
+                  <input matInput type="password" formControlName="sftp_password" autocomplete="new-password">
+                  @if (deliveryTargetExists) {
+                    <mat-hint>Leave unchanged to keep stored password</mat-hint>
+                  }
                 </mat-form-field>
-              </div>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Username</mat-label>
-                <input matInput formControlName="sftp_username" autocomplete="off">
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Password</mat-label>
-                <input matInput type="password" formControlName="sftp_password" autocomplete="new-password">
-                <mat-hint *ngIf="deliveryTargetExists">Leave unchanged to keep stored password</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Remote Path</mat-label>
-                <input matInput formControlName="sftp_remote_path" placeholder="/">
-                <mat-hint>Directory on the SFTP server where ZIPs will be placed</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Host Key</mat-label>
-                <textarea matInput formControlName="sftp_host_key" rows="3"
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Remote Path</mat-label>
+                  <input matInput formControlName="sftp_remote_path" placeholder="/">
+                  <mat-hint>Directory on the SFTP server where ZIPs will be placed</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Host Key</mat-label>
+                  <textarea matInput formControlName="sftp_host_key" rows="3"
                   placeholder="ssh-ed25519 AAAA..." autocomplete="off"></textarea>
-              </mat-form-field>
-              <div class="host-key-help">
-                <div class="host-key-help-header" (click)="hostKeyHelpOpen = !hostKeyHelpOpen">
-                  <mat-icon class="host-key-help-icon">info</mat-icon>
-                  <span>How to obtain the host key</span>
-                  <mat-icon class="host-key-chevron">{{ hostKeyHelpOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
-                </div>
-                <div class="host-key-help-body" *ngIf="hostKeyHelpOpen">
-                  <p>The host key verifies the server's identity and prevents man-in-the-middle attacks over the internet.</p>
-                  <ol>
-                    <li>Run the following command in a terminal, replacing the port and hostname:
-                      <pre class="host-key-cmd">ssh-keyscan -p 22 sftp.example.com</pre>
-                    </li>
-                    <li>The output contains one line per key type. Prefer <code>ssh-ed25519</code> if present, otherwise use <code>ecdsa-sha2-*</code> or <code>ssh-rsa</code>.</li>
-                    <li>Paste the full line (e.g. <code>ssh-ed25519 AAAA…</code>) into the Host Key field above.</li>
-                  </ol>
-                  <p class="host-key-providers"><strong>Managed providers:</strong> AWS Transfer Family exposes the host key under the server's <em>Host key</em> tab in the console. For other providers, run <code>ssh-keyscan</code> against the public hostname.</p>
-                </div>
-              </div>
-            </ng-container>
-
-            <!-- S3 fields -->
-            <ng-container *ngIf="deliveryType === 's3'">
-              <div class="delivery-row-two">
-                <mat-form-field appearance="outline" class="delivery-host">
-                  <mat-label>Bucket</mat-label>
-                  <input matInput formControlName="s3_bucket">
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="delivery-port">
-                  <mat-label>Region</mat-label>
-                  <input matInput formControlName="s3_region" placeholder="us-east-1">
+                <div class="host-key-help">
+                  <div class="host-key-help-header" (click)="hostKeyHelpOpen = !hostKeyHelpOpen">
+                    <mat-icon class="host-key-help-icon">info</mat-icon>
+                    <span>How to obtain the host key</span>
+                    <mat-icon class="host-key-chevron">{{ hostKeyHelpOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
+                  </div>
+                  @if (hostKeyHelpOpen) {
+                    <div class="host-key-help-body">
+                      <p>The host key verifies the server's identity and prevents man-in-the-middle attacks over the internet.</p>
+                      <ol>
+                        <li>Run the following command in a terminal, replacing the port and hostname:
+                          <pre class="host-key-cmd">ssh-keyscan -p 22 sftp.example.com</pre>
+                        </li>
+                        <li>The output contains one line per key type. Prefer <code>ssh-ed25519</code> if present, otherwise use <code>ecdsa-sha2-*</code> or <code>ssh-rsa</code>.</li>
+                        <li>Paste the full line (e.g. <code>ssh-ed25519 AAAA…</code>) into the Host Key field above.</li>
+                      </ol>
+                      <p class="host-key-providers"><strong>Managed providers:</strong> AWS Transfer Family exposes the host key under the server's <em>Host key</em> tab in the console. For other providers, run <code>ssh-keyscan</code> against the public hostname.</p>
+                    </div>
+                  }
+                </div>
+              }
+              <!-- S3 fields -->
+              @if (deliveryType === 's3') {
+                <div class="delivery-row-two">
+                  <mat-form-field appearance="outline" class="delivery-host">
+                    <mat-label>Bucket</mat-label>
+                    <input matInput formControlName="s3_bucket">
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="delivery-port">
+                    <mat-label>Region</mat-label>
+                    <input matInput formControlName="s3_region" placeholder="us-east-1">
+                  </mat-form-field>
+                </div>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Access Key ID</mat-label>
+                  <input matInput formControlName="s3_access_key_id" autocomplete="off">
                 </mat-form-field>
-              </div>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Access Key ID</mat-label>
-                <input matInput formControlName="s3_access_key_id" autocomplete="off">
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Secret Access Key</mat-label>
-                <input matInput type="password" formControlName="s3_secret_access_key" autocomplete="new-password">
-                <mat-hint *ngIf="deliveryTargetExists">Leave unchanged to keep stored secret</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Key Prefix (optional)</mat-label>
-                <input matInput formControlName="s3_prefix" placeholder="deliveries/">
-                <mat-hint>Files placed at prefix/filename.zip inside the bucket</mat-hint>
-              </mat-form-field>
-            </ng-container>
-          </div>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Secret Access Key</mat-label>
+                  <input matInput type="password" formControlName="s3_secret_access_key" autocomplete="new-password">
+                  @if (deliveryTargetExists) {
+                    <mat-hint>Leave unchanged to keep stored secret</mat-hint>
+                  }
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Key Prefix (optional)</mat-label>
+                  <input matInput formControlName="s3_prefix" placeholder="deliveries/">
+                  <mat-hint>Files placed at prefix/filename.zip inside the bucket</mat-hint>
+                </mat-form-field>
+              }
+            </div>
+          }
         </div>
-
+    
         <div class="form-footer">
           <button mat-stroked-button type="button" class="btn-cancel" routerLink="/schedules">Cancel</button>
           <button mat-flat-button type="submit" class="btn-save" [disabled]="form.invalid || submitting">
@@ -318,7 +366,7 @@ function requireNonEmpty(control: AbstractControl) {
         </div>
       </form>
     </div>
-  `,
+    `,
     styles: [`
     /* ── Banner ─────────────────────────────────────────────── */
     .page-banner {
