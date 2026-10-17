@@ -66,17 +66,25 @@ def _make_db(schedule=None):
 
 
 @pytest.fixture
-def executor(mock_settings):
+def executor(mock_settings, heretto_conn):
     from services.job_executor import JobExecutorService
     svc = JobExecutorService()
-    # Inject a mock Heretto client
+    # Mock publishing client, built per run from the schedule's Heretto connection
     mock_client = MagicMock()
     mock_client.trigger_publishing_job = AsyncMock(return_value=[
         {"id": "job-heretto-1", "status": "submitted", "fileId": "doc-1"}
     ])
     mock_client.get_scenarios = AsyncMock(return_value=[])
-    svc._client = mock_client
-    return svc, mock_client
+    # Default CCMS client so no test reaches the network; tests patch their own over it
+    mock_ccms = MagicMock()
+    mock_ccms.get_document_info = AsyncMock(return_value={})
+    mock_ccms.get_ditamaps_in_folder = AsyncMock(return_value=[])
+    mock_ccms.get_document_locales = AsyncMock(return_value=[])
+    mock_ccms.get_document_status = AsyncMock(return_value="")
+    with patch("services.job_executor.get_heretto_connection", return_value=heretto_conn), \
+         patch("services.job_executor.HerettoClient", return_value=mock_client), \
+         patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+        yield svc, mock_client
 
 
 class TestIsRunning:
@@ -609,4 +617,27 @@ class TestRequiredStatus:
             with pytest.raises(httpx.ConnectError):
                 await svc.execute("sched-1", db)
 
+        assert not svc.is_running("sched-1")
+
+
+@pytest.mark.asyncio
+class TestNoHerettoConnection:
+    async def test_run_recorded_as_failed_without_publishing(self, executor):
+        from services.heretto_connection import NO_CONNECTION_MESSAGE, NoHerettoConnection
+        svc, mock_client = executor
+        schedule = _make_schedule()
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.get_heretto_connection",
+                   side_effect=NoHerettoConnection(NO_CONNECTION_MESSAGE)), \
+             patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        kwargs = MockJobHistory.call_args.kwargs
+        assert kwargs["status"] == "failed"
+        assert kwargs["error"] == NO_CONNECTION_MESSAGE
+        assert schedule.last_run_status == "failed"
+        assert schedule.consecutive_failures == 0  # not counted toward auto-disable
+        mock_client.trigger_publishing_job.assert_not_awaited()
         assert not svc.is_running("sched-1")

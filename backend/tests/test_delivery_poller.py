@@ -89,7 +89,7 @@ BASE_URL = "https://test.heretto.com/ezdnxtgen/api/v2"
 
 @pytest.mark.asyncio
 class TestDownloadBundle:
-    async def test_200_writes_file_and_returns_true(self, mock_settings, tmp_path):
+    async def test_200_writes_file_and_returns_true(self, mock_settings, heretto_conn, tmp_path):
         from services.delivery_poller import _download_bundle
 
         dest = str(tmp_path / "out.zip")
@@ -97,30 +97,30 @@ class TestDownloadBundle:
 
         with respx.mock:
             respx.get(url).mock(return_value=httpx.Response(200, content=b"zip-data"))
-            result = await _download_bundle("file-1", "pub-1", dest)
+            result = await _download_bundle(heretto_conn, "file-1", "pub-1", dest)
 
         assert result is True
         assert open(dest, "rb").read() == b"zip-data"
 
-    async def test_404_returns_false(self, mock_settings):
+    async def test_404_returns_false(self, mock_settings, heretto_conn):
         from services.delivery_poller import _download_bundle
 
         url = f"{BASE_URL}/files/file-1/publishes/pub-1/assets-all"
 
         with respx.mock:
             respx.get(url).mock(return_value=httpx.Response(404))
-            result = await _download_bundle("file-1", "pub-1", "/tmp/out.zip")
+            result = await _download_bundle(heretto_conn, "file-1", "pub-1", "/tmp/out.zip")
 
         assert result is False
 
-    async def test_400_returns_false(self, mock_settings):
+    async def test_400_returns_false(self, mock_settings, heretto_conn):
         from services.delivery_poller import _download_bundle
 
         url = f"{BASE_URL}/files/file-1/publishes/pub-1/assets-all"
 
         with respx.mock:
             respx.get(url).mock(return_value=httpx.Response(400))
-            result = await _download_bundle("file-1", "pub-1", "/tmp/out.zip")
+            result = await _download_bundle(heretto_conn, "file-1", "pub-1", "/tmp/out.zip")
 
         assert result is False
 
@@ -129,6 +129,11 @@ class TestDownloadBundle:
 
 @pytest.mark.asyncio
 class TestProcessRow:
+    @pytest.fixture(autouse=True)
+    def _connection(self, heretto_conn):
+        with patch("services.delivery_poller.get_heretto_connection", return_value=heretto_conn):
+            yield
+
     async def test_no_target_marks_failed(self, mock_settings):
         from services.delivery_poller import _process_row
         row = _make_row()
@@ -369,3 +374,20 @@ class TestDeliveryPollerTick:
             await DeliveryPollerService()._tick(db, max_attempts=60)
 
         assert call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_no_heretto_connection_keeps_row_pending(mock_settings):
+    """Without a connection the row waits (attempt counted) instead of downloading."""
+    from services.delivery_poller import _process_row
+    from services.heretto_connection import NO_CONNECTION_MESSAGE, NoHerettoConnection
+    row = _make_row()
+    db = MagicMock()
+    with patch("services.delivery_poller.get_heretto_connection",
+               side_effect=NoHerettoConnection(NO_CONNECTION_MESSAGE)), \
+         patch("services.delivery_poller._download_bundle", new_callable=AsyncMock) as mock_dl:
+        await _process_row(row, db, max_attempts=60)
+    mock_dl.assert_not_awaited()
+    assert row.status == "pending"
+    assert row.attempts == 1
+    assert row.error == NO_CONNECTION_MESSAGE
