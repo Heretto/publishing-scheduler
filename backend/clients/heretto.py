@@ -5,7 +5,7 @@ import logging
 from fastapi import HTTPException
 from typing import Any
 
-from settings import get_settings
+from services.heretto_connection import HerettoConnection
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,9 @@ def _heretto_exc(exc: httpx.HTTPStatusError) -> HTTPException:
 
 
 class HerettoClient:
-    def __init__(self):
-        s = get_settings()
-        self._base_url = s.heretto_api_base_url
-        self._auth = (s.heretto_username, s.heretto_password)
+    def __init__(self, conn: HerettoConnection):
+        self._base_url = conn.api_base_url
+        self._auth = conn.auth
 
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(

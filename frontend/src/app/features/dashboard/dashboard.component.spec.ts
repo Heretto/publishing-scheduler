@@ -115,7 +115,7 @@ describe('DashboardComponent', () => {
     expect(component.summary).toEqual(mockSummary);
     expect(component.loading).toBe(false);
 
-    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    httpMock.expectOne('/api/v1/scheduler/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
   });
 
   it('looks up map titles for schedules that have never run', () => {
@@ -123,7 +123,7 @@ describe('DashboardComponent', () => {
     flushInitRequests(httpMock, [mockSchedule], { ...mockJobsResponse, data: [], total: 0 });
 
     expect(component.scheduleDocNames(mockSchedule)).toBe('doc-1');
-    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    httpMock.expectOne('/api/v1/scheduler/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
     expect(component.scheduleDocNames(mockSchedule)).toBe('User Guide');
   });
 
@@ -135,7 +135,7 @@ describe('DashboardComponent', () => {
     };
     flushInitRequests(httpMock, [mockSchedule], jobs as typeof mockJobsResponse);
 
-    httpMock.expectNone('/api/v1/heretto/ccms/documents/doc-1');
+    httpMock.expectNone('/api/v1/scheduler/heretto/ccms/documents/doc-1');
     expect(component.scheduleDocNames(mockSchedule)).toBe('User Guide');
   });
 
@@ -214,7 +214,7 @@ describe('DashboardComponent', () => {
       { ...mockSchedule, id: '1', name: 'Nightly', enabled: true },
       { ...mockSchedule, id: '2', name: 'Paused one', enabled: false },
     ]);
-    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    httpMock.expectOne('/api/v1/scheduler/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
     fixture.detectChanges();
 
     const table: HTMLElement = fixture.nativeElement.querySelector('table[aria-label="Active schedules"]');
@@ -226,7 +226,7 @@ describe('DashboardComponent', () => {
   it('says "No active schedules" when every schedule is disabled', () => {
     fixture.detectChanges();
     flushInitRequests(httpMock, [{ ...mockSchedule, enabled: false }]);
-    httpMock.expectOne('/api/v1/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
+    httpMock.expectOne('/api/v1/scheduler/heretto/ccms/documents/doc-1').flush({ id: 'doc-1', title: 'User Guide', type: 'dita-map' });
     fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;

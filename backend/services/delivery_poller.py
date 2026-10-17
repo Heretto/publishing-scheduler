@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from hop_core.core.security import decrypt_credentials
 from models import DeliveryTarget, JobHistory, PendingDelivery, Schedule
+from services.heretto_connection import HerettoConnection, NoHerettoConnection, get_heretto_connection
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -37,19 +38,20 @@ def _safe_filename(document_name: str) -> str:
     return f"{stem}_{ts}.zip"
 
 
-async def _download_bundle(file_id: str, publish_id: str, dest_path: str) -> bool:
+async def _download_bundle(
+    conn: HerettoConnection, file_id: str, publish_id: str, dest_path: str,
+) -> bool:
     """Stream the Heretto bundle ZIP to *dest_path*.
 
     Returns True if the bundle was available and written successfully.
     Returns False if the job is not yet complete (4xx response).
     Raises on network errors or unexpected 5xx responses.
     """
-    s = get_settings()
-    url = f"{s.heretto_api_base_url}/files/{file_id}/publishes/{publish_id}/assets-all"
+    url = f"{conn.api_base_url}/files/{file_id}/publishes/{publish_id}/assets-all"
     timeout = httpx.Timeout(connect=10.0, read=300.0, write=60.0, pool=5.0)
 
     async with httpx.AsyncClient(
-        auth=(s.heretto_username, s.heretto_password),
+        auth=conn.auth,
         timeout=timeout,
     ) as client:
         async with client.stream("GET", url) as response:
@@ -106,11 +108,21 @@ async def _process_row(row: PendingDelivery, db: Session, max_attempts: int) -> 
         )
         return
 
+    try:
+        conn = get_heretto_connection(schedule.org_id, db)
+    except NoHerettoConnection as exc:
+        # Keep polling: the delivery goes through once a connection is added,
+        # or fails at max_attempts like any other bundle that never arrives.
+        row.error = str(exc)
+        db.commit()
+        logger.warning("PendingDelivery %s waiting: %s", row.id, exc)
+        return
+
     # Create a temp file to stream the bundle into before delivery.
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".zip")
     os.close(tmp_fd)
     try:
-        ready = await _download_bundle(row.file_id, row.publish_id, tmp_path)
+        ready = await _download_bundle(conn, row.file_id, row.publish_id, tmp_path)
         if not ready:
             db.commit()  # persist incremented attempt count
             return

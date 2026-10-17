@@ -12,11 +12,14 @@ BASE = "https://test.heretto.com/ezdnxtgen/api/v2"
 
 
 @pytest.fixture
-def client(mock_settings):
-    mock_settings.heretto_api_base_url = BASE
-    mock_settings.heretto_username = "u"
-    mock_settings.heretto_password = "p"
-    return HerettoClient()
+def client(heretto_conn):
+    return HerettoClient(heretto_conn)
+
+
+def test_uses_connection_host_and_token(heretto_conn):
+    c = HerettoClient(heretto_conn)
+    assert c._base_url == BASE
+    assert c._auth == ("testuser", "testtoken")
 
 
 @pytest.mark.asyncio

@@ -11,12 +11,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from hop_core.app_factory import create_hop_app
 from hop_core.db import get_session_factory
+from hop_core.credentials.builtin import register_builtin_types
 from sqlalchemy.orm import Session
 
 from limiter import setup_limiter
 
 # Import models so they register on hop-core's Base before init_db() runs
 import models  # noqa: F401
+
+# Offer the Heretto connection type under Credentials; V2 reads its Heretto
+# account from it (services/heretto_connection.py).
+register_builtin_types("heretto")
 
 from routes import schedules as schedules_router
 from routes import jobs as jobs_router
@@ -78,33 +83,46 @@ async def _prune_old_jobs():
 
 
 async def _load_status_cache():
-    """Populate the in-memory document status cache from the Heretto search API.
+    """Populate the document status cache for every Heretto connection.
 
-    Retries up to 3 times with 30 s / 60 s back-off before giving up.
+    Retries each connection up to 3 times with 30 s / 60 s back-off before giving up.
     """
-    from clients.heretto_ccms import HerettoCcmsClient
-    for attempt in range(1, 4):
-        try:
-            status_map = await HerettoCcmsClient().fetch_status_map()
-            status_cache.populate(status_map)
-            return
-        except Exception as exc:
-            logger.warning("Status cache load attempt %d/3 failed: %s", attempt, exc)
-            if attempt < 3:
-                await asyncio.sleep(30 * attempt)
-    logger.error("Status cache could not be populated after 3 attempts")
+    from services.heretto_connection import all_heretto_connections
+    db = get_session_factory()()
+    try:
+        connections = all_heretto_connections(db)
+    finally:
+        db.close()
+    for conn in connections:
+        for attempt in range(1, 4):
+            try:
+                await status_cache.load(conn)
+                break
+            except Exception as exc:
+                logger.warning(
+                    "Status cache load for connection %s, attempt %d/3 failed: %s", conn.id, attempt, exc,
+                )
+                if attempt < 3:
+                    await asyncio.sleep(30 * attempt)
+        else:
+            logger.error("Status cache for connection %s could not be populated after 3 attempts", conn.id)
 
 
 async def _refresh_status_cache():
-    """Background task — refreshes the status cache once per hour."""
-    from clients.heretto_ccms import HerettoCcmsClient
+    """Background task — refreshes every connection's status cache once per hour."""
+    from services.heretto_connection import all_heretto_connections
     while True:
         await asyncio.sleep(60 * 60)  # once per hour
+        db = get_session_factory()()
         try:
-            status_map = await HerettoCcmsClient().fetch_status_map()
-            status_cache.populate(status_map)
-        except Exception as exc:
-            logger.warning("Failed to refresh status cache: %s", exc)
+            connections = all_heretto_connections(db)
+        finally:
+            db.close()
+        for conn in connections:
+            try:
+                await status_cache.load(conn)
+            except Exception as exc:
+                logger.warning("Failed to refresh status cache for connection %s: %s", conn.id, exc)
 
 
 def _load_schedules():

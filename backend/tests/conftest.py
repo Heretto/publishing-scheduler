@@ -12,15 +12,9 @@ from unittest.mock import MagicMock, patch
 
 def _make_mock_settings():
     s = MagicMock()
-    s.heretto_host = "test.heretto.com"
     s.heretto_org = "testorg"
-    s.heretto_username = "testuser"
-    s.heretto_password = "testpass"
     s.heretto_branch = "master"
     s.heretto_repository = "content"
-    s.heretto_api_base_url = "https://test.heretto.com/ezdnxtgen/api/v2"
-    s.heretto_ccms_base_url = "https://test.heretto.com/rest"
-    s.heretto_search_base_url = "https://test.heretto.com/ezdnxtgen/api"
     s.retry_max_attempts = 1
     s.retry_initial_delay_ms = 0
     s.retry_max_delay_ms = 0
@@ -38,8 +32,18 @@ def mock_settings():
     """Patch get_settings everywhere so tests never need a real .env file."""
     s = _make_mock_settings()
     with patch("settings.get_settings", return_value=s), \
-         patch("clients.heretto.get_settings", return_value=s), \
+         patch("services.heretto_connection.get_settings", return_value=s), \
          patch("clients.heretto_ccms.get_settings", return_value=s), \
          patch("services.job_executor.get_settings", return_value=s), \
          patch("services.delivery_poller.get_settings", return_value=s):
         yield s
+
+
+@pytest.fixture
+def heretto_conn():
+    """An organization's Heretto connection, as services.heretto_connection returns it."""
+    from services.heretto_connection import HerettoConnection
+    return HerettoConnection(
+        id="conn-1", name="Test Heretto", host="test.heretto.com",
+        username="testuser", token="testtoken",
+    )

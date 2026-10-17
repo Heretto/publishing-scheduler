@@ -45,9 +45,20 @@ DOC_XML_ONLY_FR = b"""<?xml version="1.0"?>
 
 
 @pytest.fixture
-def ccms(mock_settings):
-    mock_settings.heretto_ccms_base_url = REST_BASE
-    return HerettoCcmsClient()
+def ccms(heretto_conn):
+    return HerettoCcmsClient(heretto_conn)
+
+
+def test_uses_connection_and_org_setting(heretto_conn, mock_settings):
+    c = HerettoCcmsClient(heretto_conn)
+    assert c._rest_base_url == REST_BASE
+    assert c._auth == ("testuser", "testtoken")
+    assert c._org == "testorg"  # HERETTO_ORG wins when set
+
+
+def test_org_defaults_to_connection_host_label(heretto_conn, mock_settings):
+    mock_settings.heretto_org = ""
+    assert HerettoCcmsClient(heretto_conn)._org == "test"
 
 
 @pytest.mark.asyncio

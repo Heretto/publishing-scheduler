@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../core/services/api.service';
+import { HerettoService } from '../../core/services/heretto.service';
 
 @Component({
     selector: 'app-settings',
@@ -68,7 +69,14 @@ import { ApiService } from '../../core/services/api.service';
             </span>
           </div>
           <div class="status-row">
-            <span class="status-name">Heretto API</span>
+            <span class="status-name">
+              Heretto API
+              @if (connection) {
+                <span class="connection-detail">{{ connection.host }} · via “{{ connection.name }}”</span>
+              } @else if (connectionMessage) {
+                <span class="connection-detail">{{ connectionMessage }} <a routerLink="/credentials">Open Credentials</a></span>
+              }
+            </span>
             <span class="status-badge" [class.badge-ok]="herettoOk" [class.badge-err]="!herettoOk">
               <span class="badge-dot"></span>
               {{ herettoOk ? 'Connected' : herettoError }}
@@ -84,19 +92,19 @@ import { ApiService } from '../../core/services/api.service';
         <span class="section-title">Configuration</span>
       </div>
       <div class="sn-card-body">
-        <p class="config-note">Configuration is managed via environment variables. See the <code>.env.example</code> file in the project root.</p>
+        <p class="config-note">The Heretto account (server, username, API token) is your organization's Heretto connection under <a routerLink="/credentials">Credentials</a>. The rest is managed via environment variables — see <code>backend/.env.example</code>.</p>
         <div class="env-list">
           <div class="env-row">
-            <code class="env-key">HERETTO_API_BASE_URL</code>
-            <span class="env-desc">Heretto API base URL</span>
+            <code class="env-key">HERETTO_ORG</code>
+            <span class="env-desc">Org identifier in CCMS content paths (defaults to the connection host's first label)</span>
           </div>
           <div class="env-row">
-            <code class="env-key">HERETTO_USERNAME</code>
-            <span class="env-desc">Heretto username</span>
+            <code class="env-key">HERETTO_BRANCH</code>
+            <span class="env-desc">Default CCMS branch</span>
           </div>
           <div class="env-row">
-            <code class="env-key">HERETTO_PASSWORD</code>
-            <span class="env-desc">Heretto password</span>
+            <code class="env-key">HERETTO_REPOSITORY</code>
+            <span class="env-desc">CCMS repository</span>
           </div>
         </div>
       </div>
@@ -204,6 +212,7 @@ import { ApiService } from '../../core/services/api.service';
     }
     .status-row:last-child { border-bottom: none; }
     .status-name { font-size: 13px; font-weight: 500; color: #1d1f2b; }
+    .connection-detail { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: #6b6f80; }
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -246,6 +255,8 @@ export class SettingsComponent implements OnInit {
   backendOk = false;
   herettoOk = false;
   herettoError = 'Not tested';
+  connection: { name: string; host: string } | null = null;
+  connectionMessage = '';
   checking = true;
   lastChecked: Date | null = null;
 
@@ -253,7 +264,12 @@ export class SettingsComponent implements OnInit {
   excludedSet = new Set<string>();
   valuesLoading = true;
 
-  constructor(private http: HttpClient, private api: ApiService, private snackBar: MatSnackBar) {}
+  constructor(
+    private http: HttpClient,
+    private api: ApiService,
+    private herettoService: HerettoService,
+    private snackBar: MatSnackBar,
+  ) {}
 
   ngOnInit() {
     this.checkConnections();
@@ -272,7 +288,28 @@ export class SettingsComponent implements OnInit {
         error: () => { this.backendOk = false; done(); },
       });
 
-    this.api.get('/heretto/deployments')
+    this.herettoService.getConnection()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (c) => {
+          if (!c.connected) {
+            this.connection = null;
+            this.connectionMessage = c.message ?? '';
+            this.herettoOk = false;
+            this.herettoError = 'Not connected';
+            done();
+            return;
+          }
+          this.connection = { name: c.name!, host: c.host! };
+          this.connectionMessage = '';
+          this.checkHerettoApi(done);
+        },
+        error: () => { this.herettoOk = false; this.herettoError = 'Server unreachable'; done(); },
+      });
+  }
+
+  private checkHerettoApi(done: () => void) {
+    this.herettoService.getDeployments()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => { this.herettoOk = true; done(); },
@@ -289,7 +326,7 @@ export class SettingsComponent implements OnInit {
   loadValues() {
     forkJoin({
       excluded: this.api.get<{ value: string }[]>('/settings/status-exclusions'),
-      available: this.api.get<string[]>('/heretto/ccms/metadata/status-values'),
+      available: this.api.get<string[]>('/scheduler/heretto/ccms/metadata/status-values'),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
