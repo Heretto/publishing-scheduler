@@ -47,18 +47,6 @@ from cryptography.fernet import Fernet
 print(Fernet.generate_key().decode())
 ")
 
-  # Prompt for Heretto credentials (optional — can be filled in later)
-  echo ""
-  echo "Enter your Heretto API credentials (press Enter to skip and fill in .env later):"
-  read -rp "  Heretto username: " HERETTO_USERNAME
-  read -rsp "  Heretto password: " HERETTO_PASSWORD
-  echo ""
-  read -rp "  Heretto host (e.g. acme.heretto.com or cms.acme.com): " HERETTO_HOST
-  # Suggest the first subdomain segment as the org ID default — works for standard
-  # *.heretto.com instances but must be overridden when the org slug differs.
-  SUGGESTED_ORG="${HERETTO_HOST%%.*}"
-  read -rp "  Heretto org ID [${SUGGESTED_ORG}]: " HERETTO_ORG
-  HERETTO_ORG="${HERETTO_ORG:-$SUGGESTED_ORG}"
 
   cat > "$ENV_FILE" <<EOF
 # ── hop-core required ──────────────────────────────────────────────────────────
@@ -90,14 +78,13 @@ GOOGLE_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_SECRET=
 
-# ── Heretto API ────────────────────────────────────────────────────────────────
-# HERETTO_HOST: full domain of the Heretto instance (e.g. acme.heretto.com)
-# HERETTO_ORG: org identifier used in CCMS content paths — usually equals the
-#   subdomain, but may differ (e.g. host "demo-nxt.heretto.com", org "jorsek")
-HERETTO_HOST=$HERETTO_HOST
-HERETTO_ORG=$HERETTO_ORG
-HERETTO_USERNAME=$HERETTO_USERNAME
-HERETTO_PASSWORD=$HERETTO_PASSWORD
+# ── Heretto ────────────────────────────────────────────────────────────────────
+# The Heretto account is the organization's Heretto connection: after signing
+# in, add one under Credentials (server URL, username, API token).
+# HERETTO_ORG: org identifier used in CCMS content paths. Defaults to the first
+#   label of the connection's host; set it when they differ (e.g. host
+#   "demo-nxt.heretto.com", org "jorsek").
+HERETTO_ORG=
 HERETTO_BRANCH=master
 HERETTO_REPOSITORY=content
 
