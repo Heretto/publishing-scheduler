@@ -13,6 +13,7 @@ from services.heretto_connection import (
     org_heretto_connection,
 )
 
+ORG_ID = "5f0c2b1a-7d4e-4c3b-8a9f-1e2d3c4b5a69"
 PAYLOAD = {"server_url": "https://acme.heretto.com/", "username": "pat", "token": "tok-123"}
 
 
@@ -49,12 +50,12 @@ class TestGetHerettoConnection:
     def test_no_connection_raises(self):
         a, b = _lookup([])
         with a, b, pytest.raises(NoHerettoConnection, match="Add one under Credentials"):
-            get_heretto_connection("org-1", MagicMock())
+            get_heretto_connection(ORG_ID, MagicMock())
 
     def test_single_connection(self):
         a, b = _lookup([_credential()])
         with a, b:
-            conn = get_heretto_connection("org-1", MagicMock())
+            conn = get_heretto_connection(ORG_ID, MagicMock())
         assert (conn.id, conn.name, conn.host) == ("cred-1", "Acme", "acme.heretto.com")
         assert conn.auth == ("pat", "tok-123")
         assert conn.api_base_url == "https://acme.heretto.com/ezdnxtgen/api/v2"
@@ -65,22 +66,22 @@ class TestGetHerettoConnection:
         # heretto_connections returns them ordered by name
         a, b = _lookup([_credential("Alpha", "cred-a"), _credential("Beta", "cred-b")])
         with a, b:
-            assert get_heretto_connection("org-1", MagicMock()).id == "cred-a"
+            assert get_heretto_connection(ORG_ID, MagicMock()).id == "cred-a"
 
     def test_unreadable_connection_raises(self):
         a, b = _lookup([_credential()], payloads=ValueError("bad key"))
         with a, b, pytest.raises(NoHerettoConnection, match="can't be read"):
-            get_heretto_connection("org-1", MagicMock())
+            get_heretto_connection(ORG_ID, MagicMock())
 
     def test_incomplete_connection_raises(self):
         a, b = _lookup([_credential()], payloads=[{"server_url": "https://acme.heretto.com", "username": "pat"}])
         with a, b, pytest.raises(NoHerettoConnection, match="incomplete"):
-            get_heretto_connection("org-1", MagicMock())
+            get_heretto_connection(ORG_ID, MagicMock())
 
     def test_org_setting_overrides_host_label(self, mock_settings):
         a, b = _lookup([_credential()])
         with a, b:
-            conn = get_heretto_connection("org-1", MagicMock())
+            conn = get_heretto_connection(ORG_ID, MagicMock())
         mock_settings.heretto_org = "jorsek"
         assert conn.org == "jorsek"
         mock_settings.heretto_org = ""
@@ -89,7 +90,7 @@ class TestGetHerettoConnection:
 
 class TestRouteDependency:
     def test_missing_connection_is_409_with_message(self):
-        ctx = MagicMock(organization_id="org-1")
+        ctx = MagicMock(organization_id=ORG_ID)
         with patch("services.heretto_connection.heretto_connections", return_value=[]):
             with pytest.raises(HTTPException) as exc:
                 org_heretto_connection(ctx, MagicMock())
@@ -103,11 +104,22 @@ class TestConnectionRoute:
         from routes.heretto import get_connection
         a, b = _lookup([_credential()])
         with a, b:
-            body = await get_connection(MagicMock(organization_id="org-1"), MagicMock())
+            body = await get_connection(MagicMock(organization_id=ORG_ID), MagicMock())
         assert body == {"connected": True, "id": "cred-1", "name": "Acme", "host": "acme.heretto.com"}
 
     async def test_reports_missing_connection_without_error(self):
         from routes.heretto import get_connection
         with patch("services.heretto_connection.heretto_connections", return_value=[]):
-            body = await get_connection(MagicMock(organization_id="org-1"), MagicMock())
+            body = await get_connection(MagicMock(organization_id=ORG_ID), MagicMock())
         assert body == {"connected": False, "message": NO_CONNECTION_MESSAGE}
+
+
+def test_string_organization_id_is_queried_as_uuid():
+    """Schedules store org_id as a string; hop-core's Credential column needs a UUID."""
+    import uuid
+    org = "8a6c1f8e-3b2a-4d1e-9a7b-0c1d2e3f4a5b"
+    with patch("services.heretto_connection.heretto_connections", return_value=[_credential()]) as lookup, \
+         patch("services.heretto_connection.decrypt_credentials", return_value=PAYLOAD):
+        get_heretto_connection(org, MagicMock())
+    passed = lookup.call_args.args[0]
+    assert isinstance(passed, uuid.UUID) and str(passed) == org

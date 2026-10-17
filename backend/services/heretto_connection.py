@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass
 from typing import Annotated
 from urllib.parse import urlparse
+from uuid import UUID
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -91,6 +92,10 @@ def _from_credential(credential: Credential) -> HerettoConnection:
 
 def get_heretto_connection(organization_id, db: Session) -> HerettoConnection:
     """The organization's Heretto connection, or raise NoHerettoConnection."""
+    # Schedules store org_id as a string (models.UUIDType); hop-core's
+    # Credential.organization_id column needs a UUID.
+    if not isinstance(organization_id, UUID):
+        organization_id = UUID(str(organization_id))
     credentials = heretto_connections(organization_id, db)  # ordered by name
     if not credentials:
         raise NoHerettoConnection(NO_CONNECTION_MESSAGE)
