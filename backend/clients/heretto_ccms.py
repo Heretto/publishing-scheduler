@@ -8,6 +8,7 @@ from lxml import etree
 from typing import Any
 
 from settings import get_settings
+from services.heretto_connection import HerettoConnection
 from clients.heretto import _heretto_exc
 
 logger = logging.getLogger(__name__)
@@ -31,14 +32,14 @@ def _attr(el: etree._Element, *names: str) -> str:
 
 
 class HerettoCcmsClient:
-    def __init__(self):
+    def __init__(self, conn: HerettoConnection):
         s = get_settings()
-        self._auth = (s.heretto_username, s.heretto_password)
-        self._org = s.heretto_org  # CCMS content-path org identifier (set via HERETTO_ORG)
+        self._auth = conn.auth
+        self._org = conn.org  # CCMS content-path org identifier (HERETTO_ORG or the host's first label)
         self._branch = s.heretto_branch
         self._repo = s.heretto_repository
-        self._rest_base_url = s.heretto_ccms_base_url
-        self._search_base_url = s.heretto_search_base_url
+        self._rest_base_url = conn.ccms_base_url
+        self._search_base_url = conn.search_base_url
 
     def _rest_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(

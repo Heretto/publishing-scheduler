@@ -17,6 +17,7 @@ export class ShellComponent {
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Schedules', route: '/schedules', icon: 'event_repeat' },
     { label: 'Job History', route: '/jobs', icon: 'work_history' },
+    { label: 'Credentials', route: '/credentials', icon: 'key' },
     { label: 'Settings', route: '/settings', icon: 'settings' },
   ];
 }

@@ -64,7 +64,7 @@
 
 ### Option 1: Local development (recommended for getting started)
 
-Two scripts do the whole job. The setup script creates a virtualenv, installs dependencies, **generates the required secrets for you**, prompts for your Heretto credentials, and seeds the database:
+Two scripts do the whole job. The setup script creates a virtualenv, installs dependencies, **generates the required secrets for you**, and seeds the database. After you sign in, add your Heretto connection under **Credentials** (see [Heretto](#heretto)):
 
 ```bash
 git clone https://github.com/Heretto/publishing-scheduler.git
@@ -98,12 +98,12 @@ ENCRYPTION_KEY=<generated>
 ADMIN_EMAIL=you@yourcompany.com
 ADMIN_PASSWORD=YourStr0ng!Password
 
-# Your Heretto instance
-HERETTO_HOST=acme.heretto.com
-HERETTO_ORG=acme          # usually the subdomain; may differ — see Configuration
-HERETTO_USERNAME=your-username
-HERETTO_PASSWORD=your-password
+# Optional: CCMS content-path org, only if it differs from the first label of
+# your Heretto host (see Configuration)
+# HERETTO_ORG=acme
 ```
+
+After signing in, add your Heretto connection under **Credentials** (server URL, username, API token).
 
 Then start the stack:
 
@@ -171,16 +171,15 @@ The application will not start without these. Compose fails fast with a readable
 
 ### Heretto
 
+The Heretto account is each organization's **Heretto connection**, not an environment variable. After signing in, open **Credentials**, add a **Heretto** credential (server URL such as `https://acme.heretto.com`, username, and a Heretto **API token**), and use **Test** to check it. Settings shows the connection in use. Until an organization has one, Heretto features answer "No Heretto connection. Add one under Credentials." and scheduled runs are recorded as failed with that message. If an organization has more than one, the first by name is used.
+
+The publishing API, CCMS and search URLs are all derived from the connection's server URL. These settings stay in `.env`:
+
 ```bash
-HERETTO_API_BASE_URL=https://your-instance.heretto.com/ezdnxtgen/api/v2
-HERETTO_USERNAME=your-username
-HERETTO_PASSWORD=your-password
-HERETTO_ORG=your-org-slug
+HERETTO_ORG=acme          # CCMS content-path org; defaults to the first label of the connection's host
 HERETTO_BRANCH=master
 HERETTO_REPOSITORY=content
 ```
-
-The CCMS and search base URLs are **derived** from `HERETTO_API_BASE_URL` and cannot be set independently.
 
 ### Server & security
 
@@ -698,7 +697,7 @@ spec:
               value: "sqlite:////app/data/scheduler.db"
           envFrom:
             - secretRef:
-                name: scheduler-secrets   # APP_SECRET_KEY, JWT_SECRET_KEY, ENCRYPTION_KEY, HERETTO_*
+                name: scheduler-secrets   # APP_SECRET_KEY, JWT_SECRET_KEY, ENCRYPTION_KEY
           livenessProbe:
             httpGet:
               path: /api/health
@@ -813,20 +812,21 @@ Create payload:
 
 | Method | Path |
 |---|---|
-| GET | `/api/v1/heretto/deployments` |
-| GET | `/api/v1/heretto/scenarios` |
-| GET | `/api/v1/heretto/scenarios/{scenario_id}/parameters` |
-| GET | `/api/v1/heretto/releases` |
-| GET | `/api/v1/heretto/ccms/root` |
-| GET | `/api/v1/heretto/ccms/branches` |
-| GET | `/api/v1/heretto/ccms/folders/{folder_id}` |
-| GET | `/api/v1/heretto/ccms/folders/search` |
-| GET | `/api/v1/heretto/ccms/documents/{doc_id}` |
-| GET | `/api/v1/heretto/ccms/documents/{doc_id}/releases` |
-| GET | `/api/v1/heretto/ccms/documents/{doc_id}/status` |
-| GET | `/api/v1/heretto/ccms/metadata/status-values` |
-| POST | `/api/v1/heretto/ccms/locales` |
-| POST | `/api/v1/heretto/ccms/search` |
+| GET | `/api/v1/scheduler/heretto/connection` |
+| GET | `/api/v1/scheduler/heretto/deployments` |
+| GET | `/api/v1/scheduler/heretto/scenarios` |
+| GET | `/api/v1/scheduler/heretto/scenarios/{scenario_id}/parameters` |
+| GET | `/api/v1/scheduler/heretto/releases` |
+| GET | `/api/v1/scheduler/heretto/ccms/root` |
+| GET | `/api/v1/scheduler/heretto/ccms/branches` |
+| GET | `/api/v1/scheduler/heretto/ccms/folders/{folder_id}` |
+| GET | `/api/v1/scheduler/heretto/ccms/folders/search` |
+| GET | `/api/v1/scheduler/heretto/ccms/documents/{doc_id}` |
+| GET | `/api/v1/scheduler/heretto/ccms/documents/{doc_id}/releases` |
+| GET | `/api/v1/scheduler/heretto/ccms/documents/{doc_id}/status` |
+| GET | `/api/v1/scheduler/heretto/ccms/metadata/status-values` |
+| POST | `/api/v1/scheduler/heretto/ccms/locales` |
+| POST | `/api/v1/scheduler/heretto/ccms/search` |
 
 ### Auth, Account, and Organizations
 
@@ -891,7 +891,7 @@ docker compose exec backend grep -n 'SELECT 1' /app/main.py
 
 ```bash
 git --version
-pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.14"
+pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.16"
 ```
 
 ---

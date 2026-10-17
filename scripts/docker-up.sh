@@ -94,10 +94,8 @@ else
   info "All required secrets already present in .env — leaving them untouched"
 fi
 
-# ── Warn about unset Heretto credentials ──────────────────────────────────────
-if ! grep -qE "^HERETTO_USERNAME=.+" "$ENV_FILE" || grep -qE "^HERETTO_USERNAME=your-username$" "$ENV_FILE"; then
-  warning "HERETTO_USERNAME looks unset in .env — the app will start, but Heretto API calls will fail"
-fi
+# ── Heretto account ───────────────────────────────────────────────────────────
+info "Heretto: after signing in, add your Heretto connection under Credentials"
 
 # ── Warn about missing first-run admin ────────────────────────────────────────
 if ! grep -qE "^ADMIN_EMAIL=.+" "$ENV_FILE"; then

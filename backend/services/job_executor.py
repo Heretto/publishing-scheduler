@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
 from models import JobHistory, Schedule
+from services.heretto_connection import NoHerettoConnection, get_heretto_connection
 from settings import get_settings
 from utils import parse_ids
 
@@ -35,7 +36,6 @@ class JobExecutorService:
 
     def __init__(self):
         self._running: set[str] = set()
-        self._client = HerettoClient()
 
     def is_running(self, schedule_id: str) -> bool:
         return schedule_id in self._running
@@ -44,12 +44,11 @@ class JobExecutorService:
         return len(self._running)
 
     async def _resolve_source_docs(
-        self, source_doc_ids: list[str], folder_ids: list[str]
+        self, ccms: HerettoCcmsClient, source_doc_ids: list[str], folder_ids: list[str]
     ) -> list[str]:
         """Append DITA maps found in each folder, deduplicate, return merged list."""
         if folder_ids:
             try:
-                ccms = HerettoCcmsClient()
                 for folder_id in folder_ids:
                     maps = await ccms.get_ditamaps_in_folder(folder_id)
                     source_doc_ids.extend(m["id"] for m in maps)
@@ -58,20 +57,23 @@ class JobExecutorService:
         return list(dict.fromkeys(source_doc_ids))  # deduplicate, preserve order
 
     async def _fetch_name_maps(
-        self, scenario_ids: list[str], source_doc_ids: list[str]
+        self,
+        client: HerettoClient,
+        ccms: HerettoCcmsClient,
+        scenario_ids: list[str],
+        source_doc_ids: list[str],
     ) -> tuple[dict[str, str], dict[str, str]]:
         """Best-effort fetch of scenario and document names for payload enrichment.
         Returns (scenario_name_map, document_name_map). Never raises."""
         scenario_name_map: dict[str, str] = {}
         document_name_map: dict[str, str] = {}
         try:
-            all_scenarios = await self._client.get_scenarios()
+            all_scenarios = await client.get_scenarios()
             scenario_name_map = {s["id"]: s["name"] for s in all_scenarios}
         except (httpx.HTTPError, httpx.TransportError) as exc:
             logger.debug("Could not fetch scenario names for enrichment: %s", exc)
         if source_doc_ids:
             try:
-                ccms = HerettoCcmsClient()
                 for doc_id in source_doc_ids:
                     info = await ccms.get_document_info(doc_id)
                     if info.get("title"):
@@ -81,14 +83,13 @@ class JobExecutorService:
         return scenario_name_map, document_name_map
 
     async def _build_locale_doc_map(
-        self, source_doc_ids: list[str], locales_list: list[str]
+        self, ccms: HerettoCcmsClient, source_doc_ids: list[str], locales_list: list[str]
     ) -> dict[str, list[str]]:
         """Build {locale: [doc_ids]} mapping via CCMS locale resolution.
         The "" key always present for source-language documents."""
         locale_doc_map: dict[str, list[str]] = {"": source_doc_ids}
         non_source = [l for l in locales_list if l]
         if non_source and source_doc_ids:
-            ccms = HerettoCcmsClient()
             for locale in non_source:
                 resolved: list[str] = []
                 for doc_id in source_doc_ids:
@@ -141,6 +142,13 @@ class JobExecutorService:
     ) -> dict:
         s = get_settings()
 
+        try:
+            conn = get_heretto_connection(schedule.org_id, db)
+        except NoHerettoConnection as exc:
+            return self._fail_without_connection(schedule, schedule_id, db, trigger_type, str(exc))
+        client = HerettoClient(conn)
+        ccms = HerettoCcmsClient(conn)
+
         source_doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
         folder_ids: list[str] = json.loads(getattr(schedule, "folder_ids", None) or "[]")
         params: list[dict] = json.loads(schedule.publish_parameters or "[]")
@@ -151,15 +159,15 @@ class JobExecutorService:
         if not locales_list:
             locales_list = [""]
 
-        source_doc_ids = await self._resolve_source_docs(source_doc_ids, folder_ids)
+        source_doc_ids = await self._resolve_source_docs(ccms, source_doc_ids, folder_ids)
 
         required_status = getattr(schedule, "required_status", None)
         if required_status and source_doc_ids:
             from services import status_cache as _sc
             qualified = []
             for doc_id in source_doc_ids:
-                cached = _sc.get(doc_id)
-                doc_status = cached if cached is not None else await HerettoCcmsClient().get_document_status(doc_id)
+                cached = _sc.get(conn.id, doc_id)
+                doc_status = cached if cached is not None else await ccms.get_document_status(doc_id)
                 if doc_status == required_status:
                     qualified.append(doc_id)
             skipped = len(source_doc_ids) - len(qualified)
@@ -186,8 +194,8 @@ class JobExecutorService:
                 return self._format_job(job)
             source_doc_ids = qualified
 
-        scenario_name_map, document_name_map = await self._fetch_name_maps(scenario_ids, source_doc_ids)
-        locale_doc_map = await self._build_locale_doc_map(source_doc_ids, locales_list)
+        scenario_name_map, document_name_map = await self._fetch_name_maps(client, ccms, scenario_ids, source_doc_ids)
+        locale_doc_map = await self._build_locale_doc_map(ccms, source_doc_ids, locales_list)
 
         document_releases: dict[str, str] = json.loads(
             getattr(schedule, "document_releases", None) or "{}"
@@ -230,7 +238,7 @@ class JobExecutorService:
                 try:
                     results = await _retry(
                         _make_publish_fn(
-                            self._client, scenario_id, schedule.deployment_id, doc_ids, params
+                            client, scenario_id, schedule.deployment_id, doc_ids, params
                         ),
                         max_attempts=s.retry_max_attempts,
                         initial_delay_ms=s.retry_initial_delay_ms,
@@ -300,6 +308,32 @@ class JobExecutorService:
             db.commit()
             logger.error("Job failed: %s (schedule=%s): %s", job.id, schedule_id, error_msg)
             return self._format_job(job)
+
+    def _fail_without_connection(
+        self, schedule: Schedule, schedule_id: str, db: Session, trigger_type: str, message: str,
+    ) -> dict:
+        """Record a failed run when the organization has no Heretto connection.
+
+        Not counted toward consecutive failures: nothing was published, and the
+        schedule works again as soon as a connection is added.
+        """
+        now = datetime.now(timezone.utc)
+        job = JobHistory(
+            schedule_id=schedule_id,
+            trigger_type=trigger_type,
+            status="failed",
+            request_payload="{}",
+            response_payload="{}",
+            error=message,
+            completed_at=now,
+        )
+        db.add(job)
+        schedule.last_run_at = now
+        schedule.last_run_status = "failed"
+        db.commit()
+        db.refresh(job)
+        logger.error("Job not run (schedule=%s): %s", schedule_id, message)
+        return self._format_job(job)
 
     @staticmethod
     def _format_job(job: JobHistory) -> dict:

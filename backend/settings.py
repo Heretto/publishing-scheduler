@@ -14,31 +14,16 @@ class AppSettings(HopCoreSettings):
     admin_email: Optional[str] = None
     admin_password: Optional[str] = None
 
-    # Heretto API
-    # heretto_host: full domain of the Heretto instance
-    #   (e.g. "acme.heretto.com" or "cms.acme.com" for self-hosted)
+    # Heretto
+    # The Heretto account (server, username, API token) is the organization's
+    # Heretto connection under Credentials — see services/heretto_connection.py.
     # heretto_org: org identifier used in CCMS content paths
-    #   (/db/organizations/{org}/repositories/...)
-    #   Usually equals the subdomain of heretto_host, but not always —
-    #   set explicitly when they differ (e.g. host "demo-nxt.heretto.com", org "jorsek").
-    heretto_host: str = ""
+    #   (/db/organizations/{org}/repositories/...). Defaults to the first label
+    #   of the connection's host; set it when they differ (e.g. host
+    #   "demo-nxt.heretto.com", org "jorsek").
     heretto_org: str = ""
-    heretto_username: str = ""
-    heretto_password: str = ""
     heretto_branch: str = "master"
     heretto_repository: str = "content"
-
-    @property
-    def heretto_api_base_url(self) -> str:
-        return f"https://{self.heretto_host}/ezdnxtgen/api/v2"
-
-    @property
-    def heretto_ccms_base_url(self) -> str:
-        return f"https://{self.heretto_host}/rest"
-
-    @property
-    def heretto_search_base_url(self) -> str:
-        return f"https://{self.heretto_host}/ezdnxtgen/api"
 
     # Scheduler
     scheduler_max_consecutive_failures: int = 5
