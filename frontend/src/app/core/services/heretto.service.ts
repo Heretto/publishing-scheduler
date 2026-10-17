@@ -81,62 +81,62 @@ export class HerettoService {
   constructor(private api: ApiService) {}
 
   getDeployments(): Observable<Deployment[]> {
-    return this.api.get<Deployment[]>('/heretto/deployments');
+    return this.api.get<Deployment[]>('/scheduler/heretto/deployments');
   }
 
   getScenarios(): Observable<Scenario[]> {
-    return this.api.get<Scenario[]>('/heretto/scenarios');
+    return this.api.get<Scenario[]>('/scheduler/heretto/scenarios');
   }
 
   getReleases(): Observable<Release[]> {
-    return this.api.get<Release[]>('/heretto/releases');
+    return this.api.get<Release[]>('/scheduler/heretto/releases');
   }
 
   getFolderContents(id: string): Observable<CcmsFolder> {
-    return this.api.get<CcmsFolder>(`/heretto/ccms/folders/${id}`);
+    return this.api.get<CcmsFolder>(`/scheduler/heretto/ccms/folders/${id}`);
   }
 
   getDocumentInfo(id: string): Observable<CcmsResource> {
-    return this.api.get<CcmsResource>(`/heretto/ccms/documents/${id}`);
+    return this.api.get<CcmsResource>(`/scheduler/heretto/ccms/documents/${id}`);
   }
 
   getReleasesForDocument(docId: string): Observable<CcmsRelease[]> {
-    return this.api.get<CcmsRelease[]>(`/heretto/ccms/documents/${docId}/releases`);
+    return this.api.get<CcmsRelease[]>(`/scheduler/heretto/ccms/documents/${docId}/releases`);
   }
 
   getBranches(): Observable<CcmsBranch[]> {
-    return this.api.get<CcmsBranch[]>('/heretto/ccms/branches');
+    return this.api.get<CcmsBranch[]>('/scheduler/heretto/ccms/branches');
   }
 
   getRootFolder(branch?: string): Observable<CcmsFolder> {
-    return this.api.get<CcmsFolder>('/heretto/ccms/root', branch ? { branch } : undefined);
+    return this.api.get<CcmsFolder>('/scheduler/heretto/ccms/root', branch ? { branch } : undefined);
   }
 
   getScenarioParameters(scenarioId: string): Observable<ScenarioParameter[]> {
-    return this.api.get<ScenarioParameter[]>(`/heretto/scenarios/${scenarioId}/parameters`);
+    return this.api.get<ScenarioParameter[]>(`/scheduler/heretto/scenarios/${scenarioId}/parameters`);
   }
 
   getLocalesForDocuments(docIds: string[]): Observable<CcmsLocale[]> {
-    return this.api.post<CcmsLocale[]>('/heretto/ccms/locales', { document_ids: docIds });
+    return this.api.post<CcmsLocale[]>('/scheduler/heretto/ccms/locales', { document_ids: docIds });
   }
 
   searchDocuments(query: Record<string, unknown>, branch?: string): Observable<CcmsSearchResponse> {
     const body = branch ? { ...query, branch } : query;
-    return this.api.post<CcmsSearchResponse>('/heretto/ccms/search', body);
+    return this.api.post<CcmsSearchResponse>('/scheduler/heretto/ccms/search', body);
   }
 
   searchFoldersByName(name: string, branch?: string): Observable<CcmsSearchResponse> {
     const params: Record<string, string> = { name };
     if (branch) params['branch'] = branch;
-    return this.api.get<CcmsSearchResponse>('/heretto/ccms/folders/search', params);
+    return this.api.get<CcmsSearchResponse>('/scheduler/heretto/ccms/folders/search', params);
   }
 
   getStatusValues(branch?: string): Observable<string[]> {
     const params = branch ? { branch } : undefined;
-    return this.api.get<string[]>('/heretto/ccms/metadata/status-values', params);
+    return this.api.get<string[]>('/scheduler/heretto/ccms/metadata/status-values', params);
   }
 
   getDocumentStatus(id: string): Observable<{ status: string }> {
-    return this.api.get<{ status: string }>(`/heretto/ccms/documents/${id}/status`);
+    return this.api.get<{ status: string }>(`/scheduler/heretto/ccms/documents/${id}/status`);
   }
 }
