@@ -95,3 +95,19 @@ class TestRouteDependency:
                 org_heretto_connection(ctx, MagicMock())
         assert exc.value.status_code == 409
         assert exc.value.detail == NO_CONNECTION_MESSAGE
+
+
+@pytest.mark.asyncio
+class TestConnectionRoute:
+    async def test_reports_connection_in_use(self):
+        from routes.heretto import get_connection
+        a, b = _lookup([_credential()])
+        with a, b:
+            body = await get_connection(MagicMock(organization_id="org-1"), MagicMock())
+        assert body == {"connected": True, "id": "cred-1", "name": "Acme", "host": "acme.heretto.com"}
+
+    async def test_reports_missing_connection_without_error(self):
+        from routes.heretto import get_connection
+        with patch("services.heretto_connection.heretto_connections", return_value=[]):
+            body = await get_connection(MagicMock(organization_id="org-1"), MagicMock())
+        assert body == {"connected": False, "message": NO_CONNECTION_MESSAGE}

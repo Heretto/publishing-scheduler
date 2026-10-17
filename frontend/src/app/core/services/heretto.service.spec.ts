@@ -124,7 +124,7 @@ describe('HerettoService', () => {
 
   it('getRootFolder includes branch param when provided', () => {
     service.getRootFolder('develop').subscribe();
-    const req = httpMock.expectOne(r => r.url.includes('/heretto/ccms/root'));
+    const req = httpMock.expectOne(r => r.url.includes('/scheduler/heretto/ccms/root'));
     expect(req.request.params.get('branch')).toBe('develop');
     req.flush({ id: 'root', title: 'content', type: 'folder', children: [] });
   });
@@ -147,5 +147,14 @@ describe('HerettoService', () => {
     httpMock
       .expectOne('/api/v1/scheduler/heretto/ccms/documents/doc-1')
       .flush({ id: 'doc-1', title: 'My Doc', type: 'ditamap' });
+  });
+
+  it('getConnection reads the organization connection status', () => {
+    service.getConnection().subscribe(c => {
+      expect(c.connected).toBeFalse();
+      expect(c.message).toContain('Credentials');
+    });
+    httpMock.expectOne('/api/v1/scheduler/heretto/connection')
+      .flush({ connected: false, message: 'No Heretto connection. Add one under Credentials.' });
   });
 });

@@ -12,7 +12,7 @@ from hop_core.db import get_db
 from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
 from services import status_cache
-from services.heretto_connection import Conn
+from services.heretto_connection import Conn, NoHerettoConnection, get_heretto_connection
 
 router = APIRouter(prefix="/scheduler/heretto", tags=["heretto"])
 
@@ -137,6 +137,14 @@ async def get_document_status(doc_id: str, conn: Conn):
 
 
 @router.get("/connection")
-async def get_connection(conn: Conn):
-    """The Heretto connection this organization's schedules use (409 if none)."""
-    return {"id": conn.id, "name": conn.name, "host": conn.host}
+async def get_connection(ctx: OrgCtx, db: DB):
+    """The Heretto connection this organization's schedules use.
+
+    Always 200, so the Settings page can show "not connected" inline rather
+    than as an error.
+    """
+    try:
+        conn = get_heretto_connection(ctx.organization_id, db)
+    except NoHerettoConnection as exc:
+        return {"connected": False, "message": str(exc)}
+    return {"connected": True, "id": conn.id, "name": conn.name, "host": conn.host}

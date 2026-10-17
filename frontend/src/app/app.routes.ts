@@ -74,6 +74,10 @@ export const routes: Routes = [
           import('./features/settings/settings.component').then(m => m.SettingsComponent),
       },
       {
+        path: 'credentials',
+        loadComponent: () => import('@heretto/hop-ui').then(m => m.HopCredentialsComponent),
+      },
+      {
         path: 'account',
         loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAccountComponent),
       },

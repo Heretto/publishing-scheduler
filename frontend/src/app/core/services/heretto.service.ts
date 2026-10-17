@@ -76,9 +76,22 @@ export interface ScenarioParameter {
   [key: string]: unknown;
 }
 
+export interface HerettoConnectionStatus {
+  connected: boolean;
+  id?: string;
+  name?: string;
+  host?: string;
+  message?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class HerettoService {
   constructor(private api: ApiService) {}
+
+  /** The organization's Heretto connection, or why there isn't a usable one. */
+  getConnection(): Observable<HerettoConnectionStatus> {
+    return this.api.get<HerettoConnectionStatus>('/scheduler/heretto/connection');
+  }
 
   getDeployments(): Observable<Deployment[]> {
     return this.api.get<Deployment[]>('/scheduler/heretto/deployments');
