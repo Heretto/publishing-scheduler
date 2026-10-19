@@ -1,7 +1,8 @@
 import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, forkJoin, of } from 'rxjs';
 
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormControl, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -11,10 +12,12 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService, Schedule, DeliveryTarget, SFTPConfig, S3Config } from '../../core/services/schedule.service';
-import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale, CcmsResource } from '../../core/services/heretto.service';
+import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale, CcmsRelease } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
-import { DocumentPickerComponent, DocumentPickerData } from '../../shared/components/document-picker/document-picker.component';
+import {
+  HerettoFile, HerettoFolder, HopHerettoFileFieldComponent, HopHerettoService, openHerettoFileBrowser, openHerettoFolderBrowser,
+} from '@heretto/hop-ui';
 
 function requireNonEmpty(control: AbstractControl) {
   return Array.isArray(control.value) && control.value.length > 0 ? null : { required: true };
@@ -32,7 +35,8 @@ function requireNonEmpty(control: AbstractControl) {
     MatCheckboxModule,
     MatIconModule,
     MatDialogModule,
-    CronBuilderComponent
+    CronBuilderComponent,
+    HopHerettoFileFieldComponent,
 ],
     template: `
     <!-- Page banner -->
@@ -108,15 +112,57 @@ function requireNonEmpty(control: AbstractControl) {
             </mat-form-field>
           }
     
-          <div class="document-ids-section">
-            <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-              <mat-label>Documents</mat-label>
-              <input matInput [value]="documentDisplayValue" readonly placeholder="No documents selected">
-            </mat-form-field>
-            <input type="hidden" formControlName="document_ids_raw">
-            <button mat-stroked-button type="button" class="browse-btn" (click)="openDocumentPicker()">
-              <mat-icon>folder_open</mat-icon>
-              Browse
+          <hop-heretto-file-field class="sources-field" selection="files" label="DITA maps"
+              hint="Each map is published by every scenario below." purpose="Choose the maps to publish"
+              [accept]="['map']" credentialsLink="/credentials" [formControl]="mapsControl"
+              (fileChange)="onMapsChange()"></hop-heretto-file-field>
+
+          @if (mapsControl.value.length > 0) {
+            <div class="sources-block">
+              <div class="param-section-label">Releases</div>
+              @for (m of mapsControl.value; track m.id) {
+                <div class="release-row">
+                  <span class="release-map" [title]="m.title || m.name">{{ m.title || m.name }}</span>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="release-select">
+                    <mat-label>Release</mat-label>
+                    <mat-select [value]="documentReleases[m.id]?.id ?? ''" (openedChange)="$event && loadReleases(m.id)"
+                                (selectionChange)="setRelease(m.id, $event.value)">
+                      <mat-option value="">Latest (always current)</mat-option>
+                      @for (r of releaseOptions(m.id); track r.id) {
+                        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                      }
+                      @if (releasesLoading[m.id]) {
+                        <mat-option disabled>Loading releases…</mat-option>
+                      }
+                      @if (noReleases(m.id)) {
+                        <mat-option disabled>No releases</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              }
+            </div>
+          }
+
+          <div class="sources-block">
+            <div class="param-section-label">Folders</div>
+            <p class="sources-hint">Every DITA map directly inside a folder is published, including maps added to it later.</p>
+            @for (f of folders; track f.id) {
+              <div class="folder-row">
+                <mat-icon class="folder-icon">folder</mat-icon>
+                <span class="folder-info">
+                  <span class="folder-name">{{ f.name }}</span>
+                  @if (f.path) {
+                    <span class="folder-path">/{{ f.path }}</span>
+                  }
+                </span>
+                <button mat-icon-button type="button" [attr.aria-label]="'Remove folder ' + f.name" (click)="removeFolder(f.id)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+            <button mat-stroked-button type="button" class="add-folder" (click)="addFolder()">
+              <mat-icon>create_new_folder</mat-icon> Add folder…
             </button>
           </div>
     
@@ -484,16 +530,30 @@ function requireNonEmpty(control: AbstractControl) {
       margin-bottom: 8px;
     }
     .cron-error { font-size: 12px; margin-top: 4px; }
-    .document-ids-section, .file-picker-param {
+    .file-picker-param {
       display: flex;
       gap: 8px;
       align-items: center;
     }
-    .document-ids-section .full-width, .file-picker-param .full-width { flex: 1; }
-    .document-ids-section .mat-mdc-form-field-subscript-wrapper,
+    .file-picker-param .full-width { flex: 1; }
     .file-picker-param .mat-mdc-form-field-subscript-wrapper {
       display: none;
     }
+    .sources-field { display: block; margin-bottom: 20px; }
+    .sources-block { margin-bottom: 20px; }
+    .sources-hint { margin: -4px 0 10px; font-size: 12px; color: #6b778c; }
+    .release-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .release-map { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .release-select { flex: 0 0 260px; }
+    .folder-row {
+      display: flex; align-items: center; gap: 10px; padding: 6px 4px 6px 12px; margin-bottom: 6px;
+      border: 1px solid #dfe1e6; border-radius: 8px;
+    }
+    .folder-icon { color: #0065ff; flex-shrink: 0; }
+    .folder-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .folder-name { font-weight: 600; font-size: 14px; }
+    .folder-path { font-family: monospace; font-size: 12px; color: #6b778c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .add-folder { margin-top: 2px; }
     .browse-btn {
       height: 42px !important;
       margin-top: 3px;
@@ -590,9 +650,16 @@ export class ScheduleFormComponent implements OnInit {
   scenarioParametersReadOnly = false;
   parameterOverrides: Record<string, unknown> = {};
   parameterDisplayValues: Record<string, string> = {};
-  documentDisplayValue = '';
-  folderSelections: { id: string; title: string }[] = [];
+  /** The DITA maps chosen in Heretto (published as document_ids). */
+  readonly mapsControl = new FormControl<HerettoFile[]>([], { nonNullable: true });
+  /** Folders whose direct-child maps are published (folder_ids). */
+  folders: HerettoFolder[] = [];
+  /** Pinned releases by map ID — for chosen maps, and kept for maps inside folders. */
   documentReleases: Record<string, { id: string; name: string }> = {};
+  releasesLoading: Record<string, boolean> = {};
+  private releases: Record<string, CcmsRelease[]> = {};
+  private mapIds = new Set<string>();
+  private hopHeretto = inject(HopHerettoService);
   localeOptions: CcmsLocale[] = [];
   localeLoading = false;
   availableStatusValues: string[] = [];
@@ -625,7 +692,6 @@ export class ScheduleFormComponent implements OnInit {
       cron_expression: ['', Validators.required],
       scenario_ids: [[], requireNonEmpty],
       deployment_id: [''],
-      document_ids_raw: [''],
       branch: ['master'],
       locales: [{ value: [], disabled: true }],
       enabled: [true],
@@ -675,38 +741,10 @@ export class ScheduleFormComponent implements OnInit {
             this.scheduleName = s.name;
             this.form.patchValue({
               ...s,
-              document_ids_raw: s.document_ids.join(', '),
               scenario_ids: s.scenario_ids || [],
               locales: s.locales || [],
             });
-            if (s.document_ids.length > 0) {
-              this.fetchLocalesForCurrentDocs(s.locales || []);
-            }
-            // Populate folder selections and resolve their titles
-            if (s.folder_ids?.length > 0) {
-              this.folderSelections = s.folder_ids.map(id => ({ id, title: id }));
-              for (const folderId of s.folder_ids) {
-                this.herettoService.getFolderContents(folderId)
-                  .pipe(takeUntilDestroyed(this.destroyRef))
-                  .subscribe({
-                    next: folder => {
-                      const sel = this.folderSelections.find(f => f.id === folderId);
-                      if (sel) sel.title = folder.title || folderId;
-                      this.documentDisplayValue = this._buildDocumentDisplayValue(this.parseDocumentIds());
-                    },
-                    error: () => {},
-                  });
-              }
-            }
-            // Populate pinned releases (id only from DB; name resolved lazily in picker)
-            if (s.document_releases) {
-              this.documentReleases = Object.fromEntries(
-                Object.entries(s.document_releases).map(([mapId, releaseId]) => [
-                  mapId, { id: releaseId, name: releaseId },
-                ])
-              );
-            }
-            this.documentDisplayValue = this._buildDocumentDisplayValue(s.document_ids);
+            this.restoreSources(s);
             for (const p of (s.publish_parameters || [])) {
               if (p['name'] && p['value'] !== undefined) {
                 this.parameterOverrides[p['name'] as string] = p['value'];
@@ -867,23 +905,12 @@ export class ScheduleFormComponent implements OnInit {
   }
 
   openParameterFilePicker(paramName: string) {
-    const branch = this.form.value.branch || 'master';
-    const dialogRef = this.dialog.open(DocumentPickerComponent, {
-      width: '75vw',
-      maxHeight: '85vh',
-      panelClass: 'document-picker-panel',
-      data: { selectedIds: [], branch, allowAllTypes: true } as DocumentPickerData,
-    });
-
-    dialogRef.afterClosed()
+    openHerettoFileBrowser(this.dialog, { purpose: `Choose the file for ${paramName}`, credentialsLink: '/credentials' })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(result => {
-        const items: CcmsResource[] = result?.docs ?? (Array.isArray(result) ? result : []);
-        if (items.length > 0) {
-          const item = items[0];
-          this.parameterOverrides[paramName] = item.id;
-          this.parameterDisplayValues[paramName] = `${item.title || item.id} (${item.id})`;
-        }
+      .subscribe(file => {
+        if (!file) return;
+        this.parameterOverrides[paramName] = file.id;
+        this.parameterDisplayValues[paramName] = `${file.title || file.name} (${file.id})`;
       });
   }
 
@@ -893,39 +920,111 @@ export class ScheduleFormComponent implements OnInit {
     return val ? String(val) : '';
   }
 
-  openDocumentPicker() {
-    const currentIds = this.parseDocumentIds();
-    const branch = this.form.value.branch || 'master';
-    const dialogRef = this.dialog.open(DocumentPickerComponent, {
-      width: '75vw',
-      maxHeight: '85vh',
-      panelClass: 'document-picker-panel',
-      data: {
-        selectedIds: currentIds,
-        selectedFolderIds: this.folderSelections.map(f => f.id),
-        selectedReleases: this.documentReleases,
-        branch,
-      } as DocumentPickerData,
-    });
+  // ── sources: maps, folders and releases ──────────────────────────────
 
-    dialogRef.afterClosed()
+  /** Edit mode: show the saved maps and folders as Heretto files/folders, and name the pinned releases. */
+  private restoreSources(s: Schedule) {
+    this.documentReleases = Object.fromEntries(
+      Object.entries(s.document_releases ?? {}).map(([mapId, releaseId]) => [mapId, { id: releaseId, name: releaseId }]),
+    );
+    if (!s.document_ids.length && !s.folder_ids?.length) return;
+    this.hopHeretto.connections()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(result => {
-        if (!result) return;
-        const docs: CcmsResource[] = result.docs ?? [];
-        const folders: CcmsResource[] = result.folders ?? [];
-        this.folderSelections = folders.map(f => ({ id: f.id, title: f.title || f.id }));
-        this.documentReleases = result.releases ?? {};
-        this.form.patchValue({
-          document_ids_raw: docs.map(i => i.id).join(', '),
+      .subscribe(connections => {
+        const conn = connections[0];
+        if (!conn) return;
+        const placeholder = (id: string): HerettoFile => ({
+          id, name: id, title: id, kind: 'map', is_map: true, credential_id: conn.id, credential_name: conn.name,
         });
-        this.documentDisplayValue = this._buildDocumentDisplayValue(
-          docs.map(i => i.title || i.id)
-        );
-        // Reset locale selection and reload options for the new documents
-        this.form.get('locales')?.setValue([]);
-        this.fetchLocalesForCurrentDocs();
+        this.setMaps(s.document_ids.map(placeholder));
+        this.fetchLocalesForCurrentDocs(s.locales || []);
+        if (s.document_ids.length) {
+          forkJoin(s.document_ids.map(id => this.hopHeretto.file(conn.id, id).pipe(catchError(() => of(placeholder(id))))))
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe(files => this.setMaps(files));
+        }
+        this.folders = (s.folder_ids ?? []).map(id => ({ id, name: id, credential_id: conn.id, credential_name: conn.name }));
+        for (const folderId of s.folder_ids ?? []) {
+          this.hopHeretto.openFolder(conn.id, folderId)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: listing => this.folders = this.folders.map(f => f.id === folderId ? {
+                ...f, name: listing.name, path: listing.path, branch: listing.branch, repository: listing.repository,
+              } : f),
+              error: () => {},
+            });
+        }
+        for (const mapId of Object.keys(this.documentReleases)) this.loadReleases(mapId);
       });
+  }
+
+  private setMaps(files: HerettoFile[]) {
+    this.mapsControl.setValue(files, { emitEvent: false });
+    this.mapIds = new Set(files.map(f => f.id));
+  }
+
+  /** The user changed the maps: drop pins for removed maps, and reload the locales they share. */
+  onMapsChange() {
+    const now = new Set(this.mapsControl.value.map(f => f.id));
+    for (const id of this.mapIds) {
+      if (!now.has(id)) delete this.documentReleases[id];
+    }
+    this.mapIds = now;
+    this.form.get('locales')?.setValue([]);
+    this.fetchLocalesForCurrentDocs();
+  }
+
+  addFolder() {
+    openHerettoFolderBrowser(this.dialog, {
+      purpose: 'Choose a folder of DITA maps to publish', credentialsLink: '/credentials',
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(folder => {
+        if (folder && !this.folders.some(f => f.id === folder.id)) this.folders = [...this.folders, folder];
+      });
+  }
+
+  removeFolder(id: string) {
+    this.folders = this.folders.filter(f => f.id !== id);
+  }
+
+  loadReleases(mapId: string) {
+    if (this.releases[mapId] || this.releasesLoading[mapId]) return;
+    this.releasesLoading[mapId] = true;
+    this.herettoService.getReleasesForDocument(mapId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: releases => {
+          this.releases[mapId] = releases;
+          this.releasesLoading[mapId] = false;
+          const pinned = this.documentReleases[mapId];
+          const match = pinned && releases.find(r => r.id === pinned.id);
+          if (match) this.documentReleases[mapId] = { id: match.id, name: match.name };
+        },
+        error: () => {
+          this.releases[mapId] = [];
+          this.releasesLoading[mapId] = false;
+        },
+      });
+  }
+
+  /** Loaded releases, or the pinned one before they load (so the select can show it). */
+  releaseOptions(mapId: string): { id: string; name: string }[] {
+    const pinned = this.documentReleases[mapId];
+    return this.releases[mapId] ?? (pinned ? [pinned] : []);
+  }
+
+  noReleases(mapId: string): boolean {
+    return !this.releasesLoading[mapId] && this.releases[mapId]?.length === 0;
+  }
+
+  setRelease(mapId: string, releaseId: string) {
+    if (!releaseId) {
+      delete this.documentReleases[mapId];
+      return;
+    }
+    const release = this.releaseOptions(mapId).find(r => r.id === releaseId);
+    if (release) this.documentReleases[mapId] = { id: release.id, name: release.name };
   }
 
   onSubmit() {
@@ -950,7 +1049,7 @@ export class ScheduleFormComponent implements OnInit {
       scenario_ids: value.scenario_ids || [],
       deployment_id: value.deployment_id,
       document_ids: this.parseDocumentIds(),
-      folder_ids: this.folderSelections.map(f => f.id),
+      folder_ids: this.folders.map(f => f.id),
       document_releases: Object.fromEntries(
         Object.entries(this.documentReleases).map(([k, v]) => [k, v.id])
       ),
@@ -1024,18 +1123,6 @@ export class ScheduleFormComponent implements OnInit {
   }
 
   private parseDocumentIds(): string[] {
-    const raw = this.form.value.document_ids_raw || '';
-    return raw.split(',').map((s: string) => s.trim()).filter(Boolean);
-  }
-
-  private _buildDocumentDisplayValue(docLabels: string[] = []): string {
-    const parts: string[] = [];
-    if (this.folderSelections.length > 0) {
-      parts.push(this.folderSelections.map(f => `[folder] ${f.title}`).join(', '));
-    }
-    if (docLabels.length > 0) {
-      parts.push(docLabels.join(', '));
-    }
-    return parts.join(', ');
+    return this.mapsControl.value.map(f => f.id);
   }
 }
