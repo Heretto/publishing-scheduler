@@ -12,6 +12,7 @@ from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
 from models import JobHistory, Schedule
 from services.heretto_connection import NoHerettoConnection, get_heretto_connection
+from services.status_exclusions import excluded_documents
 from settings import get_settings
 from utils import parse_ids
 
@@ -161,6 +162,22 @@ class JobExecutorService:
 
         source_doc_ids = await self._resolve_source_docs(ccms, source_doc_ids, folder_ids)
 
+        # Maps whose status the organization excludes are never published — including
+        # ones found in folders, and ones whose status changed after the schedule was saved.
+        excluded = await excluded_documents(conn, schedule.org_id, db, source_doc_ids)
+        if excluded:
+            logger.info(
+                "Status exclusions: skipping %d/%d docs for schedule=%s: %s",
+                len(excluded), len(source_doc_ids), schedule_id, excluded,
+            )
+            source_doc_ids = [d for d in source_doc_ids if d not in excluded]
+            if not source_doc_ids:
+                statuses = ", ".join(sorted(set(excluded.values())))
+                return self._skip(
+                    schedule, schedule_id, db, trigger_type,
+                    f"Every document has an excluded status ({statuses})", {"excludedDocuments": excluded},
+                )
+
         required_status = getattr(schedule, "required_status", None)
         if required_status and source_doc_ids:
             from services import status_cache as _sc
@@ -177,21 +194,11 @@ class JobExecutorService:
                     len(qualified), len(source_doc_ids), required_status, skipped, schedule_id,
                 )
             if not qualified:
-                job = JobHistory(
-                    schedule_id=schedule_id,
-                    trigger_type=trigger_type,
-                    status="skipped",
-                    request_payload=json.dumps({"reason": f"No documents have required status '{required_status}'"}),
-                    response_payload="{}",
-                    completed_at=datetime.now(timezone.utc),
+                return self._skip(
+                    schedule, schedule_id, db, trigger_type,
+                    f"No documents have required status '{required_status}'",
+                    {"excludedDocuments": excluded} if excluded else {},
                 )
-                db.add(job)
-                schedule.last_run_at = datetime.now(timezone.utc)
-                schedule.last_run_status = "skipped"
-                db.commit()
-                db.refresh(job)
-                logger.info("Job skipped (schedule=%s): no docs with status %r", schedule_id, required_status)
-                return self._format_job(job)
             source_doc_ids = qualified
 
         scenario_name_map, document_name_map = await self._fetch_name_maps(client, ccms, scenario_ids, source_doc_ids)
@@ -212,6 +219,8 @@ class JobExecutorService:
             "scenarioNames": scenario_name_map,
             "documentNames": document_name_map,
         }
+        if excluded:
+            request_payload["excludedDocuments"] = excluded
 
         job = JobHistory(
             schedule_id=schedule_id,
@@ -308,6 +317,28 @@ class JobExecutorService:
             db.commit()
             logger.error("Job failed: %s (schedule=%s): %s", job.id, schedule_id, error_msg)
             return self._format_job(job)
+
+    def _skip(
+        self, schedule: Schedule, schedule_id: str, db: Session, trigger_type: str,
+        reason: str, extra: dict | None = None,
+    ) -> dict:
+        """Record a run that published nothing because no document qualified."""
+        now = datetime.now(timezone.utc)
+        job = JobHistory(
+            schedule_id=schedule_id,
+            trigger_type=trigger_type,
+            status="skipped",
+            request_payload=json.dumps({"reason": reason, **(extra or {})}),
+            response_payload="{}",
+            completed_at=now,
+        )
+        db.add(job)
+        schedule.last_run_at = now
+        schedule.last_run_status = "skipped"
+        db.commit()
+        db.refresh(job)
+        logger.info("Job skipped (schedule=%s): %s", schedule_id, reason)
+        return self._format_job(job)
 
     def _fail_without_connection(
         self, schedule: Schedule, schedule_id: str, db: Session, trigger_type: str, message: str,

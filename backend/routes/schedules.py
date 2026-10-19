@@ -15,6 +15,8 @@ from hop_core.db import get_db
 from limiter import limiter
 from models import DeliveryTarget, Schedule
 from services import scheduler as sched
+from services.heretto_connection import NoHerettoConnection, get_heretto_connection
+from services.status_exclusions import excluded_documents
 from utils import parse_ids
 
 logger = logging.getLogger(__name__)
@@ -177,9 +179,27 @@ def get_schedule(schedule_id: str, ctx: OrgCtx, db: DB):
     return _fmt(_get_or_404(schedule_id, str(ctx.organization_id), db))
 
 
+async def _reject_excluded_maps(org_id: str, doc_ids: list[str], db: Session) -> None:
+    """400 if any chosen map's status is excluded under Settings › Status Value Exclusions."""
+    if not doc_ids:
+        return
+    try:
+        conn = get_heretto_connection(org_id, db)
+    except NoHerettoConnection:
+        return   # can't check without a connection, and runs fail without one anyway
+    excluded = await excluded_documents(conn, org_id, db, doc_ids)
+    if excluded:
+        listed = ", ".join(f"{doc_id} ({status})" for doc_id, status in excluded.items())
+        raise HTTPException(
+            status_code=400,
+            detail=f"These maps have a status excluded in Settings and can't be scheduled: {listed}",
+        )
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
+async def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
+    await _reject_excluded_maps(org_id, body.document_ids, db)
     s = Schedule(
         org_id=org_id,
         name=body.name,
@@ -208,9 +228,11 @@ def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
 
 
 @router.put("/{schedule_id}")
-def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB):
+async def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
     s = _get_or_404(schedule_id, org_id, db)
+    if body.document_ids is not None:
+        await _reject_excluded_maps(org_id, body.document_ids, db)
 
     if body.name is not None:
         s.name = body.name

@@ -1,6 +1,6 @@
 import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, forkJoin, of } from 'rxjs';
+import { catchError, forkJoin, map, of, shareReplay } from 'rxjs';
 
 import { ReactiveFormsModule, FormBuilder, FormControl, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -14,6 +14,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService, Schedule, DeliveryTarget, SFTPConfig, S3Config } from '../../core/services/schedule.service';
 import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale, CcmsRelease } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { ApiService } from '../../core/services/api.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import {
   HerettoFile, HerettoFolder, HopHerettoFileFieldComponent, HopHerettoService, openHerettoFileBrowser, openHerettoFolderBrowser,
@@ -119,10 +120,18 @@ function requireNonEmpty(control: AbstractControl) {
 
           @if (mapsControl.value.length > 0) {
             <div class="sources-block">
-              <div class="param-section-label">Releases</div>
+              <div class="param-section-label">Status and release</div>
+              @if (hasExcludedMaps) {
+                <p class="sources-error">Maps with a status excluded in Settings can't be scheduled. Remove them to save.</p>
+              }
               @for (m of mapsControl.value; track m.id) {
                 <div class="release-row">
                   <span class="release-map" [title]="m.title || m.name">{{ m.title || m.name }}</span>
+                  @if (mapStatuses[m.id]) {
+                    <span class="map-status" [class.excluded]="isExcluded(m.id)">
+                      {{ mapStatuses[m.id] }}{{ isExcluded(m.id) ? ' · excluded' : '' }}
+                    </span>
+                  }
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="release-select">
                     <mat-label>Release</mat-label>
                     <mat-select [value]="documentReleases[m.id]?.id ?? ''" (openedChange)="$event && loadReleases(m.id)"
@@ -146,7 +155,7 @@ function requireNonEmpty(control: AbstractControl) {
 
           <div class="sources-block">
             <div class="param-section-label">Folders</div>
-            <p class="sources-hint">Every DITA map directly inside a folder is published, including maps added to it later.</p>
+            <p class="sources-hint">Every DITA map directly inside a folder is published, including maps added to it later. Maps with a status excluded in Settings are skipped.</p>
             @for (f of folders; track f.id) {
               <div class="folder-row">
                 <mat-icon class="folder-icon">folder</mat-icon>
@@ -542,6 +551,12 @@ function requireNonEmpty(control: AbstractControl) {
     .sources-field { display: block; margin-bottom: 20px; }
     .sources-block { margin-bottom: 20px; }
     .sources-hint { margin: -4px 0 10px; font-size: 12px; color: #6b778c; }
+    .sources-error { margin: -4px 0 10px; font-size: 13px; color: #de350b; }
+    .map-status {
+      flex-shrink: 0; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500;
+      background: #f4f5f7; color: #42526e;
+    }
+    .map-status.excluded { background: #ffebe6; color: #bf2600; }
     .release-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
     .release-map { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
     .release-select { flex: 0 0 260px; }
@@ -660,6 +675,15 @@ export class ScheduleFormComponent implements OnInit {
   private releases: Record<string, CcmsRelease[]> = {};
   private mapIds = new Set<string>();
   private hopHeretto = inject(HopHerettoService);
+  private api = inject(ApiService);
+  /** Each chosen map's Heretto status, and the statuses excluded in Settings. */
+  mapStatuses: Record<string, string> = {};
+  private excludedStatuses = new Set<string>();
+  private readonly exclusions$ = this.api.get<{ value: string }[]>('/settings/status-exclusions').pipe(
+    map(rows => new Set(rows.map(r => r.value))),
+    catchError(() => of(new Set<string>())),
+    shareReplay(1),
+  );
   localeOptions: CcmsLocale[] = [];
   localeLoading = false;
   availableStatusValues: string[] = [];
@@ -937,6 +961,7 @@ export class ScheduleFormComponent implements OnInit {
           id, name: id, title: id, kind: 'map', is_map: true, credential_id: conn.id, credential_name: conn.name,
         });
         this.setMaps(s.document_ids.map(placeholder));
+        this.checkStatuses(s.document_ids, false);
         this.fetchLocalesForCurrentDocs(s.locales || []);
         if (s.document_ids.length) {
           forkJoin(s.document_ids.map(id => this.hopHeretto.file(conn.id, id).pipe(catchError(() => of(placeholder(id))))))
@@ -969,9 +994,48 @@ export class ScheduleFormComponent implements OnInit {
     for (const id of this.mapIds) {
       if (!now.has(id)) delete this.documentReleases[id];
     }
+    const added = [...now].filter(id => !this.mapIds.has(id));
     this.mapIds = now;
     this.form.get('locales')?.setValue([]);
     this.fetchLocalesForCurrentDocs();
+    this.checkStatuses(added, true);
+  }
+
+  /**
+   * Reads the maps' statuses. With `remove`, maps whose status is excluded in Settings
+   * are taken back out, saying why — the browser can't grey them out itself.
+   */
+  private checkStatuses(ids: string[], remove: boolean) {
+    if (!ids.length) return;
+    const statuses$ = forkJoin(ids.map(id => this.herettoService.getDocumentStatus(id).pipe(
+      map(r => [id, r.status ?? ''] as const),
+      catchError(() => of([id, ''] as const)),
+    )));
+    forkJoin({ excluded: this.exclusions$, statuses: statuses$ })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ excluded, statuses }) => {
+        this.excludedStatuses = excluded;
+        for (const [id, status] of statuses) this.mapStatuses[id] = status;
+        if (!remove) return;
+        const blocked = this.mapsControl.value.filter(m => ids.includes(m.id) && this.isExcluded(m.id));
+        if (!blocked.length) return;
+        this.setMaps(this.mapsControl.value.filter(m => !blocked.includes(m)));
+        for (const m of blocked) delete this.documentReleases[m.id];
+        this.fetchLocalesForCurrentDocs();
+        const names = blocked.map(m => `${m.title || m.name} (${this.mapStatuses[m.id]})`).join(', ');
+        this.notifications.error(
+          `Removed ${names}: ${blocked.length === 1 ? 'its status is' : 'their statuses are'} excluded in Settings.`,
+        );
+      });
+  }
+
+  isExcluded(mapId: string): boolean {
+    const status = this.mapStatuses[mapId];
+    return !!status && this.excludedStatuses.has(status);
+  }
+
+  get hasExcludedMaps(): boolean {
+    return this.mapsControl.value.some(m => this.isExcluded(m.id));
   }
 
   addFolder() {
@@ -1029,6 +1093,10 @@ export class ScheduleFormComponent implements OnInit {
 
   onSubmit() {
     if (this.form.invalid || this.submitting) return;
+    if (this.hasExcludedMaps) {
+      this.notifications.error('Remove the maps with a status excluded in Settings before saving.');
+      return;
+    }
     this.submitting = true;
 
     const value = this.form.getRawValue();
