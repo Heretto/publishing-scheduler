@@ -891,7 +891,7 @@ docker compose exec backend grep -n 'SELECT 1' /app/main.py
 
 ```bash
 git --version
-pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.16"
+pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.17"
 ```
 
 ---
