@@ -245,6 +245,8 @@ GOOGLE_OAUTH_CLIENT_ID=123456789-xxxxxxxxxxxx.apps.googleusercontent.com
 
 No client secret is needed — the backend verifies a client-side token against Google's public keys.
 
+> **Don't have Google Cloud Console access?** Ask your IT or platform team for a Web application OAuth 2.0 Client ID. Tell them to add your app's origin (e.g. `https://your-domain.com`) to the **Authorized JavaScript origins** list. No redirect URI is needed for Google.
+
 #### Microsoft (Azure AD / Entra ID)
 
 1. Go to [Azure Portal → App registrations](https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/RegisteredApps) → **New registration**
