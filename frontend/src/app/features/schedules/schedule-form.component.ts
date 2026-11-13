@@ -156,7 +156,7 @@ function requireNonEmpty(control: AbstractControl) {
 
           <div class="sources-block">
             <div class="param-section-label">Folders</div>
-            <p class="sources-hint">Every DITA map directly inside a folder is published, including maps added to it later. Maps with a status excluded in Settings are skipped.</p>
+            <p class="sources-hint">Every DITA map directly inside a folder is published, including maps added to it later. Maps with a status excluded in Settings are skipped. Release pinning is not available for folder-sourced maps — they always publish the latest version.</p>
             @for (f of folders; track f.id) {
               <div class="folder-row">
                 <mat-icon class="folder-icon">folder</mat-icon>
