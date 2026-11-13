@@ -10,15 +10,56 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ScheduleService, Schedule, DeliveryTarget, SFTPConfig, S3Config } from '../../core/services/schedule.service';
 import { HerettoService, Deployment, Scenario, CcmsBranch, ScenarioParameter, CcmsLocale, CcmsRelease } from '../../core/services/heretto.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { ApiService } from '../../core/services/api.service';
 import { CronBuilderComponent } from '../../shared/components/cron-builder/cron-builder.component';
 import {
-  HerettoFile, HerettoFolder, HopHerettoFileFieldComponent, HopHerettoService, openHerettoFileBrowser, openHerettoFolderBrowser,
+  HerettoFile, HopHerettoFileFieldComponent, HopHerettoService, openHerettoFileBrowser,
 } from '@heretto/hop-ui';
+
+// openHerettoFolderBrowser was planned for hop-ui 0.1.17 but not shipped.
+// Local stand-in: simple dialog that accepts a folder ID until hop-core adds it.
+interface HerettoFolder {
+  id: string;
+  name: string;
+  credential_id?: string;
+  credential_name?: string;
+  path?: string | null;
+  branch?: string | null;
+  repository?: string | null;
+}
+
+@Component({
+  selector: 'app-folder-id-dialog',
+  standalone: true,
+  imports: [MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
+  template: `
+    <h2 mat-dialog-title>Add folder</h2>
+    <mat-dialog-content>
+      <mat-form-field appearance="outline" style="width:100%">
+        <mat-label>Folder ID</mat-label>
+        <input matInput [formControl]="idCtrl" placeholder="Paste a Heretto folder ID">
+      </mat-form-field>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-button [mat-dialog-close]="idCtrl.value" [disabled]="!idCtrl.value?.trim()">Add</button>
+    </mat-dialog-actions>
+  `,
+})
+class FolderIdDialogComponent {
+  readonly _data = inject(MAT_DIALOG_DATA);
+  idCtrl = new FormControl('');
+}
+
+function openHerettoFolderBrowser(dialog: MatDialog, _data?: { purpose?: string; credentialsLink?: string }) {
+  return dialog.open(FolderIdDialogComponent, { width: '400px' }).afterClosed().pipe(
+    map((id: string | undefined) => (id?.trim() ? { id: id.trim(), name: id.trim() } as HerettoFolder : undefined)),
+  );
+}
 
 function requireNonEmpty(control: AbstractControl) {
   return Array.isArray(control.value) && control.value.length > 0 ? null : { required: true };
@@ -1043,7 +1084,7 @@ export class ScheduleFormComponent implements OnInit {
       purpose: 'Choose a folder of DITA maps to publish', credentialsLink: '/credentials',
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(folder => {
+      .subscribe((folder: HerettoFolder | undefined) => {
         if (folder && !this.folders.some(f => f.id === folder.id)) this.folders = [...this.folders, folder];
       });
   }
