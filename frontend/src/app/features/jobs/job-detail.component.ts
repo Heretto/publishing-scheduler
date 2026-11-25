@@ -1,13 +1,16 @@
-import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EMPTY, timer, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { JobService, Job, PublishResult } from '../../core/services/job.service';
+import { JobService, Job, PublishResult, PublishJobState } from '../../core/services/job.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+
+const REFRESH_MS = 10_000;
 
 @Component({
     selector: 'app-job-detail',
@@ -136,7 +139,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               <ng-container matColumnDef="status">
                 <th mat-header-cell *matHeaderCellDef>Status</th>
                 <td mat-cell *matCellDef="let r">
-                  <app-status-badge [status]="r.status"></app-status-badge>
+                  <app-status-badge [status]="publishStatus(r)"></app-status-badge>
+                  @if (publishMessage(r); as msg) { <div class="muted">{{ msg }}</div> }
                 </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="resultColumns"></tr>
@@ -391,6 +395,8 @@ export class JobDetailComponent implements OnInit {
   loading = true;
   resultColumns = ['scenario', 'locale', 'document', 'herettoJobId', 'status'];
 
+  private cdr = inject(ChangeDetectorRef);
+
   constructor(private route: ActivatedRoute, private jobService: JobService) {}
 
   ngOnInit() {
@@ -401,6 +407,31 @@ export class JobDetailComponent implements OnInit {
         next: j => { this.job = j; this.loading = false; },
         error: () => { this.loading = false; },
       });
+
+    // A running job is still being worked on in Heretto — keep it fresh until it finishes.
+    timer(REFRESH_MS, REFRESH_MS)
+      .pipe(
+        switchMap(() => this.job?.status === 'running' ? this.jobService.getById(id) : EMPTY),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({ next: j => { this.job = j; this.cdr.markForCheck(); }, error: () => {} });
+  }
+
+  private publishState(r: PublishResult): PublishJobState | undefined {
+    return this.job?.publish_jobs?.find(p => p.publishId === r.id);
+  }
+
+  /** The badge status for one publish: Heretto's real state, not just "submitted". */
+  publishStatus(r: PublishResult): string {
+    const p = this.publishState(r);
+    if (!p) return r.status;
+    if (p.state === 'DONE') return p.result === 'SUCCESS' ? 'completed' : 'failed';
+    return p.state === 'IN_PROGRESS' ? 'running' : 'pending';
+  }
+
+  publishMessage(r: PublishResult): string {
+    const p = this.publishState(r);
+    return p && p.state === 'DONE' && p.result !== 'SUCCESS' ? p.message : '';
   }
 
   get duration(): string {

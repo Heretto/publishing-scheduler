@@ -278,55 +278,41 @@ class JobExecutorService:
             if errors and not all_results:
                 raise RuntimeError("; ".join(errors))
 
-            job.status = "failed" if errors else "completed"
-            job.completed_at = datetime.now(timezone.utc)
             job.heretto_job_id = ",".join(r["id"] for r in all_results if r.get("id"))
             job.response_payload = json.dumps({"results": all_results, "errors": errors})
 
+            # Heretto accepting the publish only means it was queued. The job stays
+            # "running" until the publish status poller sees every publish finish.
             publish_jobs_data = [
                 {
                     "fileId": r["fileId"],
                     "publishId": r["id"],
                     "documentName": document_name_map.get(r["fileId"], r["fileId"]),
+                    "state": "SUBMITTED",
+                    "result": None,
+                    "message": "",
                 }
                 for r in all_results
                 if r.get("id") and r.get("fileId")
             ]
             job.publish_jobs = json.dumps(publish_jobs_data)
 
-            if job.status == "completed":
-                _create_pending_deliveries(schedule, job, publish_jobs_data, db)
-
             schedule.last_run_at = datetime.now(timezone.utc)
-            schedule.last_run_status = job.status
-            if job.status == "completed":
-                schedule.consecutive_failures = 0
-            else:
-                schedule.consecutive_failures = (schedule.consecutive_failures or 0) + 1
+            if publish_jobs_data:
+                schedule.last_run_status = "running"
+                db.commit()
+                logger.info(
+                    "Job %s: submitted %d publish(es), waiting on Heretto (schedule=%s)",
+                    job.id, len(publish_jobs_data), schedule_id,
+                )
+                return self._format_job(job)
 
-            db.commit()
-            logger.info("Job %s: %s (schedule=%s)", job.id, job.status, schedule_id)
+            # Nothing to wait on (Heretto returned no publish ids).
+            finalize_job(job, schedule, db, error="; ".join(errors) or None)
             return self._format_job(job)
 
         except Exception as exc:
-            error_msg = str(exc)
-            job.status = "failed"
-            job.completed_at = datetime.now(timezone.utc)
-            job.error = error_msg
-
-            schedule.last_run_at = datetime.now(timezone.utc)
-            schedule.last_run_status = "failed"
-            schedule.consecutive_failures = (schedule.consecutive_failures or 0) + 1
-
-            if schedule.consecutive_failures >= s.scheduler_max_consecutive_failures:
-                schedule.enabled = False
-                logger.error(
-                    "Auto-disabling schedule %s after %d consecutive failures",
-                    schedule_id, schedule.consecutive_failures,
-                )
-
-            db.commit()
-            logger.error("Job failed: %s (schedule=%s): %s", job.id, schedule_id, error_msg)
+            finalize_job(job, schedule, db, error=str(exc))
             return self._format_job(job)
 
     def _skip(
@@ -391,6 +377,41 @@ class JobExecutorService:
             "response_payload": json.loads(job.response_payload or "{}"),
             "error": job.error,
         }
+
+
+def finalize_job(job: JobHistory, schedule: Schedule, db: Session, error: str | None = None) -> None:
+    """Move a job to its final state: ``failed`` when *error* is set, else ``completed``.
+
+    Shared by the executor (submission failed, or nothing to wait for) and the
+    publish status poller (every publish in Heretto is DONE). Owns the schedule
+    bookkeeping, the auto-disable rule and the creation of bundle deliveries, so
+    those only ever happen once the real outcome is known.
+    """
+    s = get_settings()
+    now = datetime.now(timezone.utc)
+    job.status = "failed" if error else "completed"
+    job.completed_at = now
+    job.error = error
+    schedule.last_run_at = now
+    schedule.last_run_status = job.status
+
+    if error:
+        schedule.consecutive_failures = (schedule.consecutive_failures or 0) + 1
+        if schedule.consecutive_failures >= s.scheduler_max_consecutive_failures:
+            schedule.enabled = False
+            logger.error(
+                "Auto-disabling schedule %s after %d consecutive failures",
+                schedule.id, schedule.consecutive_failures,
+            )
+    else:
+        schedule.consecutive_failures = 0
+        _create_pending_deliveries(schedule, job, json.loads(job.publish_jobs or "[]"), db)
+
+    db.commit()
+    logger.log(
+        logging.ERROR if error else logging.INFO,
+        "Job %s: %s (schedule=%s)%s", job.id, job.status, schedule.id, f": {error}" if error else "",
+    )
 
 
 def _create_pending_deliveries(

@@ -156,3 +156,28 @@ class TestTriggerPublishingJob:
             )
 
         assert results[0]["id"] == "99"
+
+
+@pytest.mark.asyncio
+class TestGetPublishStatus:
+    async def test_in_progress_has_no_result(self, client):
+        body = {"jobId": "p1", "status": {"status": "IN_PROGRESS", "description": "", "result": None}}
+        with respx.mock(base_url=BASE) as mock:
+            mock.get("/files/f1/publishes/p1").mock(return_value=httpx.Response(200, json=body))
+            out = await client.get_publish_status("f1", "p1")
+        assert out == {"state": "IN_PROGRESS", "result": None, "message": ""}
+
+    async def test_done_fail_carries_result_and_message(self, client):
+        body = {"status": {"status": "DONE", "result": "FAIL", "description": "OT error"}}
+        with respx.mock(base_url=BASE) as mock:
+            mock.get("/files/f1/publishes/p1").mock(return_value=httpx.Response(200, json=body))
+            out = await client.get_publish_status("f1", "p1")
+        assert out == {"state": "DONE", "result": "FAIL", "message": "OT error"}
+
+    async def test_404_raises_not_found(self, client):
+        from fastapi import HTTPException
+        with respx.mock(base_url=BASE) as mock:
+            mock.get("/files/f1/publishes/p1").mock(return_value=httpx.Response(404))
+            with pytest.raises(HTTPException) as exc:
+                await client.get_publish_status("f1", "p1")
+        assert exc.value.status_code == 404

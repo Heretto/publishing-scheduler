@@ -89,6 +89,29 @@ class HerettoClient:
             logger.debug("Scenario %s parameters (raw): %s", scenario_id, params)
             return params
 
+    async def get_publish_status(self, file_id: str, publish_id: str) -> dict:
+        """State of one publish in Heretto, normalised.
+
+        GET /files/{fileId}/publishes/{publishId}. Heretto's ``status.status`` is
+        ADDED / QUEUED / IN_PROGRESS / WAITING until the publish is DONE, and
+        ``status.result`` (SUCCESS / FAIL) is only set once it is.
+        """
+        async with self._client() as c:
+            r = await c.get(f"/files/{file_id}/publishes/{publish_id}")
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                raise _heretto_exc(exc) from exc
+            data = r.json()
+        status = data.get("status") or {}
+        if isinstance(status, str):  # defensive: tolerate a flat status string
+            status = {"status": status}
+        return {
+            "state": str(status.get("status") or "").upper(),
+            "result": (str(status["result"]).upper() if status.get("result") else None),
+            "message": str(status.get("description") or ""),
+        }
+
     async def trigger_publishing_job(
         self,
         scenario_id: str,

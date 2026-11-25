@@ -31,6 +31,7 @@ def _fmt(j: JobHistory, schedule_name: str | None = None) -> dict:
         "heretto_job_id": j.heretto_job_id,
         "request_payload": json.loads(j.request_payload or "{}"),
         "response_payload": json.loads(j.response_payload or "{}"),
+        "publish_jobs": json.loads(j.publish_jobs or "[]"),
         "error": j.error,
     }
 

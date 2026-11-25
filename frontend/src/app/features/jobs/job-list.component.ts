@@ -1,5 +1,6 @@
-import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EMPTY, timer, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -9,6 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { JobService, Job } from '../../core/services/job.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+
+const REFRESH_MS = 10_000;
 
 @Component({
     selector: 'app-job-list',
@@ -181,7 +184,24 @@ export class JobListComponent implements OnInit {
 
   constructor(private jobService: JobService) {}
 
-  ngOnInit() { this.loadJobs(); }
+  private cdr = inject(ChangeDetectorRef);
+
+  ngOnInit() {
+    this.loadJobs();
+
+    // Jobs stay "running" until Heretto finishes the publish — refresh quietly meanwhile.
+    timer(REFRESH_MS, REFRESH_MS)
+      .pipe(
+        switchMap(() => this.jobs.some(j => j.status === 'running')
+          ? this.jobService.getAll({ page: String(this.currentPage), limit: String(this.pageSize) })
+          : EMPTY),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: r => { this.jobs = r.data; this.totalJobs = r.total; this.cdr.markForCheck(); },
+        error: () => {},
+      });
+  }
 
   loadJobs() {
     this.loading = true;

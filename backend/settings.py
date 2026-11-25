@@ -38,6 +38,9 @@ class AppSettings(HopCoreSettings):
     # Job execution
     job_timeout_seconds: int = 1800  # 30 minutes
 
+    # Publish status poller — watches Heretto until each publish is DONE
+    publish_status_poll_interval_seconds: int = 15
+
     # Bundle delivery poller
     delivery_poll_interval_seconds: int = 60
     delivery_max_poll_attempts: int = 60  # 60 × 60 s ≈ 1 hour ceiling

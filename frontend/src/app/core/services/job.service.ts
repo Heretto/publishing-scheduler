@@ -16,6 +16,18 @@ export interface JobResponsePayload {
   errors?: string[];
 }
 
+/** One publish in Heretto, as last reported by the publish status poller. */
+export interface PublishJobState {
+  fileId: string;
+  publishId: string;
+  documentName: string;
+  /** SUBMITTED until polled, then Heretto's ADDED / QUEUED / IN_PROGRESS / WAITING / DONE. */
+  state: string;
+  /** SUCCESS or FAIL; only set once state is DONE. */
+  result: string | null;
+  message: string;
+}
+
 export interface Job {
   id: string;
   schedule_id: string;
@@ -34,6 +46,7 @@ export interface Job {
     documentNames?: Record<string, string>;
   };
   response_payload: JobResponsePayload;
+  publish_jobs?: PublishJobState[];
   error: string | null;
 }
 

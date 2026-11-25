@@ -238,7 +238,8 @@ class TestExecute:
 
         assert mock_client.trigger_publishing_job.await_count == 4
 
-    async def test_job_status_completed_on_success(self, executor):
+    async def test_job_stays_running_after_heretto_accepts_publish(self, executor):
+        """Heretto accepting the publish only queues it; the poller decides the outcome."""
         svc, mock_client = executor
         schedule = _make_schedule()
         db, job = _make_db(schedule)
@@ -247,7 +248,24 @@ class TestExecute:
             MockJobHistory.return_value = job
             await svc.execute("sched-1", db)
 
-        assert job.status == "completed"
+        assert job.status == "running"
+        assert job.completed_at is None
+        assert schedule.last_run_status == "running"
+        entries = json.loads(job.publish_jobs)
+        assert entries and entries[0]["state"] == "SUBMITTED" and entries[0]["result"] is None
+
+    async def test_no_deliveries_or_failure_reset_before_heretto_finishes(self, executor):
+        svc, mock_client = executor
+        schedule = _make_schedule(consecutive_failures=3)
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor._create_pending_deliveries") as mock_deliveries:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        mock_deliveries.assert_not_called()
+        assert schedule.consecutive_failures == 3
 
     async def test_job_status_failed_on_publish_error(self, executor):
         svc, mock_client = executor
@@ -839,5 +857,8 @@ class TestMultipleParamSets:
 
         # Both were attempted; one failed, one succeeded
         assert mock_client.trigger_publishing_job.await_count == 2
-        # Job is failed (had errors) but not fully crashed (had some results)
-        assert job.status == "failed"
+        # One publish was accepted, so the job waits on it; the submit error is kept
+        # and fails the job when the poller finalises it.
+        assert job.status == "running"
+        assert len(json.loads(job.publish_jobs)) == 1
+        assert "API error" in json.loads(job.response_payload)["errors"][0]
