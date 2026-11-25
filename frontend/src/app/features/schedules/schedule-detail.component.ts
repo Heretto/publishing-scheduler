@@ -17,6 +17,7 @@ import { NotificationService } from '../../core/services/notification.service';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { CronDisplayComponent } from '../../shared/components/cron-display/cron-display.component';
 import { HopConfirmDialogComponent } from '@heretto/hop-ui';
+import { extractDitavalIds } from './schedule-ditavals';
 
 @Component({
     selector: 'app-schedule-detail',
@@ -230,6 +231,61 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
                   {{ schedule.document_ids?.length ?? 0 }} doc{{ (schedule.document_ids?.length ?? 0) !== 1 ? 's' : '' }},
                   {{ schedule.folder_ids?.length ?? 0 }} folder{{ (schedule.folder_ids?.length ?? 0) !== 1 ? 's' : '' }}
                 </div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <div class="kpi-icon-wrap kpi-icon-scenario">
+                    <mat-icon>account_tree</mat-icon>
+                  </div>
+                  <div class="kpi-label">Publishing Scenario{{ scenarioNames.length > 1 ? 's' : '' }}</div>
+                </div>
+                <div class="kpi-value-area kpi-value-area-list">
+                  @if (scenariosLoading) {
+                    <mat-spinner diameter="16" aria-label="Loading scenarios"></mat-spinner>
+                  }
+                  @if (!scenariosLoading && scenarioNames.length === 0) {
+                    <span class="kpi-empty">—</span>
+                  }
+                  @if (!scenariosLoading && scenarioNames.length > 0) {
+                    <ul class="kpi-list" [matTooltip]="scenarioNames.join(', ')">
+                      @for (n of scenarioNames.slice(0, 3); track n) {
+                        <li>{{ n }}</li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (scenarioNames.length > 3) {
+                  <div class="kpi-sub">+{{ scenarioNames.length - 3 }} more</div>
+                }
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-header">
+                  <div class="kpi-icon-wrap kpi-icon-ditaval">
+                    <mat-icon>filter_alt</mat-icon>
+                  </div>
+                  <div class="kpi-label">DITAVAL{{ ditavalItems.length > 1 ? 's' : '' }}</div>
+                </div>
+                <div class="kpi-value-area kpi-value-area-list">
+                  @if (ditavalsLoading) {
+                    <mat-spinner diameter="16" aria-label="Loading DITAVALs"></mat-spinner>
+                  }
+                  @if (!ditavalsLoading && ditavalItems.length === 0) {
+                    <span class="kpi-empty">None applied</span>
+                  }
+                  @if (!ditavalsLoading && ditavalItems.length > 0) {
+                    <ul class="kpi-list" [matTooltip]="ditavalNamesText">
+                      @for (d of ditavalItems.slice(0, 3); track d.id) {
+                        <li>{{ d.name }}</li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (ditavalItems.length > 3) {
+                  <div class="kpi-sub">+{{ ditavalItems.length - 3 }} more</div>
+                }
+                @if (ditavalItems.length > 1) {
+                  <div class="kpi-sub">Each publishes separately</div>
+                }
               </div>
             </div>
             <!-- Detail sections -->
@@ -614,6 +670,10 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
     .kpi-icon-ok mat-icon { color: #00a650; }
     .kpi-icon-sources { background: rgba(90,52,160,0.1); }
     .kpi-icon-sources mat-icon { color: #5a34a0; }
+    .kpi-icon-scenario { background: rgba(0,128,128,0.1); }
+    .kpi-icon-scenario mat-icon { color: #008080; }
+    .kpi-icon-ditaval { background: rgba(200,110,0,0.1); }
+    .kpi-icon-ditaval mat-icon { color: #c86e00; }
     .kpi-label {
       font-size: 10.5px;
       font-weight: 700;
@@ -624,6 +684,12 @@ import { HopConfirmDialogComponent } from '@heretto/hop-ui';
     .kpi-value-area { display: flex; align-items: center; min-height: 28px; }
     .kpi-value { font-size: 24px; font-weight: 700; color: #1d1f2b; }
     .kpi-value-alert { color: #de350b; }
+    .kpi-value-area-list { align-items: flex-start; min-height: 28px; }
+    .kpi-list { list-style: none; margin: 0; padding: 0; width: 100%; }
+    .kpi-list li {
+      font-size: 13.5px; font-weight: 600; color: #1d1f2b; line-height: 1.5;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     .kpi-empty { font-size: 14px; color: #5e6e82; }
     .kpi-sub { font-size: 11.5px; color: #5e6e82; }
 
@@ -860,6 +926,13 @@ export class ScheduleDetailComponent implements OnInit {
   sourceItems: { id: string; name: string; type: 'document' | 'folder'; children?: { id: string; name: string }[] }[] = [];
   sourcesLoading = false;
 
+  scenarioNames: string[] = [];
+  scenariosLoading = false;
+  ditavalItems: { id: string; name: string }[] = [];
+  ditavalsLoading = false;
+
+  get ditavalNamesText(): string { return this.ditavalItems.map(d => d.name).join(', '); }
+
   get hasFailures(): boolean { return (this.schedule?.consecutive_failures ?? 0) > 0; }
   get sourceCount(): number {
     return (this.schedule?.document_ids?.length ?? 0) + (this.schedule?.folder_ids?.length ?? 0);
@@ -882,7 +955,7 @@ export class ScheduleDetailComponent implements OnInit {
     this.scheduleService.getById(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: s => { this.schedule = s; this.loading = false; this.loadSources(); },
+        next: s => { this.schedule = s; this.loading = false; this.loadSources(); this.loadScenarios(); this.loadDitavals(); },
         error: () => { this.loading = false; this.router.navigate(['/schedules']); },
       });
   }
@@ -937,6 +1010,38 @@ export class ScheduleDetailComponent implements OnInit {
       .subscribe({
         next: items => { this.sourceItems = items; this.sourcesLoading = false; },
         error: () => { this.sourcesLoading = false; },
+      });
+  }
+
+  /** Resolve the schedule's scenario ids to names; an id the lookup can't find is shown as-is. */
+  loadScenarios() {
+    const ids = (this.schedule?.scenario_ids ?? []).map(String);
+    if (ids.length === 0) return;
+    this.scenariosLoading = true;
+    this.herettoService.getScenarios()
+      .pipe(
+        map(list => ids.map(id => list.find(s => String(s.id) === id)?.name ?? id)),
+        catchError(() => of(ids)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(names => { this.scenarioNames = names; this.scenariosLoading = false; });
+  }
+
+  /** Resolve the DITAVAL files the schedule publishes with to their file names. */
+  loadDitavals() {
+    const ids = extractDitavalIds(this.schedule?.publish_parameters);
+    if (ids.length === 0) return;
+    this.ditavalsLoading = true;
+    forkJoin(ids.map(id =>
+      this.herettoService.getDocumentInfo(id).pipe(
+        map(r => ({ id, name: r.title })),
+        catchError(() => of({ id, name: id.substring(0, 8) + '…' })),
+      )
+    ))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: items => { this.ditavalItems = items; this.ditavalsLoading = false; },
+        error: () => { this.ditavalsLoading = false; },
       });
   }
 
