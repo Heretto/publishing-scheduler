@@ -60,7 +60,7 @@ export interface Schedule {
   enabled: boolean;
   branch: string;
   locales: string[];
-  publish_parameters: Record<string, unknown>[];
+  publish_parameters: Record<string, unknown>[][];
   last_run_at: string | null;
   last_run_status: string | null;
   consecutive_failures: number | null;
@@ -82,7 +82,7 @@ export interface CreateScheduleInput {
   enabled?: boolean;
   branch?: string;
   locales?: string[];
-  publish_parameters?: Record<string, unknown>[];
+  publish_parameters?: Record<string, unknown>[][];
 }
 
 @Injectable({ providedIn: 'root' })

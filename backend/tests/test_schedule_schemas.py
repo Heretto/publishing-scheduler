@@ -68,6 +68,38 @@ class TestScheduleCreate:
         s = ScheduleCreate(**self._valid_payload())
         assert s.publish_parameters == []
 
+    def test_publish_parameters_accepts_list_of_param_sets(self):
+        """publish_parameters is a list of param sets; each set is a list of dicts."""
+        sets = [
+            [{"name": "ditaval", "value": "product-a.ditaval"}],
+            [{"name": "ditaval", "value": "product-b.ditaval"}],
+        ]
+        s = ScheduleCreate(**self._valid_payload(publish_parameters=sets))
+        assert s.publish_parameters == sets
+
+    def test_publish_parameters_single_set(self):
+        """A single param set is a list containing one list."""
+        sets = [[{"name": "ditaval", "value": "product-a.ditaval"}]]
+        s = ScheduleCreate(**self._valid_payload(publish_parameters=sets))
+        assert len(s.publish_parameters) == 1
+        assert s.publish_parameters[0] == [{"name": "ditaval", "value": "product-a.ditaval"}]
+
+    def test_publish_parameters_multiple_params_per_set(self):
+        """Each param set can contain multiple name/value pairs."""
+        sets = [
+            [
+                {"name": "ditaval", "value": "product-a.ditaval"},
+                {"name": "output-format", "value": "pdf"},
+            ],
+            [
+                {"name": "ditaval", "value": "product-b.ditaval"},
+                {"name": "output-format", "value": "html"},
+            ],
+        ]
+        s = ScheduleCreate(**self._valid_payload(publish_parameters=sets))
+        assert len(s.publish_parameters) == 2
+        assert len(s.publish_parameters[0]) == 2
+
     def test_enabled_can_be_false(self):
         s = ScheduleCreate(**self._valid_payload(enabled=False))
         assert s.enabled is False

@@ -641,3 +641,203 @@ class TestNoHerettoConnection:
         assert schedule.consecutive_failures == 0  # not counted toward auto-disable
         mock_client.trigger_publishing_job.assert_not_awaited()
         assert not svc.is_running("sched-1")
+
+
+@pytest.mark.asyncio
+class TestMultipleParamSets:
+    """publish_parameters is a list of param sets; each set triggers its own publish run."""
+
+    async def test_empty_params_list_uses_empty_params_once_per_combo(self, executor):
+        """Empty publish_parameters still fires one publish per combo with empty params."""
+        svc, mock_client = executor
+        schedule = _make_schedule(publish_parameters="[]")
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        mock_client.trigger_publishing_job.assert_awaited_once_with(
+            scenario_id="500009",
+            deployment_id="dep-1",
+            document_ids=["doc-1"],
+            parameters=[],
+        )
+
+    async def test_single_param_set_fires_once_per_combo(self, executor):
+        """One param set → one publish per scenario/locale combo."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009"]',
+            publish_parameters='[[{"name": "ditaval", "value": "product-a.ditaval"}]]',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        mock_client.trigger_publishing_job.assert_awaited_once_with(
+            scenario_id="500009",
+            deployment_id="dep-1",
+            document_ids=["doc-1"],
+            parameters=[{"name": "ditaval", "value": "product-a.ditaval"}],
+        )
+
+    async def test_two_param_sets_fire_two_publishes_per_combo(self, executor):
+        """1 scenario × 1 locale × 2 param sets = 2 publish calls."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009"]',
+            publish_parameters='['
+                '[{"name": "ditaval", "value": "product-a.ditaval"}],'
+                '[{"name": "ditaval", "value": "product-b.ditaval"}]'
+            ']',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        assert mock_client.trigger_publishing_job.await_count == 2
+
+    async def test_each_param_set_passed_to_its_publish_call(self, executor):
+        """Each param set's values are forwarded to the matching publish call."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009"]',
+            publish_parameters='['
+                '[{"name": "ditaval", "value": "product-a.ditaval"}],'
+                '[{"name": "ditaval", "value": "product-b.ditaval"}]'
+            ']',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        all_params = [
+            call.kwargs["parameters"]
+            for call in mock_client.trigger_publishing_job.await_args_list
+        ]
+        assert [{"name": "ditaval", "value": "product-a.ditaval"}] in all_params
+        assert [{"name": "ditaval", "value": "product-b.ditaval"}] in all_params
+
+    async def test_two_param_sets_x_two_scenarios(self, executor):
+        """2 scenarios × 2 param sets = 4 publish calls."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009", "500010"]',
+            publish_parameters='['
+                '[{"name": "ditaval", "value": "product-a.ditaval"}],'
+                '[{"name": "ditaval", "value": "product-b.ditaval"}]'
+            ']',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        assert mock_client.trigger_publishing_job.await_count == 4
+
+    async def test_two_param_sets_x_two_scenarios_x_two_locales(self, executor):
+        """2 scenarios × 2 locales × 2 param sets = 8 publish calls."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009", "500010"]',
+            locale='["fr-fr", "de-de"]',
+            publish_parameters='['
+                '[{"name": "ditaval", "value": "product-a.ditaval"}],'
+                '[{"name": "ditaval", "value": "product-b.ditaval"}]'
+            ']',
+        )
+        db, job = _make_db(schedule)
+
+        mock_ccms = MagicMock()
+        mock_ccms.get_document_locales = AsyncMock(return_value=[
+            {"code": "fr-fr", "uuid": "doc-fr"},
+            {"code": "de-de", "uuid": "doc-de"},
+        ])
+        mock_ccms.get_document_info = AsyncMock(return_value={})
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory, \
+             patch("services.job_executor.HerettoCcmsClient", return_value=mock_ccms):
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        assert mock_client.trigger_publishing_job.await_count == 8
+
+    async def test_all_combos_covered_across_param_sets(self, executor):
+        """Every (scenario, param_set) pair appears in the publish calls."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009", "500010"]',
+            publish_parameters='['
+                '[{"name": "ditaval", "value": "a.ditaval"}],'
+                '[{"name": "ditaval", "value": "b.ditaval"}]'
+            ']',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        calls = mock_client.trigger_publishing_job.await_args_list
+        combos = {
+            (c.kwargs["scenario_id"], c.kwargs["parameters"][0]["value"])
+            for c in calls
+        }
+        assert combos == {
+            ("500009", "a.ditaval"),
+            ("500009", "b.ditaval"),
+            ("500010", "a.ditaval"),
+            ("500010", "b.ditaval"),
+        }
+
+    async def test_legacy_flat_params_treated_as_single_param_set(self, executor):
+        """Old-format flat list of dicts is wrapped into one param set (backward compat)."""
+        svc, mock_client = executor
+        schedule = _make_schedule(
+            scenario_id='["500009"]',
+            publish_parameters='[{"name": "ditaval", "value": "product-a.ditaval"}]',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        mock_client.trigger_publishing_job.assert_awaited_once_with(
+            scenario_id="500009",
+            deployment_id="dep-1",
+            document_ids=["doc-1"],
+            parameters=[{"name": "ditaval", "value": "product-a.ditaval"}],
+        )
+
+    async def test_param_set_failure_does_not_abort_remaining_sets(self, executor):
+        """A failed publish for one param set continues to the next set."""
+        svc, mock_client = executor
+        mock_client.trigger_publishing_job = AsyncMock(
+            side_effect=[RuntimeError("API error"), [{"id": "j2", "status": "submitted", "fileId": "doc-1"}]]
+        )
+        schedule = _make_schedule(
+            scenario_id='["500009"]',
+            publish_parameters='['
+                '[{"name": "ditaval", "value": "a.ditaval"}],'
+                '[{"name": "ditaval", "value": "b.ditaval"}]'
+            ']',
+        )
+        db, job = _make_db(schedule)
+
+        with patch("services.job_executor.JobHistory") as MockJobHistory:
+            MockJobHistory.return_value = job
+            await svc.execute("sched-1", db)
+
+        # Both were attempted; one failed, one succeeded
+        assert mock_client.trigger_publishing_job.await_count == 2
+        # Job is failed (had errors) but not fully crashed (had some results)
+        assert job.status == "failed"

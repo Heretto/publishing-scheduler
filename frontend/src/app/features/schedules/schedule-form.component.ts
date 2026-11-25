@@ -119,41 +119,48 @@ function requireNonEmpty(control: AbstractControl) {
               [accept]="['map']" credentialsLink="/credentials" [formControl]="mapsControl"
               (fileChange)="onMapsChange()"></hop-heretto-file-field>
 
-          @if (mapsControl.value.length > 0) {
-            <div class="sources-block">
-              <div class="param-section-label">Status and release</div>
-              @if (hasExcludedMaps) {
-                <p class="sources-error">Maps with a status excluded in Settings can't be scheduled. Remove them to save.</p>
-              }
-              @for (m of mapsControl.value; track m.id) {
-                <div class="release-row">
-                  <span class="release-map" [title]="m.title || m.name">{{ m.title || m.name }}</span>
-                  @if (mapStatuses[m.id]) {
-                    <span class="map-status" [class.excluded]="isExcluded(m.id)">
-                      {{ mapStatuses[m.id] }}{{ isExcluded(m.id) ? ' · excluded' : '' }}
-                    </span>
+          @if (hasExcludedMaps) {
+            <p class="sources-error" style="margin: 0 0 8px;">Maps with a status excluded in Settings can't be scheduled. Remove them to save.</p>
+          }
+          @for (m of mapsControl.value; track m.id) {
+            <div class="map-release-row">
+              <div class="map-card" [class.map-excluded]="isExcluded(m.id)">
+                <mat-icon class="map-icon">account_tree</mat-icon>
+                <div class="map-info">
+                  <div class="map-title-row">
+                    <span class="map-title">{{ m.title || m.name }}</span>
+                    @if (mapStatuses[m.id]) {
+                      <span class="map-status-badge" [class.excluded]="isExcluded(m.id)">
+                        {{ mapStatuses[m.id] }}{{ isExcluded(m.id) ? ' · excluded' : '' }}
+                      </span>
+                    }
+                  </div>
+                  @if (m.name && m.title && m.name !== m.title) {
+                    <span class="map-filename">{{ m.name }}</span>
                   }
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="release-select">
-                    <mat-label>Release</mat-label>
-                    <mat-select [value]="documentReleases[m.id]?.id ?? ''" (openedChange)="$event && loadReleases(m.id)"
-                                (selectionChange)="setRelease(m.id, $event.value)">
-                      <mat-option value="">Latest (always current)</mat-option>
-                      @for (r of releaseOptions(m.id); track r.id) {
-                        <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                      }
-                      @if (releasesLoading[m.id]) {
-                        <mat-option disabled>Loading releases…</mat-option>
-                      }
-                      @if (noReleases(m.id)) {
-                        <mat-option disabled>No releases</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
                 </div>
-              }
+                <button mat-icon-button type="button" class="map-remove" [attr.aria-label]="'Remove ' + (m.title || m.name)" (click)="removeMap(m.id)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="release-select">
+                <mat-label>Release</mat-label>
+                <mat-select [value]="documentReleases[m.id]?.id ?? ''" (openedChange)="$event && loadReleases(m.id)"
+                            (selectionChange)="setRelease(m.id, $event.value)">
+                  <mat-option value="">Latest (always current)</mat-option>
+                  @for (r of releaseOptions(m.id); track r.id) {
+                    <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                  }
+                  @if (releasesLoading[m.id]) {
+                    <mat-option disabled>Loading releases…</mat-option>
+                  }
+                  @if (noReleases(m.id)) {
+                    <mat-option disabled>No releases</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
             </div>
           }
-
           <div class="sources-block">
             <div class="param-section-label">Folders</div>
             <p class="sources-hint">Every DITA map directly inside a folder is published, including maps added to it later. Maps with a status excluded in Settings are skipped. Release pinning is not available for folder-sourced maps — they always publish the latest version.</p>
@@ -214,31 +221,27 @@ function requireNonEmpty(control: AbstractControl) {
             <div class="param-section-label">Output Format(s)</div>
             @for (param of scenarioParameters; track param) {
               <div class="parameter-row">
-                @switch (param.type) {
-                  @case ('file_picker') {
-                    <div class="file-picker-param">
-                      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-                        <mat-label>{{ param.displayName || param.name }}</mat-label>
-                        <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
-                      </mat-form-field>
-                      <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
+                @if (param.type === 'file_picker' || param.type === 'file_uuid_picker') {
+                  <div class="multi-file-param">
+                    <div class="multi-file-label">{{ param.displayName || param.name }}</div>
+                    <div class="multi-file-chips">
+                      @for (file of getMultiFileValues(param.name); let fi = $index; track fi) {
+                        <span class="file-chip">
+                          <mat-icon class="chip-icon">insert_drive_file</mat-icon>
+                          <span class="chip-name" [title]="file.name">{{ file.name }}</span>
+                          <button mat-icon-button type="button" class="chip-remove" (click)="removeFileParam(param.name, fi)">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </span>
+                      }
+                      <button mat-stroked-button type="button" class="browse-btn" (click)="addFileParam(param.name)">
                         <mat-icon>folder_open</mat-icon>
-                        Browse
+                        {{ getMultiFileValues(param.name).length === 0 ? 'Browse' : 'Add another…' }}
                       </button>
                     </div>
-                  }
-                  @case ('file_uuid_picker') {
-                    <div class="file-picker-param">
-                      <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
-                        <mat-label>{{ param.displayName || param.name }}</mat-label>
-                        <input matInput [value]="getParameterDisplayValue(param.name)" readonly placeholder="No file selected">
-                      </mat-form-field>
-                      <button mat-stroked-button type="button" class="browse-btn" (click)="openParameterFilePicker(param.name)">
-                        <mat-icon>folder_open</mat-icon>
-                        Browse
-                      </button>
-                    </div>
-                  }
+                  </div>
+                } @else {
+                  @switch (param.type) {
                   @case ('option') {
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>{{ param.displayName || param.name }}</mat-label>
@@ -252,7 +255,7 @@ function requireNonEmpty(control: AbstractControl) {
                   @case ('ref') {
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>{{ param.displayName || param.name }}</mat-label>
-                      <input matInput [value]="getParameterDisplayValue(param.name)" readonly>
+                      <input matInput [value]="refDisplayValues[param.name] || $any(singleParamValues[param.name]) || ''" readonly>
                     </mat-form-field>
                   }
                   @case ('boolean') {
@@ -267,13 +270,17 @@ function requireNonEmpty(control: AbstractControl) {
                     <mat-form-field appearance="outline" class="full-width">
                       <mat-label>{{ param.displayName || param.name }}</mat-label>
                       <input matInput
-                        [value]="getParameterDisplayValue(param.name) || getParameterValue(param.name) || ''"
+                        [value]="getParameterValue(param.name) || ''"
                         [readonly]="scenarioParametersReadOnly"
                         (input)="!scenarioParametersReadOnly && setParameterValue(param.name, $any($event.target).value)">
                     </mat-form-field>
                   }
                 }
+                }
               </div>
+            }
+            @if (fileParamRunCount > 1) {
+              <div class="multi-file-hint">{{ fileParamRunCount }} publish runs per map{{ totalLocaleCount > 1 ? '/locale' : '' }}</div>
             }
           }
     
@@ -494,7 +501,7 @@ function requireNonEmpty(control: AbstractControl) {
       height: 34px !important;
     }
     .btn-save {
-      background: #AD4780 !important;
+      background: #011627 !important;
       color: #fff !important;
       font-size: 13px !important;
       font-weight: 600 !important;
@@ -549,18 +556,58 @@ function requireNonEmpty(control: AbstractControl) {
     .file-picker-param .mat-mdc-form-field-subscript-wrapper {
       display: none;
     }
-    .sources-field { display: block; margin-bottom: 20px; }
-    .sources-block { margin-bottom: 20px; }
+    .sources-field { display: block; margin-top: 8px; }
     .sources-hint { margin: -4px 0 10px; font-size: 12px; color: #6b778c; }
-    .sources-error { margin: -4px 0 10px; font-size: 13px; color: #de350b; }
-    .map-status {
-      flex-shrink: 0; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500;
-      background: #f4f5f7; color: #42526e;
+    .sources-error { font-size: 13px; color: #de350b; }
+
+    /* Hide hop-ui's internal file display — we render our own map cards */
+    ::ng-deep .sn-form-card hop-heretto-file-field ul.files { display: none !important; }
+    ::ng-deep .sn-form-card hop-heretto-file-field .card:not(.compact) { display: none !important; }
+
+    /* ── Map + release inline rows ───────────────────────────── */
+    .map-release-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
     }
-    .map-status.excluded { background: #ffebe6; color: #bf2600; }
-    .release-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .release-map { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-    .release-select { flex: 0 0 260px; }
+    .map-card {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid #dfe1e6;
+      border-radius: 6px;
+      background: #fff;
+      min-width: 0;
+      margin-top: 10px;
+    }
+    .map-card.map-excluded { border-color: #ffbdad; background: #fff8f6; }
+    .map-icon { color: #0065ff; flex-shrink: 0; font-size: 20px; width: 20px; height: 20px; margin-top: 1px; }
+    .map-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .map-title-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .map-title { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; min-width: 0; }
+    .map-filename { font-size: 11px; color: #6b778c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; }
+    .map-status-badge {
+      flex-shrink: 0;
+      padding: 1px 7px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #f4f5f7;
+      color: #42526e;
+    }
+    .map-status-badge.excluded { background: #ffebe6; color: #bf2600; }
+    .map-remove {
+      flex-shrink: 0;
+      width: 28px !important;
+      height: 28px !important;
+      line-height: 28px !important;
+      color: #97a0af !important;
+    }
+    .map-remove mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .release-select { flex: 0 0 240px; }
     .folder-row {
       display: flex; align-items: center; gap: 10px; padding: 6px 4px 6px 12px; margin-bottom: 6px;
       border: 1px solid #dfe1e6; border-radius: 8px;
@@ -587,6 +634,48 @@ function requireNonEmpty(control: AbstractControl) {
       margin-top: 4px;
     }
     .parameter-row { margin-bottom: 8px; }
+
+    /* ── Multi-file param (file_picker) ─────────────────────── */
+    .multi-file-param { margin-bottom: 12px; }
+    .multi-file-label {
+      font-size: 13px;
+      color: rgba(0,0,0,0.6);
+      margin-bottom: 6px;
+    }
+    .multi-file-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 4px 0 10px;
+      height: 32px;
+      border: 1px solid #c5cdd8;
+      border-radius: 16px;
+      font-size: 13px;
+      background: #f4f5f7;
+      max-width: 240px;
+    }
+    .chip-icon { font-size: 14px; width: 14px; height: 14px; color: #6b778c; flex-shrink: 0; }
+    .chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+    .chip-remove {
+      width: 22px !important;
+      height: 22px !important;
+      line-height: 22px !important;
+      flex-shrink: 0;
+      color: #97a0af !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .chip-remove mat-icon { font-size: 14px; width: 14px; height: 14px; line-height: 14px; }
+    ::ng-deep .chip-remove .mat-mdc-button-touch-target { display: none; }
+    ::ng-deep .chip-remove .mat-icon { display: flex; align-items: center; justify-content: center; }
+    .multi-file-hint { font-size: 11px; color: #6b778c; margin-top: 5px; }
 
     /* ── Delivery section ────────────────────────────────────── */
     .delivery-config { margin-bottom: 8px; }
@@ -664,8 +753,14 @@ export class ScheduleFormComponent implements OnInit {
   branches: CcmsBranch[] = [];
   scenarioParameters: ScenarioParameter[] = [];
   scenarioParametersReadOnly = false;
-  parameterOverrides: Record<string, unknown> = {};
-  parameterDisplayValues: Record<string, string> = {};
+  /** Shared single values for non-file params (option, text, boolean). */
+  singleParamValues: Record<string, unknown> = {};
+  /** Multi-file selections for file_picker / file_uuid_picker params. */
+  multiFileParams: Record<string, { id: string; name: string }[]> = {};
+  /** Display names for read-only ref-type params. */
+  refDisplayValues: Record<string, string> = {};
+  /** Saved param sets waiting to be restored once scenario params have loaded. */
+  private pendingParamSets: Record<string, unknown>[] | null = null;
   /** The DITA maps chosen in Heretto (published as document_ids). */
   readonly mapsControl = new FormControl<HerettoFile[]>([], { nonNullable: true });
   /** Folders whose direct-child maps are published (folder_ids). */
@@ -692,6 +787,19 @@ export class ScheduleFormComponent implements OnInit {
 
   get selectedScenarioCount(): number {
     return (this.form.get('scenario_ids')?.value as string[] | null)?.length ?? 0;
+  }
+
+  get totalLocaleCount(): number {
+    const locales = this.form.get('locales')?.value as string[] | null;
+    return Math.max(locales?.length ?? 0, 1);
+  }
+
+  get fileParamRunCount(): number {
+    const counts = this.scenarioParameters
+      .filter(p => p.type === 'file_picker' || p.type === 'file_uuid_picker')
+      .map(p => (this.multiFileParams[p.name] ?? []).length)
+      .filter(n => n > 0);
+    return counts.length > 0 ? counts.reduce((a, b) => a * b, 1) : 1;
   }
 
   get deliveryEnabled(): boolean {
@@ -770,11 +878,22 @@ export class ScheduleFormComponent implements OnInit {
               locales: s.locales || [],
             });
             this.restoreSources(s);
-            for (const p of (s.publish_parameters || [])) {
-              if (p['name'] && p['value'] !== undefined) {
-                this.parameterOverrides[p['name'] as string] = p['value'];
+            const rawParams: unknown[] = (s.publish_parameters as unknown[]) || [];
+            // Detect old flat format (list[dict]) vs new format (list[list[dict]]).
+            const isNested = rawParams.length > 0 && Array.isArray(rawParams[0]);
+            const paramSetsRaw: Record<string, unknown>[][] = isNested
+              ? rawParams as Record<string, unknown>[][]
+              : (rawParams.length > 0 ? [rawParams as Record<string, unknown>[]] : [[]]);
+            // Convert each set from {name, value, ...} list to name→value map.
+            this.pendingParamSets = paramSetsRaw.map(set => {
+              const overrides: Record<string, unknown> = {};
+              for (const p of set) {
+                if (p['name'] && p['value'] !== undefined) {
+                  overrides[p['name'] as string] = p['value'];
+                }
               }
-            }
+              return overrides;
+            });
             if (s.scenario_ids?.length > 0) {
               this.loadScenarioParameters(s.scenario_ids[0]);
             }
@@ -867,7 +986,10 @@ export class ScheduleFormComponent implements OnInit {
   }
 
   onScenarioChange(scenarioIds: string[]) {
-    this.parameterOverrides = {};
+    this.singleParamValues = {};
+    this.multiFileParams = {};
+    this.refDisplayValues = {};
+    this.pendingParamSets = null;
     this.scenarioParameters = [];
     this.scenarioParametersReadOnly = false;
     if (scenarioIds.length > 0) {
@@ -881,17 +1003,21 @@ export class ScheduleFormComponent implements OnInit {
       .subscribe({
         next: params => {
           this.scenarioParameters = params;
-          // Scenarios with 'ref' type params have system-managed file references
-          // (e.g. PDF Generator); those params should not be user-editable.
           this.scenarioParametersReadOnly = params.some(p => p['type'] === 'ref');
+          // Seed defaults for non-file params where not already set by edit restore.
           for (const p of params) {
-            if (!(p.name in this.parameterOverrides)) {
-              if (p.type === 'option') {
-                this.parameterOverrides[p.name] = p.value !== undefined && p.value !== '' ? [String(p.value)] : [];
-              } else if (p.value !== undefined && p.value !== '') {
-                this.parameterOverrides[p.name] = p.value;
-              }
+            const isFile = p.type === 'file_picker' || p.type === 'file_uuid_picker';
+            if (isFile || p.name in this.singleParamValues) continue;
+            if (p.type === 'option') {
+              this.singleParamValues[p.name] = p.value !== undefined && p.value !== '' ? [String(p.value)] : [];
+            } else if (p.value !== undefined && p.value !== '') {
+              this.singleParamValues[p.name] = p.value;
             }
+          }
+          // If edit restore is waiting for param definitions, apply it now.
+          if (this.pendingParamSets) {
+            this.applyPendingParamSets(params);
+            this.pendingParamSets = null;
           }
           this.resolveRefDisplayValues(params);
         },
@@ -899,50 +1025,86 @@ export class ScheduleFormComponent implements OnInit {
       });
   }
 
+  private applyPendingParamSets(params: ScenarioParameter[]) {
+    const filePickerNames = new Set(
+      params.filter(p => p.type === 'file_picker' || p.type === 'file_uuid_picker').map(p => p.name)
+    );
+    const sets: Record<string, unknown>[] = this.pendingParamSets!;
+    // Single-value params: take from first set.
+    for (const [key, val] of Object.entries(sets[0] ?? {})) {
+      if (!filePickerNames.has(key)) this.singleParamValues[key] = val;
+    }
+    // File-picker params: collect unique values across all sets.
+    for (const name of filePickerNames) {
+      const seen = new Set<string>();
+      const files: { id: string; name: string }[] = [];
+      for (const set of sets) {
+        const v = set[name] as unknown;
+        if (typeof v === 'string' && v && !seen.has(v)) {
+          seen.add(v);
+          files.push({ id: v, name: v });
+        }
+      }
+      if (files.length > 0) {
+        this.multiFileParams[name] = files;
+        // Attempt to resolve display names for each file ID.
+        for (const f of files) {
+          this.herettoService.getDocumentInfo(f.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: doc => { f.name = (doc['title'] as string) || (doc['name'] as string) || f.id; },
+              error: () => {},
+            });
+        }
+      }
+    }
+  }
+
   private resolveRefDisplayValues(params: ScenarioParameter[]) {
-    const refParams = params.filter(p => p.type === 'ref' && p.value && typeof p.value === 'string');
-    for (const p of refParams) {
+    for (const p of params.filter(p => p.type === 'ref' && p.value && typeof p.value === 'string')) {
       const uuid = p.value as string;
       this.herettoService.getDocumentInfo(uuid)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: doc => {
-            this.parameterDisplayValues[p.name] = `${doc.title || uuid} (${uuid})`;
-          },
+          next: doc => { this.refDisplayValues[p.name] = `${doc.title || uuid} (${uuid})`; },
           error: () => {},
         });
     }
   }
 
   getParameterValue(name: string): unknown {
-    return this.parameterOverrides[name] ?? '';
+    return this.singleParamValues[name] ?? '';
   }
 
   getOptionParameterValue(name: string): string[] {
-    const val = this.parameterOverrides[name];
+    const val = this.singleParamValues[name];
     if (Array.isArray(val)) return val as string[];
     if (val && typeof val === 'string') return [val];
     return [];
   }
 
   setParameterValue(name: string, value: unknown) {
-    this.parameterOverrides[name] = value;
+    this.singleParamValues[name] = value;
   }
 
-  openParameterFilePicker(paramName: string) {
+  getMultiFileValues(paramName: string): { id: string; name: string }[] {
+    return this.multiFileParams[paramName] ?? [];
+  }
+
+  addFileParam(paramName: string) {
     openHerettoFileBrowser(this.dialog, { purpose: `Choose the file for ${paramName}`, credentialsLink: '/credentials' })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(file => {
         if (!file) return;
-        this.parameterOverrides[paramName] = file.id;
-        this.parameterDisplayValues[paramName] = `${file.title || file.name} (${file.id})`;
+        const current = this.multiFileParams[paramName] ?? [];
+        if (current.some(f => f.id === file.id)) return;
+        this.multiFileParams[paramName] = [...current, { id: file.id, name: file.title || file.name }];
       });
   }
 
-  getParameterDisplayValue(name: string): string {
-    if (this.parameterDisplayValues[name]) return this.parameterDisplayValues[name];
-    const val = this.parameterOverrides[name];
-    return val ? String(val) : '';
+  removeFileParam(paramName: string, index: number) {
+    const current = this.multiFileParams[paramName] ?? [];
+    this.multiFileParams[paramName] = current.filter((_, i) => i !== index);
   }
 
   // ── sources: maps, folders and releases ──────────────────────────────
@@ -987,6 +1149,13 @@ export class ScheduleFormComponent implements OnInit {
   private setMaps(files: HerettoFile[]) {
     this.mapsControl.setValue(files, { emitEvent: false });
     this.mapIds = new Set(files.map(f => f.id));
+  }
+
+  removeMap(mapId: string) {
+    const current = this.mapsControl.value ?? [];
+    this.mapsControl.setValue(current.filter(m => m.id !== mapId));
+    this.mapsControl.markAsTouched();
+    this.onMapsChange();
   }
 
   /** The user changed the maps: drop pins for removed maps, and reload the locales they share. */
@@ -1101,15 +1270,37 @@ export class ScheduleFormComponent implements OnInit {
     this.submitting = true;
 
     const value = this.form.getRawValue();
-    const publishParameters = this.scenarioParameters
-      .filter(p => p.name in this.parameterOverrides)
-      .map(p => {
-        // Preserve all raw fields Heretto returned (including id if present) so the
-        // publish endpoint can match parameters correctly. Strip options[] which is
-        // display-only and would bloat stored data.
+
+    // Build list[list[dict]] from the cartesian product of multi-file param values.
+    // Non-file params are shared across every generated set.
+    // Only include file-picker params that have at least one file selected (dense indexing).
+    const includedPickerParams = this.scenarioParameters.filter(
+      p => (p.type === 'file_picker' || p.type === 'file_uuid_picker') &&
+           (this.multiFileParams[p.name] ?? []).length > 0
+    );
+    const fileArrays = includedPickerParams.map(p => this.multiFileParams[p.name]!);
+    // Cartesian product: [[f1,f2]] × [[g1,g2]] → [[f1,g1],[f1,g2],[f2,g1],[f2,g2]]
+    const combos: { id: string; name: string }[][] = fileArrays.length > 0
+      ? fileArrays.reduce<{ id: string; name: string }[][]>(
+          (acc, arr) => acc.flatMap(combo => arr.map(f => [...combo, f])),
+          [[]]
+        )
+      : [[]];
+    const buildSet = (fileValues: { id: string; name: string }[]) => {
+      const set: Record<string, unknown>[] = [];
+      for (const p of this.scenarioParameters) {
         const { options: _opts, ...rest } = p as Record<string, unknown>;
-        return { ...rest, value: this.parameterOverrides[p.name] };
-      });
+        const isFile = p.type === 'file_picker' || p.type === 'file_uuid_picker';
+        if (isFile) {
+          const idx = includedPickerParams.indexOf(p);
+          if (idx >= 0 && fileValues[idx]) set.push({ ...rest, value: fileValues[idx].id });
+        } else if (p.name in this.singleParamValues) {
+          set.push({ ...rest, value: this.singleParamValues[p.name] });
+        }
+      }
+      return set;
+    };
+    const publishParameters = combos.map(buildSet);
 
     const input = {
       name: value.name,

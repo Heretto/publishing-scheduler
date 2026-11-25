@@ -15,3 +15,14 @@ a.mat-mdc-button-base:hover .mdc-button__label {
 .document-picker-panel {
   margin-left: 110px;
 }
+
+// Login submit button: neutral until the password field has content, then Heretto dark blue.
+.login-page .submit-btn.mat-mdc-unelevated-button:not([disabled]) {
+  --mdc-filled-button-container-color: rgba(0, 0, 0, 0.12);
+  --mdc-filled-button-label-text-color: rgba(0, 0, 0, 0.38);
+  transition: background-color 0.15s, color 0.15s;
+}
+.login-page:has(input[type="password"]:not(:placeholder-shown)) .submit-btn.mat-mdc-unelevated-button:not([disabled]) {
+  --mdc-filled-button-container-color: #011627;
+  --mdc-filled-button-label-text-color: #fff;
+}

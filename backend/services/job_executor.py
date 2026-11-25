@@ -152,7 +152,13 @@ class JobExecutorService:
 
         source_doc_ids: list[str] = json.loads(schedule.document_ids or "[]")
         folder_ids: list[str] = json.loads(getattr(schedule, "folder_ids", None) or "[]")
-        params: list[dict] = json.loads(schedule.publish_parameters or "[]")
+        raw_params = json.loads(schedule.publish_parameters or "[]")
+        # Backward compat: old format is list[dict]; new format is list[list[dict]].
+        # In the new format raw_params[0] is always a list; in old format it is a dict.
+        if raw_params and not isinstance(raw_params[0], list):
+            params_list: list[list[dict]] = [raw_params]
+        else:
+            params_list = raw_params or [[]]
         scenario_ids = parse_ids(schedule.scenario_id)
         locales_list = parse_ids(getattr(schedule, "locale", "") or "")
 
@@ -209,13 +215,18 @@ class JobExecutorService:
         )
         locale_doc_map = self._apply_release_pinning(locale_doc_map, document_releases)
 
-        combos = [(sid, loc) for sid in scenario_ids for loc in locales_list]
+        combos = [
+            (sid, loc, params)
+            for sid in scenario_ids
+            for loc in locales_list
+            for params in params_list
+        ]
         request_payload = {
             "scenarios": scenario_ids,
             "locales": locales_list,
             "documentIds": source_doc_ids,
             "documentReleases": document_releases,
-            "parameters": params,
+            "parameterSets": params_list,
             "scenarioNames": scenario_name_map,
             "documentNames": document_name_map,
         }
@@ -237,7 +248,7 @@ class JobExecutorService:
         deadline = asyncio.get_running_loop().time() + s.job_timeout_seconds
 
         try:
-            for scenario_id, locale in combos:
+            for scenario_id, locale, params in combos:
                 if asyncio.get_running_loop().time() > deadline:
                     errors.append(f"Job timed out after {s.job_timeout_seconds}s")
                     logger.error("Job %s timed out (schedule=%s)", job.id, schedule_id)

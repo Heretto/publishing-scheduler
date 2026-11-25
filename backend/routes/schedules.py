@@ -51,7 +51,7 @@ class ScheduleCreate(BaseModel):
     enabled: bool = True
     branch: str = Field("master", max_length=255)
     locales: list[str] = Field([], max_length=50)
-    publish_parameters: list[dict] = Field([], max_length=50)
+    publish_parameters: list[list[dict]] = Field([], max_length=50)
     required_status: str | None = Field(None, max_length=100)
 
     @field_validator("document_ids", "folder_ids", "locales", mode="after")
@@ -60,6 +60,14 @@ class ScheduleCreate(BaseModel):
         for item in v:
             if len(item) > _ID_MAX_LEN:
                 raise ValueError(f"Each item must be at most {_ID_MAX_LEN} characters")
+        return v
+
+    @field_validator("publish_parameters", mode="after")
+    @classmethod
+    def check_param_set_sizes(cls, v: list[list[dict]]) -> list[list[dict]]:
+        for param_set in v:
+            if len(param_set) > 100:
+                raise ValueError("Each parameter set may contain at most 100 entries")
         return v
 
 
@@ -82,7 +90,7 @@ class ScheduleUpdate(BaseModel):
     enabled: bool | None = None
     branch: str | None = Field(None, max_length=255)
     locales: list[str] | None = Field(None, max_length=50)
-    publish_parameters: list[dict] | None = Field(None, max_length=50)
+    publish_parameters: list[list[dict]] | None = Field(None, max_length=50)
     required_status: str | None = Field(None, max_length=100)
 
     @field_validator("document_ids", "folder_ids", "locales", mode="after")
@@ -93,6 +101,16 @@ class ScheduleUpdate(BaseModel):
         for item in v:
             if len(item) > _ID_MAX_LEN:
                 raise ValueError(f"Each item must be at most {_ID_MAX_LEN} characters")
+        return v
+
+    @field_validator("publish_parameters", mode="after")
+    @classmethod
+    def check_param_set_sizes(cls, v: list[list[dict]] | None) -> list[list[dict]] | None:
+        if v is None:
+            return v
+        for param_set in v:
+            if len(param_set) > 100:
+                raise ValueError("Each parameter set may contain at most 100 entries")
         return v
 
 
