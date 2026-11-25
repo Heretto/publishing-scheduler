@@ -175,6 +175,38 @@ class TestSFTPDeliveryClientUpload:
             client._host_key,
         )
 
+    def test_host_key_registered_as_bracketed_host_port_on_non_standard_port(self):
+        client = _make_client(port=2222)
+        mock_ssh = MagicMock()
+        mock_host_keys = MagicMock()
+        mock_ssh.get_host_keys.return_value = mock_host_keys
+        mock_ssh.open_sftp.return_value = MagicMock()
+
+        with patch("clients.sftp_delivery.paramiko.SSHClient", return_value=mock_ssh):
+            client._upload("bundle.zip", "/tmp/bundle.zip")
+
+        mock_host_keys.add.assert_called_once_with(
+            "[sftp.example.com]:2222",
+            client._host_key.get_name(),
+            client._host_key,
+        )
+
+    @pytest.mark.parametrize("port", [22, 2222, 2200])
+    def test_registered_key_is_found_by_paramiko_lookup_name(self, port):
+        """paramiko checks the server key under the bare host on port 22, else '[host]:port'."""
+        import paramiko
+        client = _make_client(port=port)
+        host_keys = paramiko.HostKeys()
+        mock_ssh = MagicMock()
+        mock_ssh.get_host_keys.return_value = host_keys
+        mock_ssh.open_sftp.return_value = MagicMock()
+
+        with patch("clients.sftp_delivery.paramiko.SSHClient", return_value=mock_ssh):
+            client._upload("bundle.zip", "/tmp/bundle.zip")
+
+        lookup_name = client._host if port == 22 else f"[{client._host}]:{port}"
+        assert host_keys.lookup(lookup_name) is not None
+
     def test_sftp_close_called_even_on_error(self):
         client = _make_client()
         mock_ssh = MagicMock()

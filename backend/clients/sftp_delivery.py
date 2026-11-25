@@ -83,8 +83,12 @@ class SFTPDeliveryClient:
     def _upload(self, filename: str, local_path: str) -> None:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+        # paramiko looks a server's key up as the bare hostname on port 22 but as
+        # "[host]:port" on any other port, so the trusted key must be registered
+        # under the same name or every non-standard port is rejected.
+        host_key_name = self._host if self._port == 22 else f"[{self._host}]:{self._port}"
         ssh.get_host_keys().add(
-            self._host,
+            host_key_name,
             self._host_key.get_name(),
             self._host_key,
         )
