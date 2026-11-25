@@ -2,8 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from hop_core.api.dependencies import CurrentUserContext, get_current_active_user_with_org
@@ -11,6 +11,7 @@ from hop_core.db import get_db
 
 from clients.heretto import HerettoClient
 from clients.heretto_ccms import HerettoCcmsClient
+from limiter import limiter
 from services import status_cache
 from services.heretto_connection import Conn, NoHerettoConnection, get_heretto_connection
 
@@ -21,17 +22,17 @@ DB = Annotated[Session, Depends(get_db)]
 
 
 class SearchBody(BaseModel):
-    queryString: str = ""
-    searchResultType: str = "FILES_ONLY"
-    branch: str | None = None
+    queryString: str = Field("", max_length=1000)
+    searchResultType: str = Field("FILES_ONLY", max_length=50)
+    branch: str | None = Field(None, max_length=255)
     foldersToSearch: dict | None = None
-    startOffset: int = 0
-    endOffset: int = 50
-    statusFilter: str | None = None
+    startOffset: int = Field(0, ge=0)
+    endOffset: int = Field(50, ge=1, le=200)
+    statusFilter: str | None = Field(None, max_length=255)
 
 
 class LocalesBody(BaseModel):
-    document_ids: list[str]
+    document_ids: list[str] = Field(..., max_length=200)
 
 
 @router.get("/deployments")
@@ -65,12 +66,15 @@ async def get_root_folder(conn: Conn, branch: str | None = None):
 
 
 @router.post("/ccms/locales")
-async def get_locales_for_documents(body: LocalesBody, conn: Conn):
+@limiter.limit("60/minute")
+async def get_locales_for_documents(request: Request, body: LocalesBody, conn: Conn):
     return await HerettoCcmsClient(conn).get_locales_for_documents(body.document_ids)
 
 
 @router.get("/ccms/folders/search")
+@limiter.limit("60/minute")
 async def search_folders(
+    request: Request,
     conn: Conn,
     q: str = Query(alias="q", default=""),
     branch: str | None = Query(default=None),
@@ -79,22 +83,26 @@ async def search_folders(
 
 
 @router.get("/ccms/folders/{folder_id}")
-async def get_folder_contents(folder_id: str, conn: Conn):
+@limiter.limit("120/minute")
+async def get_folder_contents(request: Request, folder_id: str, conn: Conn):
     return await HerettoCcmsClient(conn).get_folder_contents(folder_id)
 
 
 @router.get("/ccms/documents/{doc_id}/releases")
-async def get_document_releases(doc_id: str, conn: Conn):
+@limiter.limit("120/minute")
+async def get_document_releases(request: Request, doc_id: str, conn: Conn):
     return await HerettoCcmsClient(conn).get_releases_for_document(doc_id)
 
 
 @router.get("/ccms/documents/{doc_id}")
-async def get_document_info(doc_id: str, conn: Conn):
+@limiter.limit("120/minute")
+async def get_document_info(request: Request, doc_id: str, conn: Conn):
     return await HerettoCcmsClient(conn).get_document_info(doc_id)
 
 
 @router.post("/ccms/search")
-async def search_documents(body: SearchBody, conn: Conn):
+@limiter.limit("60/minute")
+async def search_documents(request: Request, body: SearchBody, conn: Conn):
     drilldowns = [["status", body.statusFilter]] if body.statusFilter else None
     return await HerettoCcmsClient(conn).search_documents(
         query_string=body.queryString,

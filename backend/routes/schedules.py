@@ -38,6 +38,16 @@ class ScheduleCreate(BaseModel):
     cron_expression: str = Field(..., max_length=100)
     scenario_ids: list[str] = Field(..., max_length=20)
 
+    @field_validator("cron_expression", mode="after")
+    @classmethod
+    def validate_cron(cls, v: str) -> str:
+        from apscheduler.triggers.cron import CronTrigger
+        try:
+            CronTrigger.from_crontab(v)
+        except Exception as exc:
+            raise ValueError(f"Invalid cron expression: {exc}") from exc
+        return v
+
     @field_validator("scenario_ids", mode="before")
     @classmethod
     def coerce_scenario_ids(cls, v: object) -> list[str]:
@@ -76,6 +86,18 @@ class ScheduleUpdate(BaseModel):
     description: str | None = Field(None, max_length=2000)
     cron_expression: str | None = Field(None, max_length=100)
     scenario_ids: list[str] | None = Field(None, max_length=20)
+
+    @field_validator("cron_expression", mode="after")
+    @classmethod
+    def validate_cron(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        from apscheduler.triggers.cron import CronTrigger
+        try:
+            CronTrigger.from_crontab(v)
+        except Exception as exc:
+            raise ValueError(f"Invalid cron expression: {exc}") from exc
+        return v
 
     @field_validator("scenario_ids", mode="before")
     @classmethod
@@ -215,7 +237,8 @@ async def _reject_excluded_maps(org_id: str, doc_ids: list[str], db: Session) ->
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
+@limiter.limit("30/minute")
+async def create_schedule(request: Request, body: ScheduleCreate, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
     await _reject_excluded_maps(org_id, body.document_ids, db)
     s = Schedule(
@@ -246,7 +269,8 @@ async def create_schedule(body: ScheduleCreate, ctx: OrgCtx, db: DB):
 
 
 @router.put("/{schedule_id}")
-async def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB):
+@limiter.limit("30/minute")
+async def update_schedule(request: Request, schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
     s = _get_or_404(schedule_id, org_id, db)
     if body.document_ids is not None:
@@ -292,7 +316,8 @@ async def update_schedule(schedule_id: str, body: ScheduleUpdate, ctx: OrgCtx, d
 
 
 @router.delete("/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_schedule(schedule_id: str, ctx: OrgCtx, db: DB):
+@limiter.limit("30/minute")
+def delete_schedule(request: Request, schedule_id: str, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
     s = _get_or_404(schedule_id, org_id, db)
     sched.remove_schedule(s.id)
@@ -302,7 +327,8 @@ def delete_schedule(schedule_id: str, ctx: OrgCtx, db: DB):
 
 
 @router.patch("/{schedule_id}/toggle")
-def toggle_schedule(schedule_id: str, body: ToggleBody, ctx: OrgCtx, db: DB):
+@limiter.limit("30/minute")
+def toggle_schedule(request: Request, schedule_id: str, body: ToggleBody, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
     s = _get_or_404(schedule_id, org_id, db)
     s.enabled = body.enabled
@@ -408,7 +434,9 @@ def get_delivery_target(schedule_id: str, ctx: OrgCtx, db: DB):
 
 
 @router.put("/{schedule_id}/delivery-target", status_code=status.HTTP_200_OK)
+@limiter.limit("20/minute")
 def upsert_delivery_target(
+    request: Request,
     schedule_id: str,
     body: DeliveryTargetBody,
     ctx: OrgCtx,
@@ -480,7 +508,8 @@ def upsert_delivery_target(
 
 
 @router.delete("/{schedule_id}/delivery-target", status_code=status.HTTP_204_NO_CONTENT)
-def delete_delivery_target(schedule_id: str, ctx: OrgCtx, db: DB):
+@limiter.limit("20/minute")
+def delete_delivery_target(request: Request, schedule_id: str, ctx: OrgCtx, db: DB):
     org_id = str(ctx.organization_id)
     _get_or_404(schedule_id, org_id, db)
     target = (
