@@ -220,7 +220,7 @@ import { extractDitavalIds } from './schedule-ditavals';
               <div class="kpi-card">
                 <div class="kpi-header">
                   <div class="kpi-icon-wrap kpi-icon-sources">
-                    <mat-icon>description</mat-icon>
+                    <mat-icon>account_tree</mat-icon>
                   </div>
                   <div class="kpi-label">Sources</div>
                 </div>
@@ -235,7 +235,7 @@ import { extractDitavalIds } from './schedule-ditavals';
               <div class="kpi-card">
                 <div class="kpi-header">
                   <div class="kpi-icon-wrap kpi-icon-scenario">
-                    <mat-icon>account_tree</mat-icon>
+                    <mat-icon>description</mat-icon>
                   </div>
                   <div class="kpi-label">Publishing Scenario{{ scenarioNames.length > 1 ? 's' : '' }}</div>
                 </div>
